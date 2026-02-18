@@ -1,7 +1,11 @@
 import { PrismaClient } from '../src/generated/prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
+import pg from 'pg';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const prisma = new (PrismaClient as any)();
+const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
+const adapter = new PrismaPg(pool);
+const prisma = new (PrismaClient as any)({ adapter });
 
 async function main() {
     // Clear existing data

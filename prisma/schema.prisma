@@ -1,0 +1,110 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Shelter {
+  id                 String   @id @default(uuid())
+  name               String
+  county             String
+  state              String
+  address            String?
+  phone              String?
+  websiteUrl         String?  @map("website_url")
+  facebookUrl        String?  @map("facebook_url")
+  trustScore         Float?   @map("trust_score")
+  totalIntakeYtd     Int      @default(0) @map("total_intake_ytd")
+  totalEuthanizedYtd Int      @default(0) @map("total_euthanized_ytd")
+  lastScrapedAt      DateTime? @map("last_scraped_at")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  animals Animal[]
+
+  @@map("shelters")
+}
+
+model Animal {
+  id                    String      @id @default(uuid())
+  shelterId             String      @map("shelter_id")
+  intakeId              String?     @map("intake_id")
+  name                  String?
+  species               Species     @default(DOG)
+  breed                 String?
+  sex                   Sex?
+  size                  AnimalSize?
+  photoUrl              String?     @map("photo_url")
+  status                AnimalStatus @default(LISTED)
+  ageKnownYears         Int?        @map("age_known_years")
+  ageEstimatedLow       Int?        @map("age_estimated_low")
+  ageEstimatedHigh      Int?        @map("age_estimated_high")
+  ageConfidenceScore    Float?      @map("age_confidence_score")
+  ageSource             AgeSource   @default(UNKNOWN) @map("age_source")
+  notes                 String?
+  intakeDate            DateTime?   @map("intake_date")
+  euthScheduledAt       DateTime?   @map("euth_scheduled_at")
+  createdAt             DateTime    @default(now()) @map("created_at")
+  updatedAt             DateTime    @updatedAt @map("updated_at")
+
+  shelter  Shelter  @relation(fields: [shelterId], references: [id])
+  sources  Source[]
+
+  @@map("animals")
+}
+
+model Source {
+  id         String     @id @default(uuid())
+  animalId   String     @map("animal_id")
+  sourceType SourceType @map("source_type")
+  sourceUrl  String     @map("source_url")
+  scrapedAt  DateTime   @default(now()) @map("scraped_at")
+
+  animal Animal @relation(fields: [animalId], references: [id])
+
+  @@map("sources")
+}
+
+enum Species {
+  DOG
+  CAT
+  OTHER
+}
+
+enum Sex {
+  MALE
+  FEMALE
+  UNKNOWN
+}
+
+enum AnimalSize {
+  SMALL
+  MEDIUM
+  LARGE
+  XLARGE
+}
+
+enum AnimalStatus {
+  LISTED
+  URGENT
+  PULLED
+  ADOPTED
+  EUTHANIZED
+  UNKNOWN
+}
+
+enum AgeSource {
+  SHELTER_REPORTED
+  CV_ESTIMATED
+  UNKNOWN
+}
+
+enum SourceType {
+  SHELTER_WEBSITE
+  FACEBOOK_CROSSPOST
+  MANUAL_ENTRY
+  OTHER
+}

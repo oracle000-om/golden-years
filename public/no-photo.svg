@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" fill="none">
+  <rect width="400" height="300" fill="#1a1a2e"/>
+  <rect width="400" height="300" fill="url(#grad)" opacity="0.3"/>
+  <defs>
+    <linearGradient id="grad" x1="0" y1="0" x2="400" y2="300">
+      <stop offset="0%" stop-color="#d4a574"/>
+      <stop offset="100%" stop-color="#8b6914"/>
+    </linearGradient>
+  </defs>
+  <!-- Paw print silhouette -->
+  <g transform="translate(160, 80)" opacity="0.25" fill="#d4a574">
+    <!-- Main pad -->
+    <ellipse cx="40" cy="95" rx="32" ry="26"/>
+    <!-- Toe pads -->
+    <circle cx="16" cy="55" r="14"/>
+    <circle cx="64" cy="55" r="14"/>
+    <circle cx="5" cy="78" r="12"/>
+    <circle cx="75" cy="78" r="12"/>
+  </g>
+  <!-- Text -->
+  <text x="200" y="210" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="16" fill="#d4a574" opacity="0.6">Photo not available</text>
+  <text x="200" y="235" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="12" fill="#d4a574" opacity="0.4">Visit the shelter to meet me</text>
+</svg>

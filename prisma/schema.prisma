@@ -16,10 +16,18 @@ model Shelter {
   phone              String?
   websiteUrl         String?  @map("website_url")
   facebookUrl        String?  @map("facebook_url")
-  trustScore         Float?   @map("trust_score")
-  totalIntakeYtd     Int      @default(0) @map("total_intake_ytd")
-  totalEuthanizedYtd Int      @default(0) @map("total_euthanized_ytd")
-  lastScrapedAt      DateTime? @map("last_scraped_at")
+  totalIntakeAnnual     Int      @default(0) @map("total_intake_annual")
+  totalEuthanizedAnnual Int      @default(0) @map("total_euthanized_annual")
+  dataYear              Int?     @map("data_year")
+  dataSourceName        String?  @map("data_source_name")
+  dataSourceUrl         String?  @map("data_source_url")
+  countyPopulation        Int?     @map("county_population")
+  totalReturnedToOwner    Int?     @map("total_returned_to_owner")
+  totalTransferred        Int?     @map("total_transferred")
+  priorYearIntake         Int?     @map("prior_year_intake")
+  priorYearEuthanized     Int?     @map("prior_year_euthanized")
+  priorDataYear           Int?     @map("prior_data_year")
+  lastScrapedAt         DateTime? @map("last_scraped_at")
   createdAt          DateTime @default(now()) @map("created_at")
   updatedAt          DateTime @updatedAt @map("updated_at")
 
@@ -42,8 +50,15 @@ model Animal {
   ageKnownYears         Int?        @map("age_known_years")
   ageEstimatedLow       Int?        @map("age_estimated_low")
   ageEstimatedHigh      Int?        @map("age_estimated_high")
-  ageConfidenceScore    Float?      @map("age_confidence_score")
+  ageConfidence         AgeConfidence @default(NONE) @map("age_confidence")
+  ageIndicators         String[]    @default([]) @map("age_indicators")
   ageSource             AgeSource   @default(UNKNOWN) @map("age_source")
+  detectedBreeds        String[]    @default([]) @map("detected_breeds")
+  breedConfidence       AgeConfidence @default(NONE) @map("breed_confidence")
+  lifeExpectancyLow     Int?        @map("life_expectancy_low")
+  lifeExpectancyHigh    Int?        @map("life_expectancy_high")
+  intakeReason          IntakeReason @default(UNKNOWN) @map("intake_reason")
+  intakeReasonDetail    String?     @map("intake_reason_detail")
   notes                 String?
   intakeDate            DateTime?   @map("intake_date")
   euthScheduledAt       DateTime?   @map("euth_scheduled_at")
@@ -102,9 +117,67 @@ enum AgeSource {
   UNKNOWN
 }
 
+enum AgeConfidence {
+  HIGH
+  MEDIUM
+  LOW
+  NONE
+}
+
+enum IntakeReason {
+  OWNER_SURRENDER
+  STRAY
+  OWNER_DECEASED
+  CONFISCATE
+  RETURN
+  TRANSFER
+  INJURED
+  OTHER
+  UNKNOWN
+}
+
 enum SourceType {
   SHELTER_WEBSITE
   FACEBOOK_CROSSPOST
   MANUAL_ENTRY
   OTHER
+}
+
+model Poll {
+  id              String     @id @default(uuid())
+  slug            String     @unique
+  title           String     @default("")
+  statement       String
+  forTitle        String     @map("for_title")
+  forArgument     String     @map("for_argument")
+  againstTitle    String     @map("against_title")
+  againstArgument String     @map("against_argument")
+  neitherTitle    String     @default("It's not that simple") @map("neither_title")
+  neitherPrompt   String     @default("Here's what needs to change:") @map("neither_prompt")
+  active          Boolean    @default(true)
+  createdAt       DateTime   @default(now()) @map("created_at")
+
+  votes PollVote[]
+
+  @@map("polls")
+}
+
+model PollVote {
+  id          String     @id @default(uuid())
+  pollId      String     @map("poll_id")
+  choice      VoteChoice
+  neitherText String?    @map("neither_text")
+  voterToken  String     @map("voter_token")
+  createdAt   DateTime   @default(now()) @map("created_at")
+
+  poll Poll @relation(fields: [pollId], references: [id])
+
+  @@unique([pollId, voterToken])
+  @@map("poll_votes")
+}
+
+enum VoteChoice {
+  FOR
+  AGAINST
+  NEITHER
 }

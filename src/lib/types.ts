@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
 // Type definitions matching our Prisma schema
 // (Needed because Prisma 7 constructor typing loses inference with `as any` cast)
 
@@ -12,9 +10,17 @@ export interface Shelter {
     phone: string | null;
     websiteUrl: string | null;
     facebookUrl: string | null;
-    trustScore: number | null;
-    totalIntakeYtd: number;
-    totalEuthanizedYtd: number;
+    totalIntakeAnnual: number;
+    totalEuthanizedAnnual: number;
+    dataYear: number | null;
+    dataSourceName: string | null;
+    dataSourceUrl: string | null;
+    countyPopulation: number | null;
+    totalReturnedToOwner: number | null;
+    totalTransferred: number | null;
+    priorYearIntake: number | null;
+    priorYearEuthanized: number | null;
+    priorDataYear: number | null;
     lastScrapedAt: Date | null;
     createdAt: Date;
     updatedAt: Date;
@@ -35,8 +41,15 @@ export interface Animal {
     ageKnownYears: number | null;
     ageEstimatedLow: number | null;
     ageEstimatedHigh: number | null;
-    ageConfidenceScore: number | null;
+    ageConfidence: 'HIGH' | 'MEDIUM' | 'LOW' | 'NONE';
+    ageIndicators: string[];
     ageSource: 'SHELTER_REPORTED' | 'CV_ESTIMATED' | 'UNKNOWN';
+    detectedBreeds: string[];
+    breedConfidence: 'HIGH' | 'MEDIUM' | 'LOW' | 'NONE';
+    lifeExpectancyLow: number | null;
+    lifeExpectancyHigh: number | null;
+    intakeReason: 'OWNER_SURRENDER' | 'STRAY' | 'OWNER_DECEASED' | 'CONFISCATE' | 'RETURN' | 'TRANSFER' | 'INJURED' | 'OTHER' | 'UNKNOWN';
+    intakeReasonDetail: string | null;
     notes: string | null;
     intakeDate: Date | null;
     euthScheduledAt: Date | null;

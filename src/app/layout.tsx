@@ -1,6 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import "./globals.css";
+import "./listings.css";
+import "./detail.css";
+import "./shelter.css";
+import "./components.css";
+import "./poll.css";
 
 export const metadata: Metadata = {
   title: "Golden Years Club",
@@ -18,12 +23,13 @@ export default function RootLayout({
         <header className="header">
           <div className="container">
             <Link href="/" className="header__logo">
-              Golden Years <span>Club</span>
+              <span className="header__logo-text">Golden Years Club</span>
             </Link>
             <nav>
               <ul className="header__nav">
-                <li><Link href="/listings">Listings</Link></li>
-                <li><Link href="/about">About</Link></li>
+                <li><Link href="/">List</Link></li>
+                <li><Link href="/give">Give</Link></li>
+                <li><Link href="/poll">Public Square</Link></li>
               </ul>
             </nav>
           </div>
@@ -33,12 +39,11 @@ export default function RootLayout({
 
         <footer className="footer">
           <div className="container">
-            <p className="footer__haiku">
-              A long life I&apos;ve lived<br />
-              Only to die in a cage<br />
-              Held by a stranger
+            <p className="footer__quote">The last of life, for which the first was made.</p>
+            <p>Golden Years Club &copy; 2026</p>
+            <p className="footer__links">
+              <Link href="/about">About</Link>
             </p>
-            <p>Golden Years Club — Every senior deserves a gentle ending.</p>
           </div>
         </footer>
       </body>

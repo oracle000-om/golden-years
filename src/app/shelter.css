@@ -1,0 +1,121 @@
+/* --- Shelter Detail Page --- */
+.shelter-detail {
+  padding: var(--space-2xl) 0;
+}
+
+.shelter-detail__header {
+  margin-bottom: var(--space-2xl);
+}
+
+.shelter-detail__name {
+  font-family: var(--font-sans);
+  font-size: var(--font-size-3xl);
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  margin-bottom: var(--space-sm);
+  color: var(--color-text);
+}
+
+.shelter-detail__location {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-lg);
+  margin-bottom: var(--space-lg);
+}
+
+.shelter-detail__animals-header {
+  font-family: var(--font-sans);
+  font-size: var(--font-size-xl);
+  font-weight: 400;
+  margin-bottom: var(--space-lg);
+  color: var(--color-text);
+}
+
+/* --- Clickable Shelter Link on Animal Cards --- */
+.animal-card__shelter-link {
+  color: var(--color-gold) !important;
+  text-decoration: none;
+  transition: color 0.15s ease, text-decoration 0.15s ease;
+  cursor: pointer;
+  position: relative;
+  z-index: 2;
+}
+
+.animal-card__shelter-link:hover {
+  text-decoration: underline;
+  color: var(--color-gold-bright, #ffd700) !important;
+}
+
+/* --- Help This Shelter CTA --- */
+.shelter-cta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+  margin-bottom: var(--space-2xl);
+  padding: var(--space-lg);
+  background: linear-gradient(135deg, rgba(212, 165, 116, 0.08), rgba(139, 105, 20, 0.04));
+  border: 1px solid rgba(212, 165, 116, 0.2);
+  border-radius: var(--radius-md);
+}
+
+.shelter-cta__text {
+  flex: 1;
+  min-width: 200px;
+}
+
+.shelter-cta__title {
+  font-family: var(--font-sans);
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  color: var(--color-text);
+  margin-bottom: var(--space-xs);
+}
+
+.shelter-cta__subtitle {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}
+
+.shelter-cta__actions {
+  display: flex;
+  gap: var(--space-sm);
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.shelter-cta__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-sm) var(--space-lg);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  border: none;
+}
+
+.shelter-cta__btn--primary {
+  background: var(--color-gold);
+  color: #1a1a2e;
+}
+
+.shelter-cta__btn--primary:hover {
+  background: var(--color-gold-bright, #ffd700);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(212, 165, 116, 0.3);
+}
+
+.shelter-cta__btn--secondary {
+  background: transparent;
+  color: var(--color-gold);
+  border: 1px solid rgba(212, 165, 116, 0.3);
+}
+
+.shelter-cta__btn--secondary:hover {
+  border-color: var(--color-gold);
+  background: rgba(212, 165, 116, 0.08);
+}
+

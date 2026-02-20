@@ -39,32 +39,13 @@ function LoginForm() {
     };
 
     return (
-        <div style={{
-            minHeight: '100vh',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: 'var(--background)',
-        }}>
-            <div style={{
-                textAlign: 'center',
-                maxWidth: '360px',
-                width: '100%',
-                padding: '0 1.5rem',
-            }}>
-                <h1 style={{
-                    fontFamily: 'var(--font-serif)',
-                    fontSize: '2rem',
-                    marginBottom: '0.5rem',
-                }}>
-                    <span style={{ color: 'var(--gold)' }}>Golden Years</span>{' '}
-                    <span style={{ color: 'var(--text-secondary)' }}>Club</span>
+        <div className="login-page">
+            <div className="login-card">
+                <h1 className="login-card__title">
+                    <span className="login-card__title-gold">Golden Years</span>{' '}
+                    <span className="login-card__title-dim">Club</span>
                 </h1>
-                <p style={{
-                    color: 'var(--text-muted)',
-                    fontSize: '0.875rem',
-                    marginBottom: '2rem',
-                }}>
+                <p className="login-card__subtitle">
                     This site is password protected
                 </p>
 
@@ -75,46 +56,19 @@ function LoginForm() {
                         onChange={(e) => setPassword(e.target.value)}
                         placeholder="Enter password"
                         autoFocus
-                        style={{
-                            width: '100%',
-                            padding: '0.75rem 1rem',
-                            background: 'var(--card-bg)',
-                            border: '1px solid var(--card-border)',
-                            borderRadius: '8px',
-                            color: 'var(--text-primary)',
-                            fontSize: '1rem',
-                            outline: 'none',
-                            marginBottom: '1rem',
-                            boxSizing: 'border-box',
-                        }}
+                        className="login-card__input"
                     />
                     <button
                         type="submit"
                         disabled={loading || !password}
-                        style={{
-                            width: '100%',
-                            padding: '0.75rem',
-                            background: 'var(--gold)',
-                            color: '#000',
-                            border: 'none',
-                            borderRadius: '8px',
-                            fontSize: '1rem',
-                            fontWeight: 600,
-                            cursor: loading ? 'wait' : 'pointer',
-                            opacity: loading || !password ? 0.6 : 1,
-                            transition: 'opacity 0.2s',
-                        }}
+                        className="login-card__submit"
                     >
                         {loading ? 'Checking...' : 'Enter'}
                     </button>
                 </form>
 
                 {error && (
-                    <p style={{
-                        color: '#ef4444',
-                        fontSize: '0.875rem',
-                        marginTop: '1rem',
-                    }}>
+                    <p className="login-card__error">
                         {error}
                     </p>
                 )}
@@ -126,14 +80,7 @@ function LoginForm() {
 export default function LoginPage() {
     return (
         <Suspense fallback={
-            <div style={{
-                minHeight: '100vh',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                background: 'var(--background)',
-                color: 'var(--text-muted)',
-            }}>
+            <div className="login-page login-page--loading">
                 Loading...
             </div>
         }>
@@ -141,3 +88,4 @@ export default function LoginPage() {
         </Suspense>
     );
 }
+

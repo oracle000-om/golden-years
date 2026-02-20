@@ -1,41 +1,110 @@
-import Link from "next/link";
+import Link from 'next/link';
+import type { Metadata } from 'next';
+import { getFilteredAnimals, getDistinctStates } from '@/lib/queries';
+import { FilterBar } from './listings/filter-bar';
+import { SearchBar } from './listings/search-bar';
+import { AnimalGrid } from './listings/animal-grid';
+import type { AnimalWithShelter } from '@/lib/types';
 
-export default function Home() {
+export const revalidate = 60; // ISR: revalidate every 60 seconds
+
+export const metadata: Metadata = {
+  title: 'Golden Years Club',
+  description: 'Surfacing senior animals on shelter euthanasia lists — giving them visibility, dignity, and a last chance.',
+  openGraph: {
+    title: 'Golden Years Club',
+    description: 'Surfacing senior animals on shelter euthanasia lists — giving them visibility, dignity, and a last chance.',
+    type: 'website',
+    siteName: 'Golden Years Club',
+  },
+  twitter: {
+    card: 'summary',
+    title: 'Golden Years Club',
+    description: 'Browse senior animals currently on shelter euthanasia lists.',
+  },
+};
+
+interface SearchParams {
+  species?: string;
+  time?: string;
+  state?: string;
+  sex?: string;
+  q?: string;
+}
+
+export default async function Home({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
+  const params = await searchParams;
+
+  let animals: AnimalWithShelter[] = [];
+  let states: string[] = [];
+  let error = false;
+
+  try {
+    [animals, states] = await Promise.all([
+      getFilteredAnimals(params),
+      getDistinctStates(),
+    ]);
+  } catch (e) {
+    console.error('Failed to load listings:', e);
+    error = true;
+  }
+
+  if (error) {
+    return (
+      <div className="listings-page">
+        <div className="container">
+          <div className="error-state">
+            <div className="error-state__icon">⚠️</div>
+            <h2 className="error-state__title">Unable to load listings</h2>
+            <p className="error-state__text">
+              We&apos;re having trouble connecting to our database right now.
+              Please try again in a few moments.
+            </p>
+            <Link href="/" className="error-state__retry">
+              Try Again →
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <>
-      <section className="hero">
-        <div className="hero__haiku">
-          A long life I&apos;ve lived<br />
-          Only to die in a cage<br />
-          Held by a stranger
+    <div className="listings-page">
+      <div className="container">
+        <div className="listings-header">
+          <span className="page-badge">📡 Live List ({animals.length})</span>
         </div>
 
-        <h1 className="hero__title">Golden Years Club</h1>
-
-        <p className="hero__subtitle">
-          Surfacing senior animals on shelter euthanasia lists — giving them
-          visibility, dignity, and a last chance.
+        <p className="listings-header__description">
+          Dedicated to delivering seniors to warm, loving forever homes.
         </p>
 
-        <Link href="/listings" className="hero__cta">
-          View Listings →
-        </Link>
+        <SearchBar />
 
-        <div className="hero__mission">
-          <h2>The Mission</h2>
-          <p>
-            Every day, senior animals — dogs and cats who have lived long,
-            loyal lives — are placed on euthanasia lists at shelters across the
-            country. Many are never seen. Their photos aren&apos;t shared. Their
-            stories aren&apos;t told. They run out of time in silence.
-          </p>
-          <p style={{ marginTop: '1rem' }}>
-            Golden Years Club aggregates euthanasia list data from county shelters,
-            rescue cross-posts, and other reliable sources into one place. We
-            show you who&apos;s running out of time, where they are, and how to help.
-          </p>
-        </div>
-      </section>
-    </>
+        <FilterBar
+          currentSpecies={params.species || 'all'}
+          currentTime={params.time || 'all'}
+          currentState={params.state || 'all'}
+          currentSex={params.sex || 'all'}
+          states={states}
+        />
+
+        {animals.length === 0 ? (
+          <div className="empty-state">
+            <div className="empty-state__icon">🔍</div>
+            <p className="empty-state__text">
+              No animals match your current filters. Try adjusting your search criteria.
+            </p>
+          </div>
+        ) : (
+          <AnimalGrid animals={animals} />
+        )}
+      </div>
+    </div>
   );
 }

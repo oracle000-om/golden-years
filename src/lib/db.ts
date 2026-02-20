@@ -10,7 +10,31 @@ const globalForPrisma = globalThis as unknown as {
 function createPrismaClient(): PrismaClient {
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) {
-    throw new Error('DATABASE_URL environment variable is not set');
+    console.warn(
+      '⚠️  DATABASE_URL is not set. Database queries will fail gracefully. ' +
+      'Set DATABASE_URL in your .env file to connect to PostgreSQL.'
+    );
+    // Return a proxy that throws descriptive errors on any property access,
+    // allowing the app to boot and serve non-DB pages
+    return new Proxy({} as PrismaClient, {
+      get(_target, prop) {
+        if (typeof prop === 'string' && !['then', 'catch', 'finally', Symbol.toPrimitive, Symbol.toStringTag].includes(prop as any)) {
+          return new Proxy(() => { }, {
+            get() {
+              return () => Promise.reject(
+                new Error(`Database not configured: tried to access prisma.${prop}. Set DATABASE_URL in .env.`)
+              );
+            },
+            apply() {
+              return Promise.reject(
+                new Error(`Database not configured: tried to call prisma.${prop}(). Set DATABASE_URL in .env.`)
+              );
+            },
+          });
+        }
+        return undefined;
+      },
+    });
   }
   const pool = new pg.Pool({ connectionString });
   const adapter = new PrismaPg(pool);

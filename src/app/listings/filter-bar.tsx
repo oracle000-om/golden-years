@@ -7,10 +7,11 @@ interface FilterBarProps {
     currentSpecies: string;
     currentTime: string;
     currentState: string;
+    currentSex: string;
     states: string[];
 }
 
-export function FilterBar({ currentSpecies, currentTime, currentState, states }: FilterBarProps) {
+export function FilterBar({ currentSpecies, currentTime, currentState, currentSex, states }: FilterBarProps) {
     const router = useRouter();
     const searchParams = useSearchParams();
 
@@ -22,13 +23,13 @@ export function FilterBar({ currentSpecies, currentTime, currentState, states }:
             } else {
                 params.set(key, value);
             }
-            router.push(`/listings?${params.toString()}`);
+            router.push(`/?${params.toString()}`);
         },
         [router, searchParams],
     );
 
     const resetFilters = useCallback(() => {
-        router.push('/listings');
+        router.push('/');
     }, [router]);
 
     return (
@@ -42,7 +43,17 @@ export function FilterBar({ currentSpecies, currentTime, currentState, states }:
                 <option value="all">All Species</option>
                 <option value="dog">Dogs</option>
                 <option value="cat">Cats</option>
-                <option value="other">Other</option>
+            </select>
+
+            <select
+                className="filter-bar__select"
+                value={currentSex}
+                onChange={(e) => updateFilter('sex', e.target.value)}
+                aria-label="Filter by gender"
+            >
+                <option value="all">All Genders</option>
+                <option value="male">Male</option>
+                <option value="female">Female</option>
             </select>
 
             <select
@@ -71,7 +82,7 @@ export function FilterBar({ currentSpecies, currentTime, currentState, states }:
             </select>
 
             <button className="filter-bar__reset" onClick={resetFilters}>
-                Reset Filters
+                Reset
             </button>
         </div>
     );

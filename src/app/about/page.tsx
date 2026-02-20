@@ -1,56 +1,38 @@
+import type { Metadata } from 'next';
+import Image from 'next/image';
+import Link from 'next/link';
+
+export const metadata: Metadata = {
+    title: 'About | Golden Years Club',
+    description: 'Surfacing senior animals on shelter euthanasia lists — giving them visibility, dignity, and a last chance.',
+};
+
 export default function AboutPage() {
     return (
-        <section className="hero" style={{ minHeight: 'auto', paddingTop: '3rem' }}>
-            <h1 className="hero__title" style={{ fontSize: '2.5rem' }}>About Golden Years Club</h1>
-
-            <div className="hero__mission" style={{ borderTop: 'none', paddingTop: 0 }}>
-                <h2>Why This Exists</h2>
-                <p>
-                    Senior animals are the most overlooked in shelters. Puppies and kittens get
-                    adopted quickly. Young adults have a chance. But the old ones — the 10-year-old
-                    lab who spent a decade as someone&apos;s best friend, the 14-year-old cat who
-                    just lost her owner — they&apos;re often the first on the euthanasia list and
-                    the last to be seen.
-                </p>
-                <p style={{ marginTop: '1rem' }}>
-                    Golden Years Club exists to change that. We aggregate data from county shelter
-                    websites, Facebook rescue cross-posts, and other reliable sources to surface
-                    senior animals who are running out of time. We show you who they are, where they
-                    are, and when their time is up.
-                </p>
-            </div>
-
-            <div className="hero__mission">
-                <h2>How It Works</h2>
-                <p>
-                    <strong>Data Collection:</strong> We pull listings from county shelter websites
-                    and rescue cross-posts. Each animal&apos;s photo, intake ID, shelter information,
-                    and estimated age are captured.
-                </p>
-                <p style={{ marginTop: '1rem' }}>
-                    <strong>Age Estimation:</strong> When a shelter doesn&apos;t report an animal&apos;s
-                    age, we use computer vision to estimate an age range, accompanied by a confidence
-                    score so you know how reliable the estimate is.
-                </p>
-                <p style={{ marginTop: '1rem' }}>
-                    <strong>Trust Scores:</strong> Each shelter is assigned a trust score based on
-                    the percentage of their intake that is euthanized. This gives you context about
-                    the urgency and environment at each facility.
-                </p>
-                <p style={{ marginTop: '1rem' }}>
-                    <strong>Time-of-Death Markers:</strong> Instead of a stressful countdown timer,
-                    we display the scheduled euthanasia date and time as a factual marker. You can
-                    filter by timeframe to find animals with the most urgent need.
-                </p>
-            </div>
-
-            <div className="hero__mission">
-                <h2>The Goal</h2>
-                <p>
-                    We&apos;re not here to make money. We&apos;re here to make sure no senior animal
-                    dies unseen. If you&apos;re a rescuer, a foster, or someone who can share a post —
-                    you can save a life. Every pair of eyes on a listing is another chance.
-                </p>
+        <section className="about-minimal">
+            <div className="container about-minimal__content">
+                <div className="about-minimal__image">
+                    <Image
+                        src="/no-photo.svg"
+                        alt="Golden Years Club"
+                        width={320}
+                        height={320}
+                        style={{ objectFit: 'cover', borderRadius: 'var(--radius-lg)', opacity: 0.7 }}
+                    />
+                </div>
+                <div className="about-minimal__text">
+                    <p className="about-minimal__story">
+                        Every year, thousands of senior animals are placed on shelter euthanasia lists — not because they&apos;re sick or dangerous, but because they&apos;re old. They&apos;ve already lived full lives. They&apos;ve already loved someone. And now, in a concrete kennel, they wait for a second chance that rarely comes.
+                    </p>
+                    <p className="about-minimal__story">
+                        Golden Years Club exists to surface these animals. To make them visible. To give every gray muzzle and clouded eye one more shot at a warm bed and a gentle hand.
+                    </p>
+                    <p className="about-minimal__links">
+                        <Link href="https://www.reddit.com/r/SeniorDogs/" target="_blank" rel="noopener noreferrer">
+                            r/SeniorDogs ↗
+                        </Link>
+                    </p>
+                </div>
             </div>
         </section>
     );

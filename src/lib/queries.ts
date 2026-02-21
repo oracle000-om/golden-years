@@ -102,14 +102,21 @@ export async function getFilteredAnimals(filters: AnimalFilters): Promise<Animal
         where,
         include: { shelter: true },
         orderBy: [
-            { euthScheduledAt: { sort: 'asc', nulls: 'last' } },
             { createdAt: 'desc' },
         ],
     }) as AnimalWithShelter[];
 
-    // Stable sort: deprioritized animals go to the bottom,
-    // but retain their relative urgency order within each group.
+    // Stable sort:
+    // 1. euthScheduledAt ascending (nulls last) — most urgent first
+    // 2. Deprioritized animals go to the bottom
+    // (createdAt desc is already handled by the DB orderBy above)
     return animals.sort((a, b) => {
+        // Urgency: non-null euthScheduledAt first, sorted ascending
+        const aEuth = a.euthScheduledAt ? new Date(a.euthScheduledAt).getTime() : Infinity;
+        const bEuth = b.euthScheduledAt ? new Date(b.euthScheduledAt).getTime() : Infinity;
+        if (aEuth !== bEuth) return aEuth - bEuth;
+
+        // Then deprioritized animals go to the bottom
         const aDepri = isDeprioritized(a) ? 1 : 0;
         const bDepri = isDeprioritized(b) ? 1 : 0;
         return aDepri - bDepri;
@@ -144,7 +151,7 @@ export async function getShelterById(id: string): Promise<ShelterWithAnimals | n
         include: {
             animals: {
                 where: { status: { in: ['LISTED', 'URGENT'] } },
-                orderBy: { euthScheduledAt: { sort: 'asc', nulls: 'last' } },
+                orderBy: { createdAt: 'desc' },
             },
         },
     });

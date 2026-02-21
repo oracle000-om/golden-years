@@ -55,7 +55,6 @@ export async function GET() {
             where: { status: { in: ['LISTED', 'URGENT'] } },
             include: { shelter: true },
             orderBy: [
-                { euthScheduledAt: { sort: 'asc', nulls: 'last' } },
                 { createdAt: 'desc' },
             ],
         });

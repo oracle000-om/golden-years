@@ -114,25 +114,40 @@ function parseAgeFromString(ageString: string | null): number | null {
     return match ? parseInt(match[1], 10) : null;
 }
 
+/** Keywords that indicate a rescue/foster org rather than a municipal shelter */
+const RESCUE_KEYWORDS = [
+    'rescue', 'foster', 'refuge', 'sanctuary', 'haven',
+    'friends of', 'best friends', 'saving', 'second chance',
+    'forever home', 'paws of', 'angels', 'guardian',
+];
+
+/** Returns true if the org name suggests a private rescue, not a public shelter */
+function isLikelyRescueOrg(name: string): boolean {
+    const lower = name.toLowerCase();
+    return RESCUE_KEYWORDS.some(kw => lower.includes(kw));
+}
+
 function getBestPhotoUrl(
     animal: RGAnimal,
     includedMap: Map<string, RGPicture | RGOrg>,
 ): string | null {
-    // Try thumbnail first (fast)
-    if (animal.attributes.pictureThumbnailUrl) {
-        return animal.attributes.pictureThumbnailUrl;
-    }
-
-    // Then try included pictures
+    // Prefer high-res included pictures over tiny thumbnails
+    // (some orgs upload sketches/illustrations as 100px thumbnails)
     const picRefs = animal.relationships?.pictures?.data || [];
     for (const ref of picRefs) {
         const pic = includedMap.get(`pictures:${ref.id}`) as RGPicture | undefined;
         if (pic) {
-            return pic.attributes.large?.url
+            const url = pic.attributes.large?.url
                 || pic.attributes.original?.url
                 || pic.attributes.small?.url
                 || null;
+            if (url) return url;
         }
+    }
+
+    // Fall back to thumbnail if no included pictures
+    if (animal.attributes.pictureThumbnailUrl) {
+        return animal.attributes.pictureThumbnailUrl;
     }
 
     return null;
@@ -189,9 +204,10 @@ export async function scrapeRescueGroups(options: ScrapeOptions = {}): Promise<{
             );
             url.searchParams.set('fields[orgs]', 'name,citystate,state,city,postalcode,phone,url');
 
-            // Build filter body
+            // Build filter body — only fetch from shelter-type orgs, not rescues
             const filters: Array<{ fieldName: string; operation: string; criteria: string }> = [
                 { fieldName: 'animals.ageGroup', operation: 'equals', criteria: 'Senior' },
+                { fieldName: 'orgs.type', operation: 'equals', criteria: 'Shelter' },
             ];
 
             // Location filters
@@ -250,9 +266,13 @@ export async function scrapeRescueGroups(options: ScrapeOptions = {}): Promise<{
                     // Get photo
                     const photoUrl = getBestPhotoUrl(animal, includedMap);
 
-                    // Get organization
+                    // Get organization — skip rescue/foster orgs (safety net)
                     const org = getOrg(animal, includedMap);
-                    if (org && !shelterMap.has(org.id)) {
+                    if (!org) continue;
+                    if (isLikelyRescueOrg(org.attributes.name)) {
+                        continue; // Skip rescue orgs even if API filter missed them
+                    }
+                    if (!shelterMap.has(org.id)) {
                         shelterMap.set(org.id, {
                             name: org.attributes.name,
                             city: org.attributes.city,
@@ -265,10 +285,16 @@ export async function scrapeRescueGroups(options: ScrapeOptions = {}): Promise<{
                     // Build breed string
                     const breed = [attrs.breedPrimary, attrs.breedSecondary].filter(Boolean).join(' / ') || attrs.breedString || null;
 
+                    // Derive species from the API endpoint we're hitting ('dogs'→'DOG', 'cats'→'CAT')
+                    // rather than attrs.species, which may be undefined on species-specific endpoints.
+                    const resolvedSpecies: 'DOG' | 'CAT' | 'OTHER' = species === 'dogs' ? 'DOG'
+                        : species === 'cats' ? 'CAT'
+                            : mapSpecies(attrs.species);
+
                     const scraped: ScrapedAnimal = {
                         intakeId: animal.id,
                         name: attrs.name || null,
-                        species: mapSpecies(attrs.species),
+                        species: resolvedSpecies,
                         breed,
                         sex: mapSex(attrs.sex),
                         size: mapSize(attrs.sizeGroup),

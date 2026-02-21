@@ -34,6 +34,7 @@ IMPORTANT RULES:
 3. An animal is "senior" if the estimated low end is 7 years or older.
 4. Only cite indicators you can actually see in the photo — do not guess.
 5. List up to 3 likely breeds, most likely first.
+8. If the image is a drawing, sketch, illustration, cartoon, or any non-photographic depiction rather than a real photograph, return confidence as "NONE".
 6. For cats in shelters, common designations are fine: "Domestic Shorthair", "Tabby", "Calico", etc.
 7. Return ONLY valid JSON, no markdown, no explanation outside the JSON.
 

@@ -129,6 +129,7 @@ async function main() {
     let created = 0;
     let updated = 0;
     let cvProcessed = 0;
+    let skippedNonPhoto = 0;
 
     for (let i = 0; i < withPhotos.length; i++) {
         const animal = withPhotos[i];
@@ -144,6 +145,12 @@ async function main() {
                 // Silently skip CV errors
             }
             await new Promise(r => setTimeout(r, 250));
+        }
+
+        // Skip non-photo images (drawings, sketches, illustrations)
+        if (cvEstimate && cvEstimate.confidence === 'NONE') {
+            skippedNonPhoto++;
+            continue;
         }
 
         // Life expectancy
@@ -203,6 +210,7 @@ async function main() {
     console.log(`\n🏁 Done!`);
     console.log(`   Animals: ${created} created, ${updated} updated`);
     console.log(`   CV estimates: ${cvProcessed}/${withPhotos.length}`);
+    console.log(`   Non-photo images skipped: ${skippedNonPhoto}`);
     console.log(`   Shelters: ${sheltersCreated}`);
     process.exit(0);
 }

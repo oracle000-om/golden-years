@@ -46,25 +46,52 @@ export async function GET() {
         prismaError = e instanceof Error ? `${e.name}: ${e.message}\n${e.stack?.split('\n').slice(0, 5).join('\n')}` : String(e);
     }
 
-    // Test 3: The exact query used by the main listings page
-    let queryOk = false;
-    let queryCount: number | null = null;
-    let queryError: string | null = null;
+    // Test 3: findMany without include (just where)
+    let findManyOk = false;
+    let findManyCount: number | null = null;
+    let findManyError: string | null = null;
+    try {
+        const animals = await prisma.animal.findMany({
+            where: { status: { in: ['LISTED', 'URGENT'] } },
+        });
+        findManyCount = animals.length;
+        findManyOk = true;
+    } catch (e: unknown) {
+        findManyError = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+    }
+
+    // Test 4: findMany WITH include: { shelter: true }
+    let joinOk = false;
+    let joinCount: number | null = null;
+    let joinError: string | null = null;
     try {
         const animals = await prisma.animal.findMany({
             where: { status: { in: ['LISTED', 'URGENT'] } },
             include: { shelter: true },
-            orderBy: [
-                { createdAt: 'desc' },
-            ],
         });
-        queryCount = animals.length;
-        queryOk = true;
+        joinCount = animals.length;
+        joinOk = true;
     } catch (e: unknown) {
-        queryError = e instanceof Error ? `${e.name}: ${e.message}\n${e.stack?.split('\n').slice(0, 5).join('\n')}` : String(e);
+        joinError = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
     }
 
-    // Test 4: getDistinctStates query
+    // Test 5: findMany with include + orderBy (the full page query)
+    let fullQueryOk = false;
+    let fullQueryCount: number | null = null;
+    let fullQueryError: string | null = null;
+    try {
+        const animals = await prisma.animal.findMany({
+            where: { status: { in: ['LISTED', 'URGENT'] } },
+            include: { shelter: true },
+            orderBy: [{ createdAt: 'desc' }],
+        });
+        fullQueryCount = animals.length;
+        fullQueryOk = true;
+    } catch (e: unknown) {
+        fullQueryError = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+    }
+
+    // Test 6: getDistinctStates query
     let statesOk = false;
     let statesResult: string[] | null = null;
     let statesError: string | null = null;
@@ -76,13 +103,16 @@ export async function GET() {
         statesError = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
     }
 
-    const allOk = rawPgOk && prismaOk && queryOk && statesOk;
+    const allOk = rawPgOk && prismaOk && findManyOk && joinOk && fullQueryOk && statesOk;
     return NextResponse.json({
         ...info,
+        deployedAt: '43f062d', // version marker
         status: allOk ? 'ok' : 'partial',
         rawPg: { ok: rawPgOk, animalCount: rawPgCount, error: rawPgError },
         prismaCount: { ok: prismaOk, animalCount: prismaCount, error: prismaError },
-        listingsQuery: { ok: queryOk, animalCount: queryCount, error: queryError },
+        findMany: { ok: findManyOk, count: findManyCount, error: findManyError },
+        joinQuery: { ok: joinOk, count: joinCount, error: joinError },
+        fullQuery: { ok: fullQueryOk, count: fullQueryCount, error: fullQueryError },
         statesQuery: { ok: statesOk, states: statesResult, error: statesError },
     }, { status: allOk ? 200 : 500 });
 }

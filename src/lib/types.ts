@@ -7,6 +7,7 @@ export interface Shelter {
     county: string;
     state: string;
     address: string | null;
+    zipCode: string | null;
     phone: string | null;
     websiteUrl: string | null;
     facebookUrl: string | null;

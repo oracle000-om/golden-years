@@ -30,7 +30,7 @@ Identify the most likely breed(s) based on:
 
 IMPORTANT RULES:
 1. If the photo is too blurry, too dark, not of an animal, or you cannot see the animal clearly enough to assess, return confidence as "NONE".
-2. Be conservative with age ranges — use a 2-4 year range.
+2. Be conservative with age ranges — always use exactly a 3-year range (e.g., 7–10, not 7–12 or 8–9).
 3. An animal is "senior" if the estimated low end is 7 years or older.
 4. Only cite indicators you can actually see in the photo — do not guess.
 5. List up to 3 likely breeds, most likely first.

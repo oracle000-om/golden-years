@@ -163,9 +163,9 @@ export async function scrapeRescueGroups(options: ScrapeOptions = {}): Promise<{
     animals: ScrapedAnimal[];
     shelters: Map<string, { name: string; city: string; state: string; phone: string | null; url: string | null }>;
 }> {
-    const apiKey = process.env.RESCUEGROUPS_API_KEY;
+    const apiKey = process.env.RESCUE_GROUPS_API_KEY;
     if (!apiKey) {
-        throw new Error('RESCUEGROUPS_API_KEY not set. Register free at https://rescuegroups.org/services/adoptable-pet-data-api/');
+        throw new Error('RESCUE_GROUPS_API_KEY not set. Register free at https://rescuegroups.org/services/adoptable-pet-data-api/');
     }
 
     const allAnimals: ScrapedAnimal[] = [];

@@ -9,6 +9,7 @@ export interface ShelterSeedData {
     county: string;
     state: string;
     address: string | null;
+    zipCode?: string | null;
     phone: string | null;
     websiteUrl: string | null;
     totalIntakeAnnual: number;

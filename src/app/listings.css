@@ -136,6 +136,78 @@
   border-color: rgba(255, 240, 224, 0.15);
 }
 
+.filter-bar__input {
+  background: var(--color-bg-raised);
+  color: var(--color-text);
+  border: 1px solid rgba(255, 240, 224, 0.1);
+  border-radius: var(--radius-sm);
+  padding: var(--space-sm) var(--space-md);
+  font-size: var(--font-size-sm);
+  font-family: var(--font-sans);
+  width: 110px;
+  outline: none;
+  transition: border-color var(--transition-fast);
+}
+
+.filter-bar__input::placeholder {
+  color: var(--color-text-dim);
+}
+
+.filter-bar__input:hover,
+.filter-bar__input:focus {
+  border-color: var(--color-gold);
+}
+
+.filter-bar__location-group {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  border: 1px solid rgba(255, 240, 224, 0.1);
+  border-radius: var(--radius-sm);
+  transition: border-color var(--transition-fast);
+}
+
+.filter-bar__location-group:focus-within,
+.filter-bar__location-group:hover {
+  border-color: var(--color-gold);
+}
+
+.filter-bar__location-group .filter-bar__input {
+  border: none;
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+}
+
+.filter-bar__location-group .filter-bar__input:hover,
+.filter-bar__location-group .filter-bar__input:focus {
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.filter-bar__locate {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-bg-raised);
+  border: none;
+  border-left: 1px solid rgba(255, 240, 224, 0.1);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  padding: 0 var(--space-sm);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  line-height: 1;
+  color: var(--color-text-dim);
+}
+
+.filter-bar__locate:hover {
+  color: var(--color-gold);
+}
+
+.filter-bar__locate:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+
 /* --- Listings Pagination --- */
 .listings-count {
   text-align: center;
@@ -414,7 +486,22 @@
 .animal-card__sex {
   font-size: var(--font-size-sm);
   color: var(--color-text-muted);
+  margin-bottom: var(--space-xs);
+}
+
+.animal-card__shelter {
+  font-size: 0.7rem;
+  color: var(--color-text-dim);
   margin-bottom: var(--space-md);
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.animal-card__shelter-phone {
+  color: var(--color-text-dim);
+  opacity: 0.7;
 }
 
 .animal-card__details {
@@ -459,6 +546,85 @@
   color: var(--color-gold);
 }
 
+/* --- GY Confidence Tooltip --- */
+.gy-tooltip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.gy-tooltip__popup {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: 0;
+  min-width: 150px;
+  padding: 10px 12px;
+  background: var(--color-bg-raised, #1f1d19);
+  border: 1px solid rgba(255, 192, 75, 0.25);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(4px);
+  transition: opacity 0.15s ease, visibility 0.15s ease, transform 0.15s ease;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.gy-tooltip:hover .gy-tooltip__popup {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.gy-tooltip__label {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-dim);
+  font-weight: 500;
+}
+
+.gy-tooltip__bar {
+  height: 6px;
+  width: 100%;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+
+.gy-tooltip__bar-fill {
+  height: 100%;
+  border-radius: var(--radius-full);
+  background: linear-gradient(90deg, #d97726, var(--color-gold), #4ade80);
+  transition: width 0.3s ease;
+}
+
+.gy-tooltip__pct {
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+
+.gy-tooltip__reasons {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 2px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  padding-top: 6px;
+}
+
+.gy-tooltip__reason {
+  font-size: 0.62rem;
+  color: var(--color-text-dim);
+  line-height: 1.35;
+  white-space: nowrap;
+}
+
 .animal-card__footer {
   padding: var(--space-sm) var(--space-lg) var(--space-md);
   display: flex;
@@ -499,6 +665,69 @@
 
 .animal-card__death-marker-time.standard {
   color: var(--color-text-muted);
+}
+
+/* --- Compact Shelter Stats (on animal cards) --- */
+.animal-card__shelter-stats {
+  width: 100%;
+}
+
+.animal-card__shelter-stats-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 4px;
+}
+
+.animal-card__shelter-stats-label {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 500;
+  color: var(--color-text-dim);
+}
+
+.animal-card__shelter-stats-pct {
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+}
+
+.animal-card__shelter-stats-pct.high {
+  color: #4ade80;
+}
+
+.animal-card__shelter-stats-pct.mid {
+  color: #e8a838;
+}
+
+.animal-card__shelter-stats-pct.low {
+  color: #d93636;
+}
+
+.animal-card__shelter-stats-bar {
+  height: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+
+.animal-card__shelter-stats-fill {
+  height: 100%;
+  border-radius: var(--radius-full);
+  transition: width 0.4s ease;
+  min-width: 2px;
+}
+
+.animal-card__shelter-stats-fill.high {
+  background: linear-gradient(90deg, #4ade80, #22c55e);
+}
+
+.animal-card__shelter-stats-fill.mid {
+  background: linear-gradient(90deg, #e8a838, #d97726);
+}
+
+.animal-card__shelter-stats-fill.low {
+  background: linear-gradient(90deg, #ef4444, #d93636);
 }
 
 /* --- Shelter Data Card (public stats) --- */
@@ -696,4 +925,3 @@
 .shelter-data-card__metric-value--flat {
   color: var(--color-text-muted);
 }
-

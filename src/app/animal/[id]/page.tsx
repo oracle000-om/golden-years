@@ -3,9 +3,8 @@ import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { getAnimalById, getAnimalForMetadata } from '@/lib/queries';
-import { formatDeathMarker, hoursUntil, getUrgencyLevel, formatAge, formatShelterStats, formatIntakeReason, formatYearsRemaining, getAgeDiscrepancy } from '@/lib/utils';
-import { ShareButtons } from '@/components/share-buttons';
-import { FavoriteButton } from '@/components/favorite-button';
+import { formatDeathMarker, hoursUntil, getUrgencyLevel, formatAge, formatShelterStats, formatIntakeReason, formatYearsRemaining, getAgeDiscrepancy, getGoldenYearsConfidence } from '@/lib/utils';
+import { CopyLinkButton } from '@/components/copy-link-button';
 import type { AnimalWithShelterAndSources, Source } from '@/lib/types';
 
 export const revalidate = 60;
@@ -126,6 +125,28 @@ export default async function AnimalDetailPage({
         animal.ageConfidence,
     );
 
+    const confidence = getGoldenYearsConfidence(
+        animal.ageSource,
+        animal.ageConfidence,
+        animal.ageKnownYears,
+        animal.ageEstimatedLow,
+        animal.ageEstimatedHigh,
+        animal.lifeExpectancyLow,
+        animal.lifeExpectancyHigh,
+    );
+
+    // Derived display values (mirroring card logic)
+    const shelterAge = animal.ageKnownYears !== null
+        ? `${animal.ageKnownYears} yr${animal.ageKnownYears !== 1 ? 's' : ''}`
+        : '—';
+    const gyAge = (animal.ageEstimatedLow !== null && animal.ageEstimatedHigh !== null)
+        ? `${animal.ageEstimatedLow}–${animal.ageEstimatedHigh} yrs`
+        : 'Pending';
+    const shelterBreed = animal.breed || '—';
+    const gyBreed = animal.detectedBreeds?.length > 0
+        ? animal.detectedBreeds.join(' / ')
+        : 'Pending';
+
     return (
         <div className="animal-detail">
             <div className="container">
@@ -145,39 +166,47 @@ export default async function AnimalDetailPage({
                     </div>
 
                     <div className="animal-detail__info">
-                        <div>
-                            <h1 className={`animal-detail__name ${!animal.name ? 'unnamed' : ''}`}>
-                                {animal.name || 'Unnamed'}
-                            </h1>
-                            <p className="animal-detail__breed">
-                                {animal.breed || 'Unknown breed'} · {animal.species.charAt(0) + animal.species.slice(1).toLowerCase()}
-                            </p>
-                        </div>
+                        <h1 className={`animal-detail__name ${!animal.name ? 'unnamed' : ''}`}>
+                            {animal.name || 'Unnamed'}
+                        </h1>
+                        <p className="animal-detail__gender-species">
+                            {animal.sex ? animal.sex.charAt(0) + animal.sex.slice(1).toLowerCase() : 'Unknown'} · {animal.species.charAt(0) + animal.species.slice(1).toLowerCase()}
+                        </p>
+                        <Link href={`/shelter/${animal.shelter.id}`} className="animal-detail__shelter-link">
+                            {animal.shelter.name}
+                            {animal.shelter.phone && <span className="animal-detail__shelter-phone"> · {animal.shelter.phone}</span>}
+                        </Link>
 
-                        <div className="animal-detail__meta">
-                            <div className="animal-detail__meta-item">
-                                <span className="animal-detail__meta-label">Age</span>
-                                <span className="animal-detail__meta-value">{ageDisplay}</span>
+                        <div className="animal-detail__detail-grid">
+                            <div className="animal-detail__detail-row">
+                                <span className="animal-detail__detail-label">Shelter age estimate</span>
+                                <span className="animal-detail__detail-value">{shelterAge}</span>
                             </div>
-                            <div className="animal-detail__meta-item">
-                                <span className="animal-detail__meta-label">Sex</span>
-                                <span className="animal-detail__meta-value">
-                                    {animal.sex ? animal.sex.charAt(0) + animal.sex.slice(1).toLowerCase() : 'Unknown'}
+                            <div className="animal-detail__detail-row">
+                                <span className="animal-detail__detail-label">Golden Years estimate</span>
+                                <span className="gy-tooltip">
+                                    <span className={`animal-detail__detail-value ${gyAge !== 'Pending' ? 'cv-estimated' : ''}`}>{gyAge}</span>
+                                    <span className="gy-tooltip__popup">
+                                        <span className="gy-tooltip__label">Confidence</span>
+                                        <span className="gy-tooltip__pct">{confidence.label} · {confidence.percent}%</span>
+                                    </span>
                                 </span>
                             </div>
-                            <div className="animal-detail__meta-item">
-                                <span className="animal-detail__meta-label">Size</span>
-                                <span className="animal-detail__meta-value">
-                                    {animal.size ? animal.size.charAt(0) + animal.size.slice(1).toLowerCase() : 'Unknown'}
-                                </span>
+                            <div className="animal-detail__detail-row">
+                                <span className="animal-detail__detail-label">Shelter breed</span>
+                                <span className="animal-detail__detail-value">{shelterBreed}</span>
                             </div>
-                            <div className="animal-detail__meta-item">
-                                <span className="animal-detail__meta-label">Intake ID</span>
-                                <span className="animal-detail__meta-value">{animal.intakeId || 'N/A'}</span>
+                            <div className="animal-detail__detail-row">
+                                <span className="animal-detail__detail-label">Golden Years breed</span>
+                                <span className={`animal-detail__detail-value ${gyBreed !== 'Pending' ? 'cv-estimated' : ''}`}>{gyBreed}</span>
                             </div>
-                            <div className="animal-detail__meta-item">
-                                <span className="animal-detail__meta-label">Intake Date</span>
-                                <span className="animal-detail__meta-value">
+                            <div className="animal-detail__detail-row">
+                                <span className="animal-detail__detail-label">Intake ID</span>
+                                <span className="animal-detail__detail-value">{animal.intakeId || 'N/A'}</span>
+                            </div>
+                            <div className="animal-detail__detail-row">
+                                <span className="animal-detail__detail-label">Intake date</span>
+                                <span className="animal-detail__detail-value">
                                     {animal.intakeDate
                                         ? new Date(animal.intakeDate).toLocaleDateString('en-US', {
                                             month: 'short', day: 'numeric', year: 'numeric',
@@ -185,22 +214,27 @@ export default async function AnimalDetailPage({
                                         : 'Unknown'}
                                 </span>
                             </div>
-                            <div className="animal-detail__meta-item">
-                                <span className="animal-detail__meta-label">Status</span>
-                                <span className="animal-detail__meta-value">
-                                    {animal.status.charAt(0) + animal.status.slice(1).toLowerCase()}
-                                </span>
-                            </div>
                         </div>
 
-                        <div className="animal-detail__death-marker">
-                            <div className="animal-detail__death-marker-label">Euthanasia Scheduled</div>
-                            <div className={`animal-detail__death-marker-time ${urgency}`}>
-                                {formatDeathMarker(animal.euthScheduledAt)}
+                        {/* Only show urgency badge when real euthanasia schedule exists */}
+                        {urgency !== 'standard' && (
+                            <div className="animal-detail__ers-badge-row">
+                                <span className={`animal-detail__ers-badge ${urgency}`}>
+                                    {urgency === 'critical' ? '< 24h' : urgency === 'urgent' ? '< 48h' : '< 72h'}
+                                </span>
                             </div>
-                            {hours !== null && (
-                                <div className="animal-detail__hours-remaining">
-                                    {hours === 0 ? 'Imminent' : `${hours} hour${hours !== 1 ? 's' : ''} remaining`}
+                        )}
+
+                        {/* Time of Death card */}
+                        <div className="animal-detail__tod-card">
+                            <div className="animal-detail__tod-label">Time of Death</div>
+                            {animal.euthScheduledAt ? (
+                                <div className={`animal-detail__tod-value ${urgency}`}>
+                                    {formatDeathMarker(animal.euthScheduledAt)}
+                                </div>
+                            ) : (
+                                <div className="animal-detail__tod-value animal-detail__tod-value--tbd">
+                                    TBD
                                 </div>
                             )}
                         </div>
@@ -208,132 +242,120 @@ export default async function AnimalDetailPage({
                 </div>
 
                 <div className="animal-detail__actions">
-                    <FavoriteButton animalId={animal.id} animalName={animal.name || 'Unnamed'} />
-                    <ShareButtons
-                        url={`/animal/${animal.id}`}
-                        title={`${animal.name || 'Unnamed senior'} needs a home — ${animal.breed || 'Unknown breed'} at ${animal.shelter.name}`}
-                        description={`${animal.name || 'This senior animal'} is on the euthanasia list. Help give them a second chance.`}
-                    />
+                    <CopyLinkButton />
                 </div>
 
-                {hours !== null && hours === 0 && (
-                    <div className="animal-detail__notes animal-detail__notes--warning">
-                        <h2>⚠️ Date Passed</h2>
-                        <p>
-                            The scheduled euthanasia date for this animal has passed.
-                            Their current status may have changed — please contact the shelter directly for the latest information.
-                        </p>
-                    </div>
-                )}
+                {/* --- Consolidated Report Card --- */}
+                <div className="animal-detail__report">
+                    <h2 className="animal-detail__report-title">Report</h2>
 
-                {animal.notes && (
-                    <div className="animal-detail__notes">
-                        <h2>Notes</h2>
-                        <p>{animal.notes}</p>
-                    </div>
-                )}
+                    {hours !== null && hours === 0 && (
+                        <div className="animal-detail__report-section animal-detail__report-section--warning">
+                            <h3>⚠️ Date Passed</h3>
+                            <p>
+                                The scheduled euthanasia date for this animal has passed.
+                                Their current status may have changed — contact the shelter directly.
+                            </p>
+                        </div>
+                    )}
 
-                {yearsRemaining && (
-                    <div className="animal-detail__time-left">
-                        <div className="animal-detail__time-left-main">
-                            <h2>Time Left</h2>
-                            <p className="animal-detail__time-left-estimate">
+                    {yearsRemaining && (
+                        <div className="animal-detail__report-section">
+                            <h3>Time Left</h3>
+                            <p>
                                 {animal.name || 'This animal'} could live <strong>{yearsRemaining}</strong> more.
                             </p>
                             {animal.euthScheduledAt && (
-                                <p className="animal-detail__time-left-contrast">
+                                <p className="animal-detail__report-contrast">
                                     Euthanasia scheduled in <strong>{hoursUntil(animal.euthScheduledAt)} hours</strong>.
                                 </p>
                             )}
-                        </div>
-                        <div className="animal-detail__time-left-details">
-                            {animal.detectedBreeds?.length > 0 && (
-                                <p>Breed: {animal.detectedBreeds.join(' / ')}</p>
-                            )}
                             {animal.lifeExpectancyLow !== null && animal.lifeExpectancyHigh !== null && (
-                                <p>Typical lifespan: {animal.lifeExpectancyLow}–{animal.lifeExpectancyHigh} years</p>
+                                <p className="animal-detail__report-detail">
+                                    Typical lifespan: {animal.lifeExpectancyLow}–{animal.lifeExpectancyHigh} years
+                                    {animal.detectedBreeds?.length > 0 && ` · Breed: ${animal.detectedBreeds.join(' / ')}`}
+                                </p>
                             )}
                         </div>
-                    </div>
-                )}
+                    )}
 
-                {ageDiscrepancy && (
-                    <div className={`age-discrepancy age-discrepancy--${ageDiscrepancy.severity}`}>
-                        <div className="age-discrepancy__icon">
-                            {ageDiscrepancy.severity === 'major' ? '⚠️' : '📊'}
+                    {(ageDiscrepancy || (animal.ageEstimatedLow !== null && animal.ageEstimatedHigh !== null)) && (
+                        <div className="animal-detail__report-section">
+                            <h3>Age Analysis</h3>
+                            {animal.ageEstimatedLow !== null && animal.ageEstimatedHigh !== null && (
+                                <p>
+                                    Computer vision estimates {animal.ageEstimatedLow}–{animal.ageEstimatedHigh} years
+                                    ({animal.ageConfidence === 'HIGH' ? 'high' : animal.ageConfidence === 'MEDIUM' ? 'moderate' : 'low'} confidence).
+                                    {animal.ageIndicators?.length > 0 && ` Based on: ${animal.ageIndicators.join(', ')}.`}
+                                </p>
+                            )}
+                            {ageDiscrepancy && (
+                                <p className="animal-detail__report-detail">
+                                    ⚠ Shelter reports {ageDiscrepancy.shelterAge} yrs vs. CV estimate of {ageDiscrepancy.cvRange} yrs — {ageDiscrepancy.message}
+                                </p>
+                            )}
                         </div>
-                        <div className="age-discrepancy__content">
-                            <h3 className="age-discrepancy__title">Age Discrepancy Detected</h3>
-                            <p className="age-discrepancy__message">{ageDiscrepancy.message}</p>
-                            <div className="age-discrepancy__comparison">
-                                <span className="age-discrepancy__tag age-discrepancy__tag--shelter">Shelter: {ageDiscrepancy.shelterAge} yrs</span>
-                                <span className="age-discrepancy__vs">vs</span>
-                                <span className="age-discrepancy__tag age-discrepancy__tag--cv">CV: {ageDiscrepancy.cvRange} yrs</span>
-                            </div>
+                    )}
+
+                    {intakeReasonDisplay && (
+                        <div className="animal-detail__report-section">
+                            <h3>Why They&apos;re Here</h3>
+                            <p>{intakeReasonDisplay}</p>
                         </div>
-                    </div>
-                )}
+                    )}
 
-                {animal.ageEstimatedLow !== null && animal.ageEstimatedHigh !== null && (
-                    <div className="animal-detail__notes animal-detail__notes--section">
-                        <h2>Photo Age Analysis</h2>
-                        <p>
-                            Computer vision estimates this animal at {animal.ageEstimatedLow}–{animal.ageEstimatedHigh} years
-                            ({animal.ageConfidence === 'HIGH' ? 'high' : animal.ageConfidence === 'MEDIUM' ? 'moderate' : 'low'} confidence).
-                        </p>
-                        {animal.ageIndicators?.length > 0 && (
-                            <p className="animal-detail__notes-secondary">
-                                Assessed based on: {animal.ageIndicators?.join(', ')}.
-                            </p>
-                        )}
-                        {animal.detectedBreeds?.length > 0 && (
-                            <p className="animal-detail__notes-secondary">
-                                Detected breed: {animal.detectedBreeds?.join(' / ')}
-                                {animal.breedConfidence !== 'NONE' && ` (${animal.breedConfidence.toLowerCase()} confidence)`}.
-                            </p>
-                        )}
-                    </div>
-                )}
+                    {animal.notes && (
+                        <div className="animal-detail__report-section">
+                            <h3>Notes</h3>
+                            <p>{animal.notes}</p>
+                        </div>
+                    )}
+                </div>
 
-                {intakeReasonDisplay && (
-                    <div className="animal-detail__notes animal-detail__notes--section">
-                        <h2>Why They&apos;re Here</h2>
-                        <p>{intakeReasonDisplay}</p>
+                {/* --- Shelter Card --- */}
+                <div className="animal-detail__shelter-card">
+                    <div className="animal-detail__shelter-header">
+                        <h2 className="animal-detail__shelter-name">{animal.shelter.name}</h2>
                     </div>
-                )}
-
-                <Link href={`/shelter/${animal.shelter.id}`} className="animal-detail__shelter-card">
-                    <div className="animal-detail__shelter-info">
-                        <h3>{animal.shelter.name}</h3>
+                    <div className="animal-detail__shelter-contact">
                         <p>
                             {animal.shelter.county} County, {animal.shelter.state}
-                            {animal.shelter.phone && ` · ${animal.shelter.phone}`}
+                            {animal.shelter.address && ` · ${animal.shelter.address}`}
                         </p>
-                        {shelterStatsLine && (
-                            <p className="animal-detail__shelter-stats">
-                                {shelterStatsLine}
+                        {animal.shelter.phone && (
+                            <p className="animal-detail__shelter-phone-line">
+                                📞 {animal.shelter.phone}
                             </p>
                         )}
                     </div>
-                    <span className="animal-detail__shelter-link-arrow">View Shelter →</span>
-                </Link>
-
-                {animal.sources.length > 0 && (
-                    <div className="animal-detail__notes animal-detail__notes--section">
-                        <h2>Sources</h2>
-                        {animal.sources.map((source: Source) => (
-                            <p key={source.id} style={{ marginBottom: '0.5rem' }}>
-                                <a href={source.sourceUrl} target="_blank" rel="noopener noreferrer">
-                                    {source.sourceType.replace('_', ' ').toLowerCase()}
+                    {shelterStatsLine && (
+                        <div className="animal-detail__shelter-stats">
+                            <p>{shelterStatsLine}</p>
+                        </div>
+                    )}
+                    <div className="animal-detail__shelter-cta">
+                        {(() => {
+                            const adoptUrl = animal.shelter.websiteUrl
+                                || (animal.sources.length > 0 ? animal.sources[0].sourceUrl : null);
+                            return adoptUrl ? (
+                                <a
+                                    href={adoptUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="animal-detail__adopt-btn"
+                                >
+                                    View on Shelter Site →
                                 </a>
-                                {' · '}
-                                <span className="animal-detail__source-scraped">
-                                    scraped {new Date(source.scrapedAt).toLocaleDateString()}
-                                </span>
-                            </p>
-                        ))}
+                            ) : animal.shelter.phone ? (
+                                <p className="animal-detail__shelter-fallback">Contact shelter by phone to inquire about adoption</p>
+                            ) : null;
+                        })()}
                     </div>
-                )}
+                </div>
+
+                <p className="animal-detail__updated">
+                    Last updated {new Date(animal.updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                </p>
             </div>
         </div>
     );

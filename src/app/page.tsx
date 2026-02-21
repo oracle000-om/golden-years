@@ -30,6 +30,7 @@ interface SearchParams {
   state?: string;
   sex?: string;
   q?: string;
+  zip?: string;
 }
 
 export default async function Home({
@@ -88,9 +89,9 @@ export default async function Home({
 
         <FilterBar
           currentSpecies={params.species || 'all'}
-          currentTime={params.time || 'all'}
           currentState={params.state || 'all'}
           currentSex={params.sex || 'all'}
+          currentZip={params.zip || ''}
           states={states}
         />
 

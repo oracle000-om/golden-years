@@ -54,7 +54,7 @@
 .animal-detail__info {
   display: flex;
   flex-direction: column;
-  gap: var(--space-lg);
+  gap: var(--space-md);
 }
 
 .animal-detail__name {
@@ -63,6 +63,7 @@
   font-weight: 400;
   letter-spacing: -0.03em;
   color: var(--color-text);
+  margin-bottom: 0;
 }
 
 .animal-detail__name.unnamed {
@@ -70,25 +71,44 @@
   font-style: italic;
 }
 
-.animal-detail__breed {
+.animal-detail__gender-species {
   font-size: var(--font-size-lg);
   color: var(--color-text-muted);
-  margin-top: calc(-1 * var(--space-sm));
+  margin-top: calc(-1 * var(--space-xs));
 }
 
-.animal-detail__meta {
+.animal-detail__shelter-link {
+  display: inline-block;
+  font-size: var(--font-size-base);
+  color: var(--color-text-muted);
+  transition: color var(--transition-fast);
+  text-decoration: none;
+}
+
+.animal-detail__shelter-link:hover {
+  color: var(--color-gold);
+}
+
+.animal-detail__shelter-phone {
+  color: var(--color-text-dim);
+  font-size: var(--font-size-sm);
+}
+
+/* --- Detail Grid (mirrors card detail rows) --- */
+.animal-detail__detail-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: var(--space-md);
+  gap: var(--space-sm) var(--space-xl);
+  margin-top: var(--space-sm);
 }
 
-.animal-detail__meta-item {
+.animal-detail__detail-row {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
 }
 
-.animal-detail__meta-label {
+.animal-detail__detail-label {
   font-size: var(--font-size-xs);
   color: var(--color-text-dim);
   text-transform: uppercase;
@@ -96,20 +116,64 @@
   font-weight: 500;
 }
 
-.animal-detail__meta-value {
-  font-size: var(--font-size-base);
-  font-weight: 500;
+.animal-detail__detail-label--gy {
+  color: var(--color-gold);
 }
 
-.animal-detail__death-marker {
-  padding: var(--space-md);
+.animal-detail__detail-value {
+  font-size: var(--font-size-base);
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.animal-detail__detail-value.cv-estimated {
+  color: var(--color-gold);
+}
+
+/* --- ERS Urgency Badge --- */
+.animal-detail__ers-badge-row {
+  margin-top: var(--space-xs);
+}
+
+.animal-detail__ers-badge {
+  display: inline-block;
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0.3rem 0.75rem;
+  border-radius: 999px;
+}
+
+.animal-detail__ers-badge.critical {
+  background: rgba(217, 54, 54, 0.15);
+  color: #e84848;
+  border: 1px solid rgba(217, 54, 54, 0.3);
+}
+
+.animal-detail__ers-badge.urgent {
+  background: rgba(255, 140, 50, 0.12);
+  color: #ff9440;
+  border: 1px solid rgba(255, 140, 50, 0.3);
+}
+
+.animal-detail__ers-badge.warning {
+  background: rgba(255, 192, 75, 0.10);
+  color: var(--color-gold);
+  border: 1px solid rgba(255, 192, 75, 0.25);
+}
+
+/* --- Time of Death Card --- */
+.animal-detail__tod-card {
+  padding: var(--space-md) var(--space-lg);
   background: var(--color-bg-raised);
   border-radius: var(--radius-md);
   border: var(--border-subtle);
   box-shadow: var(--shadow-card);
+  margin-top: var(--space-xs);
 }
 
-.animal-detail__death-marker-label {
+.animal-detail__tod-label {
   font-size: var(--font-size-xs);
   color: var(--color-text-dim);
   text-transform: uppercase;
@@ -118,262 +182,206 @@
   margin-bottom: var(--space-xs);
 }
 
-.animal-detail__death-marker-time {
-  font-size: var(--font-size-2xl);
+.animal-detail__tod-value {
+  font-size: var(--font-size-xl);
   font-weight: 700;
+  color: var(--color-text);
 }
 
-.animal-detail__notes {
+.animal-detail__tod-value.critical {
+  color: #e84848;
+}
+
+.animal-detail__tod-value.urgent {
+  color: #ff9440;
+}
+
+.animal-detail__tod-value.warning {
+  color: var(--color-gold);
+}
+
+.animal-detail__tod-value--tbd {
+  color: var(--color-text-dim);
+  font-style: italic;
+}
+
+/* --- Copy Link Button --- */
+.copy-link-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  background: transparent;
+  border: 1px solid rgba(255, 240, 224, 0.1);
+  border-radius: var(--radius-sm);
+  padding: var(--space-xs) var(--space-md);
+  font-size: var(--font-size-sm);
+  font-family: var(--font-sans);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.copy-link-btn:hover {
+  color: var(--color-gold);
+  border-color: rgba(255, 192, 75, 0.3);
+}
+
+/* --- Consolidated Report Card --- */
+.animal-detail__report {
   margin-top: var(--space-xl);
-  padding: var(--space-lg);
+  padding: var(--space-xl);
   background: var(--color-bg-raised);
   border-radius: var(--radius-md);
   border: var(--border-subtle);
   box-shadow: var(--shadow-card);
 }
 
-.animal-detail__notes h2 {
-  font-family: var(--font-sans);
-  font-size: var(--font-size-base);
-  font-weight: 400;
-  margin-bottom: var(--space-sm);
-  color: var(--color-text);
-}
-
-.animal-detail__notes p {
-  color: var(--color-text-muted);
-  line-height: 1.7;
-}
-
-/* --- Time Left (breed life expectancy vs. euthanasia) --- */
-.animal-detail__time-left {
-  margin-top: var(--space-xl);
-  padding: var(--space-lg);
-  background: linear-gradient(135deg, rgba(212, 165, 116, 0.06), rgba(139, 105, 20, 0.03));
-  border-radius: var(--radius-md);
-  border: 1px solid rgba(212, 165, 116, 0.25);
-  box-shadow: var(--shadow-card), 0 0 20px rgba(212, 165, 116, 0.05);
-}
-
-.animal-detail__time-left h2 {
+.animal-detail__report-title {
   font-family: var(--font-sans);
   font-size: var(--font-size-xs);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: var(--color-gold);
-  margin-bottom: var(--space-md);
+  color: var(--color-text-dim);
+  margin-bottom: var(--space-lg);
+  padding-bottom: var(--space-sm);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-.animal-detail__time-left-estimate {
-  font-size: var(--font-size-xl);
+.animal-detail__report-section {
+  margin-bottom: var(--space-lg);
+}
+
+.animal-detail__report-section:last-child {
+  margin-bottom: 0;
+}
+
+.animal-detail__report-section h3 {
+  font-family: var(--font-sans);
+  font-size: var(--font-size-base);
+  font-weight: 500;
   color: var(--color-text);
-  line-height: 1.5;
-  margin-bottom: var(--space-sm);
+  margin-bottom: var(--space-xs);
 }
 
-.animal-detail__time-left-estimate strong {
+.animal-detail__report-section p {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  line-height: 1.7;
+}
+
+.animal-detail__report-section p strong {
   color: var(--color-gold);
   font-weight: 600;
 }
 
-.animal-detail__time-left-contrast {
-  font-size: var(--font-size-lg);
+.animal-detail__report-section--warning h3 {
   color: var(--color-critical, #d93636);
-  line-height: 1.5;
-  margin-bottom: var(--space-md);
 }
 
-.animal-detail__time-left-contrast strong {
+.animal-detail__report-contrast {
+  color: var(--color-critical, #d93636) !important;
+  margin-top: var(--space-xs);
+}
+
+.animal-detail__report-contrast strong {
+  color: var(--color-critical, #d93636) !important;
   font-weight: 700;
 }
 
-.animal-detail__time-left-details {
-  padding-top: var(--space-md);
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-  display: flex;
-  gap: var(--space-xl);
-  flex-wrap: wrap;
+.animal-detail__report-detail {
+  margin-top: var(--space-xs);
+  color: var(--color-text-dim) !important;
+  font-size: var(--font-size-xs) !important;
 }
 
-.animal-detail__time-left-details p {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-muted);
-  line-height: 1.5;
-}
-
+/* --- Shelter Card --- */
 .animal-detail__shelter-card {
-  margin-top: var(--space-xl);
-  padding: var(--space-lg);
+  margin-top: var(--space-lg);
+  padding: var(--space-xl);
   background: var(--color-bg-raised);
   border-radius: var(--radius-md);
   border: var(--border-subtle);
   box-shadow: var(--shadow-card);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  transition: border-color var(--transition-fast);
 }
 
-.animal-detail__shelter-card:hover {
-  border-color: rgba(255, 192, 75, 0.4);
+.animal-detail__shelter-header {
+  margin-bottom: var(--space-md);
 }
 
-.animal-detail__shelter-info h3 {
+.animal-detail__shelter-name {
   font-family: var(--font-sans);
-  font-size: var(--font-size-lg);
+  font-size: var(--font-size-xl);
   font-weight: 400;
-  margin-bottom: var(--space-xs);
   color: var(--color-text);
 }
 
-.animal-detail__shelter-info p {
+.animal-detail__shelter-contact {
+  margin-bottom: var(--space-md);
+}
+
+.animal-detail__shelter-contact p {
   color: var(--color-text-muted);
   font-size: var(--font-size-sm);
+  line-height: 1.6;
+}
+
+.animal-detail__shelter-phone-line {
+  margin-top: var(--space-xs);
+  font-weight: 500;
 }
 
 .animal-detail__shelter-stats {
-  margin-top: var(--space-xs);
-  font-size: 0.8125rem;
-  color: var(--color-text-dim);
+  margin-bottom: var(--space-md);
+  padding: var(--space-sm) 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-.animal-detail__shelter-link-arrow {
-  color: var(--color-gold);
-  font-size: var(--font-size-sm);
-}
-
-.animal-detail__hours-remaining {
-  margin-top: var(--space-xs);
-  font-size: var(--font-size-sm);
-  color: var(--color-text-muted);
-}
-
-.animal-detail__notes--warning {
-  margin-top: var(--space-md);
-  border-color: var(--color-critical);
-}
-
-.animal-detail__notes--warning h2 {
-  color: var(--color-critical);
-}
-
-.animal-detail__notes--section {
-  margin-top: var(--space-md);
-}
-
-.animal-detail__notes-secondary {
-  margin-top: var(--space-sm);
-  color: var(--color-text-muted);
-}
-
-.animal-detail__source-scraped {
-  color: var(--color-text-dim);
+.animal-detail__shelter-stats p {
   font-size: var(--font-size-xs);
+  color: var(--color-text-dim);
 }
 
-/* --- Age Discrepancy Callout (Detail Page) --- */
-.age-discrepancy {
-  display: flex;
-  gap: var(--space-md);
-  padding: var(--space-lg);
-  border-radius: var(--radius-lg);
-  margin-top: var(--space-lg);
-  border: 1px solid;
-  animation: discrepancy-enter 0.3s ease-out;
+.animal-detail__shelter-cta {
+  margin-top: var(--space-sm);
 }
 
-@keyframes discrepancy-enter {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.age-discrepancy--major {
-  background: rgba(255, 170, 50, 0.08);
-  border-color: rgba(255, 170, 50, 0.3);
-}
-
-.age-discrepancy--minor {
-  background: rgba(100, 160, 255, 0.06);
-  border-color: rgba(100, 160, 255, 0.2);
-}
-
-.age-discrepancy__icon {
-  font-size: 1.5rem;
-  flex-shrink: 0;
-  line-height: 1;
-  margin-top: 2px;
-}
-
-.age-discrepancy__content {
-  flex: 1;
-  min-width: 0;
-}
-
-.age-discrepancy__title {
-  font-family: var(--font-sans);
-  font-size: var(--font-size-base);
-  font-weight: 600;
-  margin-bottom: var(--space-xs);
-}
-
-.age-discrepancy--major .age-discrepancy__title {
-  color: #FFAA32;
-}
-
-.age-discrepancy--minor .age-discrepancy__title {
-  color: #78AAFF;
-}
-
-.age-discrepancy__message {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-muted);
-  line-height: 1.6;
-  margin-bottom: var(--space-sm);
-}
-
-.age-discrepancy__comparison {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  flex-wrap: wrap;
-}
-
-.age-discrepancy__tag {
+.animal-detail__adopt-btn {
   display: inline-flex;
   align-items: center;
-  padding: 0.25rem 0.625rem;
-  border-radius: 999px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-}
-
-.age-discrepancy__tag--shelter {
-  background: rgba(255, 192, 75, 0.12);
-  color: var(--color-gold);
+  gap: var(--space-xs);
+  padding: var(--space-sm) var(--space-lg);
+  background: var(--color-gold-glow, rgba(255, 192, 75, 0.08));
   border: 1px solid rgba(255, 192, 75, 0.25);
+  border-radius: var(--radius-sm);
+  color: var(--color-gold);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  font-family: var(--font-sans);
+  text-decoration: none;
+  transition: all var(--transition-fast);
+  cursor: pointer;
 }
 
-.age-discrepancy__tag--cv {
-  background: rgba(100, 200, 130, 0.1);
-  color: #7CCEA0;
-  border: 1px solid rgba(100, 200, 130, 0.2);
+.animal-detail__adopt-btn:hover {
+  background: rgba(255, 192, 75, 0.15);
+  border-color: var(--color-gold);
+  transform: translateY(-1px);
 }
 
-.age-discrepancy__vs {
-  font-size: 0.6875rem;
-  font-weight: 500;
+.animal-detail__shelter-fallback {
+  font-size: var(--font-size-sm);
   color: var(--color-text-dim);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  font-style: italic;
+}
+
+/* --- Last Updated --- */
+.animal-detail__updated {
+  margin-top: var(--space-xl);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-dim);
+  text-align: center;
 }
 
 /* --- Age Discrepancy Badge (Listing Cards) --- */
@@ -392,4 +400,3 @@
 .animal-card__discrepancy--minor {
   color: #78AAFF;
 }
-

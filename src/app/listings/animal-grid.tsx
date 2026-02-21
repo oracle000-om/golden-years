@@ -3,10 +3,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { formatScheduledDate, formatIntakeDate, hoursUntil, getUrgencyLevel, formatLifeCutShort } from '@/lib/utils';
+import { formatScheduledDate, formatIntakeDate, hoursUntil, getUrgencyLevel, formatLifeCutShort, getGoldenYearsConfidence, getSaveRate } from '@/lib/utils';
 import type { AnimalWithShelter } from '@/lib/types';
 
-const PAGE_SIZE = 12;
+const PAGE_SIZE = 24;
 
 type ShowMode = 'paged' | 'all';
 
@@ -86,6 +86,13 @@ export function AnimalGrid({ animals }: { animals: AnimalWithShelter[] }) {
                 {visible.map((animal) => {
                     const hours = hoursUntil(animal.euthScheduledAt);
                     const urgency = getUrgencyLevel(hours);
+
+                    // Shelter public data
+                    const saveRate = getSaveRate(
+                        animal.shelter?.totalIntakeAnnual ?? 0,
+                        animal.shelter?.totalEuthanizedAnnual ?? 0,
+                    );
+
                     const lifeCutShort = formatLifeCutShort(
                         animal.ageKnownYears,
                         animal.ageEstimatedLow,
@@ -101,8 +108,18 @@ export function AnimalGrid({ animals }: { animals: AnimalWithShelter[] }) {
                         : '—';
 
                     const gyAge = (animal.ageEstimatedLow !== null && animal.ageEstimatedHigh !== null)
-                        ? `~${animal.ageEstimatedLow}–${animal.ageEstimatedHigh} yrs`
+                        ? `${animal.ageEstimatedLow}–${animal.ageEstimatedHigh} yrs`
                         : 'Pending';
+
+                    const confidence = getGoldenYearsConfidence(
+                        animal.ageSource,
+                        animal.ageConfidence,
+                        animal.ageKnownYears,
+                        animal.ageEstimatedLow,
+                        animal.ageEstimatedHigh,
+                        animal.lifeExpectancyLow,
+                        animal.lifeExpectancyHigh,
+                    );
 
                     const breedLifespan = (animal.lifeExpectancyLow && animal.lifeExpectancyHigh)
                         ? `${animal.lifeExpectancyLow}–${animal.lifeExpectancyHigh} yrs`
@@ -122,6 +139,7 @@ export function AnimalGrid({ animals }: { animals: AnimalWithShelter[] }) {
                                 ) : (
                                     <Image src="/no-photo.svg" alt="Photo not available" fill sizes="(max-width: 768px) 100vw, 33vw" style={{ objectFit: 'cover' }} />
                                 )}
+                                {/* Only show urgency badge when real euthanasia schedule exists */}
                                 {urgency !== 'standard' && (
                                     <span className={`animal-card__urgency-badge ${urgency}`}>
                                         {urgency === 'critical' ? '< 24h' : urgency === 'urgent' ? '< 48h' : '< 72h'}
@@ -136,6 +154,10 @@ export function AnimalGrid({ animals }: { animals: AnimalWithShelter[] }) {
                                 <p className="animal-card__sex">
                                     {animal.sex ? animal.sex.charAt(0) + animal.sex.slice(1).toLowerCase() : ''}
                                 </p>
+                                <p className="animal-card__shelter">
+                                    {animal.shelter.name}
+                                    {animal.shelter.phone && <span className="animal-card__shelter-phone"> · {animal.shelter.phone}</span>}
+                                </p>
 
                                 <div className="animal-card__details">
                                     <div className="animal-card__detail">
@@ -144,7 +166,13 @@ export function AnimalGrid({ animals }: { animals: AnimalWithShelter[] }) {
                                     </div>
                                     <div className="animal-card__detail">
                                         <span className="animal-card__detail-label animal-card__detail-label--gy">Golden Years estimate</span>
-                                        <span className={`animal-card__detail-value ${gyAge !== 'Pending' ? 'cv-estimated' : ''}`}>{gyAge}</span>
+                                        <span className="gy-tooltip">
+                                            <span className={`animal-card__detail-value ${gyAge !== 'Pending' ? 'cv-estimated' : ''}`}>{gyAge}</span>
+                                            <span className="gy-tooltip__popup">
+                                                <span className="gy-tooltip__label">Confidence</span>
+                                                <span className="gy-tooltip__pct">{confidence.label} · {confidence.percent}%</span>
+                                            </span>
+                                        </span>
                                     </div>
                                     <div className="animal-card__detail">
                                         <span className="animal-card__detail-label">Breed lifespan</span>
@@ -163,10 +191,34 @@ export function AnimalGrid({ animals }: { animals: AnimalWithShelter[] }) {
                                             </span>
                                         </>
                                     )}
-                                    <span className="animal-card__death-marker-label">Scheduled</span>
-                                    <span className="animal-card__death-marker-time">
-                                        {formatScheduledDate(animal.euthScheduledAt)}
-                                    </span>
+                                    {animal.euthScheduledAt ? (
+                                        <>
+                                            <span className="animal-card__death-marker-label">Scheduled</span>
+                                            <span className={`animal-card__death-marker-time ${urgency}`}>
+                                                {formatScheduledDate(animal.euthScheduledAt)}
+                                            </span>
+                                        </>
+                                    ) : saveRate !== null ? (
+                                        <div className="animal-card__shelter-stats">
+                                            <div className="animal-card__shelter-stats-header">
+                                                <span className="animal-card__shelter-stats-label">Live release rate</span>
+                                                <span className={`animal-card__shelter-stats-pct ${saveRate >= 90 ? 'high' : saveRate >= 50 ? 'mid' : 'low'}`}>
+                                                    {saveRate}%
+                                                </span>
+                                            </div>
+                                            <div className="animal-card__shelter-stats-bar">
+                                                <div
+                                                    className={`animal-card__shelter-stats-fill ${saveRate >= 90 ? 'high' : saveRate >= 50 ? 'mid' : 'low'}`}
+                                                    style={{ width: `${Math.min(saveRate, 100)}%` }}
+                                                />
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <span className="animal-card__death-marker-label">Status</span>
+                                            <span className="animal-card__death-marker-time standard">In Shelter</span>
+                                        </>
+                                    )}
                                     {lifeCutShort && (
                                         <div className="animal-card__life-cut-short">
                                             Potential years of life lost: {lifeCutShort}

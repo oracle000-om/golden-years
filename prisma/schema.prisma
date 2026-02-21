@@ -13,6 +13,7 @@ model Shelter {
   county             String
   state              String
   address            String?
+  zipCode            String?  @map("zip_code")
   phone              String?
   websiteUrl         String?  @map("website_url")
   facebookUrl        String?  @map("facebook_url")

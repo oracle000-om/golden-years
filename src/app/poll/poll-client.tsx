@@ -47,7 +47,7 @@ export function PollPageClient({ polls }: { polls: Poll[] }) {
         <div className="poll-container">
             <div className="poll-header">
                 <div className="poll-header__center">
-                    <span className="poll-header__badge">🗳️ Public Square</span>
+                    <span className="page-badge">🗳️ Public Square</span>
                     <h1 className="poll-header__title">What Does the Club Think?</h1>
                     <p className="poll-header__subtitle">
                         Read the facts. Pick a side. See where the club lands.

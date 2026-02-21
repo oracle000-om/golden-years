@@ -38,6 +38,10 @@ export function getUrgencyLevel(hours: number | null): 'critical' | 'urgent' | '
     return 'standard';
 }
 
+// ─── Euthanasia Risk Score (ERS) ─────────────────────────
+// Computed urgency from available data signals when no
+// explicit euthanasia schedule is provided by the shelter.
+
 /**
  * Calculate save rate (live release rate) from intake/euthanized numbers.
  * Returns a percentage 0-100, or null if no data.
@@ -77,14 +81,118 @@ export function formatAge(
     }
     if (source === 'CV_ESTIMATED' && estimatedLow !== null && estimatedHigh !== null) {
         if (confidence === 'HIGH') {
-            return `~${estimatedLow}–${estimatedHigh} yrs`;
+            return `${estimatedLow}–${estimatedHigh} yrs`;
         }
         if (confidence === 'MEDIUM') {
-            return `Likely senior · ~${estimatedLow}–${estimatedHigh} yrs`;
+            return `Likely senior · ${estimatedLow}–${estimatedHigh} yrs`;
         }
         return `Possibly senior · age uncertain`;
     }
     return 'Age unknown';
+}
+
+/**
+ * Compute a realistic Golden Years confidence score (0–100) and reasoning.
+ *
+ * Factors:
+ *   1. Base confidence from age source:
+ *      - SHELTER_REPORTED: 50% (shelter intake estimates vary widely)
+ *      - CV_ESTIMATED HIGH: 85%, MEDIUM: 65%, LOW: 40%
+ *      - UNKNOWN: 30%
+ *   2. Corroboration bonus: +15% if shelter and CV estimates agree (within 2 yrs)
+ *   3. Breed data bonus: +5% if life expectancy data is available
+ *   4. Narrower CV range bonus: +5% if range span ≤ 3 years
+ */
+export function getGoldenYearsConfidence(
+    ageSource: string,
+    ageConfidence: string,
+    ageKnownYears: number | null,
+    cvLow: number | null,
+    cvHigh: number | null,
+    lifeExpLow: number | null,
+    lifeExpHigh: number | null,
+): { percent: number; label: string; reasons: string[] } {
+    let score = 0;
+    const reasons: string[] = [];
+
+    // 1. Base confidence from source
+    if (ageSource === 'CV_ESTIMATED') {
+        if (ageConfidence === 'HIGH') {
+            score = 85;
+            reasons.push('CV analysis: high confidence — clear aging indicators');
+        } else if (ageConfidence === 'MEDIUM') {
+            score = 65;
+            reasons.push('CV analysis: moderate confidence — some aging indicators');
+        } else if (ageConfidence === 'LOW') {
+            score = 40;
+            reasons.push('CV analysis: low confidence — limited visual cues');
+        } else {
+            score = 25;
+            reasons.push('CV analysis: inconclusive photo');
+        }
+    } else if (ageSource === 'SHELTER_REPORTED') {
+        score = 50;
+        reasons.push('Shelter-reported age (intake estimate)');
+    } else {
+        score = 30;
+        reasons.push('Age from listing data');
+    }
+
+    // 2. Corroboration bonus — if both shelter and CV data exist and are close
+    if (ageKnownYears !== null && cvLow !== null && cvHigh !== null) {
+        const cvMid = (cvLow + cvHigh) / 2;
+        const gap = Math.abs(ageKnownYears - cvMid);
+        if (gap <= 2) {
+            score = Math.min(100, score + 15);
+            reasons.push('Corroborated: shelter & CV estimates agree');
+        } else if (gap <= 4) {
+            score = Math.min(100, score + 5);
+            reasons.push('Partially corroborated: estimates within 4 years');
+        }
+    }
+
+    // 3. Breed data bonus
+    if (lifeExpLow !== null && lifeExpHigh !== null) {
+        score = Math.min(100, score + 5);
+        reasons.push('Breed lifespan data available');
+    }
+
+    // 4. Narrow range bonus (CV only)
+    if (cvLow !== null && cvHigh !== null) {
+        const span = cvHigh - cvLow;
+        if (span <= 3) {
+            score = Math.min(100, score + 5);
+            reasons.push('Narrow age range (±' + span + ' yrs)');
+        }
+    }
+
+    // Label
+    let label: string;
+    if (score >= 80) label = 'High';
+    else if (score >= 55) label = 'Moderate';
+    else if (score >= 35) label = 'Fair';
+    else label = 'Low';
+
+    return { percent: score, label, reasons };
+}
+
+/**
+ * Determine if an animal qualifies as a senior.
+ * Dogs: 7+ years. Cats: 10+ years.
+ * Uses best available age (shelter-reported first, then CV midpoint).
+ * Returns null if age cannot be determined.
+ */
+export function isSeniorAnimal(
+    species: string,
+    ageKnownYears: number | null,
+    cvLow: number | null,
+    cvHigh: number | null,
+    ageSource: string,
+): boolean | null {
+    const threshold = species === 'CAT' ? 10 : 7;
+    const best = getBestAge(ageKnownYears, cvLow, cvHigh, ageSource);
+    if (!best) return null;
+    return best.age >= threshold;
 }
 
 /**

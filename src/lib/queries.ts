@@ -13,11 +13,32 @@ export interface AnimalFilters {
     state?: string;
     time?: string;
     q?: string;
+    zip?: string;
 }
 
 // ─── Animal Queries ──────────────────────────────────────
 
-/** Fetch filtered animal listings with shelter info, ordered by urgency. */
+/**
+ * Determine if an animal is "deprioritized" — our CV age estimate
+ * says the animal is likely NOT a senior.
+ * Dogs: senior = 7+, Cats: senior = 10+
+ *
+ * If CV ran and ageEstimatedHigh < threshold, deprioritize regardless
+ * of what the shelter/API reported. CV is the source of truth since
+ * photos don't lie about age indicators.
+ *
+ * Animals without CV data (ageEstimatedHigh === null) are unaffected.
+ */
+function isDeprioritized(animal: AnimalWithShelter): boolean {
+    const threshold = animal.species === 'CAT' ? 10 : 7;
+    if (animal.ageEstimatedHigh !== null && animal.ageEstimatedHigh < threshold) {
+        return true;
+    }
+    return false;
+}
+
+/** Fetch filtered animal listings with shelter info, ordered by urgency.
+ *  Animals where shelter says senior but GY disagrees are deprioritized to the bottom. */
 export async function getFilteredAnimals(filters: AnimalFilters): Promise<AnimalWithShelter[]> {
     const where: Record<string, unknown> = {
         status: { in: ['LISTED', 'URGENT'] },
@@ -32,9 +53,26 @@ export async function getFilteredAnimals(filters: AnimalFilters): Promise<Animal
     }
 
     if (filters.state && filters.state !== 'all') {
-        where.shelter = { state: filters.state };
+        where.shelter = {
+            ...(where.shelter as Record<string, unknown> || {}),
+            state: { equals: filters.state, mode: 'insensitive' },
+        };
     }
 
+    if (filters.zip && filters.zip.trim()) {
+        const zip = filters.zip.trim();
+        where.shelter = {
+            ...(where.shelter as Record<string, unknown> || {}),
+            OR: [
+                { zipCode: zip },
+                { address: { contains: zip } },
+            ],
+        };
+    }
+
+    // Timeframe filter: only apply when euthScheduledAt data exists.
+    // Currently most animals lack explicit euthanasia dates, so this
+    // filter is only active when real scheduling data is available.
     if (filters.time && filters.time !== 'all') {
         const hoursMap: Record<string, number> = {
             '24': 24, '48': 48, '72': 72, '168': 168,
@@ -60,10 +98,21 @@ export async function getFilteredAnimals(filters: AnimalFilters): Promise<Animal
         ];
     }
 
-    return prisma.animal.findMany({
+    const animals = await prisma.animal.findMany({
         where,
         include: { shelter: true },
-        orderBy: { euthScheduledAt: 'asc' },
+        orderBy: [
+            { euthScheduledAt: { sort: 'asc', nulls: 'last' } },
+            { createdAt: 'desc' },
+        ],
+    }) as AnimalWithShelter[];
+
+    // Stable sort: deprioritized animals go to the bottom,
+    // but retain their relative urgency order within each group.
+    return animals.sort((a, b) => {
+        const aDepri = isDeprioritized(a) ? 1 : 0;
+        const bDepri = isDeprioritized(b) ? 1 : 0;
+        return aDepri - bDepri;
     });
 }
 
@@ -95,7 +144,7 @@ export async function getShelterById(id: string): Promise<ShelterWithAnimals | n
         include: {
             animals: {
                 where: { status: { in: ['LISTED', 'URGENT'] } },
-                orderBy: { euthScheduledAt: 'asc' },
+                orderBy: { euthScheduledAt: { sort: 'asc', nulls: 'last' } },
             },
         },
     });
@@ -113,14 +162,15 @@ export async function getShelterForMetadata(id: string) {
     });
 }
 
-/** Fetch all distinct states that have shelters. */
+/** Fetch all distinct states that have shelters (normalized to uppercase, deduplicated). */
 export async function getDistinctStates(): Promise<string[]> {
     const shelters = await prisma.shelter.findMany({
         select: { state: true },
-        distinct: ['state'],
-        orderBy: { state: 'asc' },
     });
-    return shelters.map((s) => s.state);
+    const unique = [...new Set(shelters.map((s) => s.state.toUpperCase()))]
+        .filter((s) => /^[A-Z]{2}$/.test(s))
+        .sort();
+    return unique;
 }
 
 // ─── Poll Queries ────────────────────────────────────────

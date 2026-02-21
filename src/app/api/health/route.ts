@@ -17,10 +17,12 @@ export async function GET() {
         return NextResponse.json({ ...info, error: 'DATABASE_URL not set' }, { status: 500 });
     }
 
-    // Test 1: Raw pg connection
+    // Test 1: Raw pg connection + schema check
     let rawPgOk = false;
     let rawPgCount: string | null = null;
     let rawPgError: string | null = null;
+    let dbColumns: string[] | null = null;
+    let migrationStatus: string | null = null;
     try {
         const pool = new pg.Pool({
             connectionString: url,
@@ -30,6 +32,19 @@ export async function GET() {
         const result = await pool.query('SELECT COUNT(*) as count FROM animals');
         rawPgCount = result.rows[0].count;
         rawPgOk = true;
+
+        // Check actual column names
+        const colResult = await pool.query(`SELECT column_name FROM information_schema.columns WHERE table_name = 'animals' ORDER BY ordinal_position`);
+        dbColumns = colResult.rows.map((r: { column_name: string }) => r.column_name);
+
+        // Check migrations
+        try {
+            const migResult = await pool.query(`SELECT migration_name, finished_at FROM _prisma_migrations ORDER BY finished_at DESC LIMIT 5`);
+            migrationStatus = JSON.stringify(migResult.rows);
+        } catch {
+            migrationStatus = 'no _prisma_migrations table';
+        }
+
         await pool.end();
     } catch (e: unknown) {
         rawPgError = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
@@ -116,9 +131,10 @@ export async function GET() {
     const allOk = rawPgOk && prismaOk && bareOk && selectOk && whereOk && joinOk && statesOk;
     return NextResponse.json({
         ...info,
-        deployedAt: 'a031251-v2',
+        deployedAt: 'fd2d418-v3',
         status: allOk ? 'ok' : 'partial',
         rawPg: { ok: rawPgOk, animalCount: rawPgCount, error: rawPgError },
+        dbSchema: { animalColumns: dbColumns, migrations: migrationStatus },
         prismaCount: { ok: prismaOk, count: prismaCount, error: prismaError },
         bareFindMany: { ok: bareOk, detail: bareError },
         selectFindMany: { ok: selectOk, detail: selectError },

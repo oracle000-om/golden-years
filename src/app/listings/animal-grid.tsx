@@ -135,9 +135,9 @@ export function AnimalGrid({ animals }: { animals: AnimalWithShelter[] }) {
                         >
                             <div className="animal-card__image">
                                 {animal.photoUrl ? (
-                                    <Image src={animal.photoUrl} alt={animal.name || 'Unnamed animal'} fill sizes="(max-width: 768px) 100vw, 33vw" style={{ objectFit: 'cover' }} />
+                                    <Image src={animal.photoUrl} alt={animal.name || 'Unnamed animal'} fill sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 640px" style={{ objectFit: 'cover' }} />
                                 ) : (
-                                    <Image src="/no-photo.svg" alt="Photo not available" fill sizes="(max-width: 768px) 100vw, 33vw" style={{ objectFit: 'cover' }} />
+                                    <Image src="/no-photo.svg" alt="Photo not available" fill sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 640px" style={{ objectFit: 'cover' }} />
                                 )}
                                 {/* Only show urgency badge when real euthanasia schedule exists */}
                                 {urgency !== 'standard' && (

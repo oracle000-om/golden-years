@@ -46,52 +46,62 @@ export async function GET() {
         prismaError = e instanceof Error ? `${e.name}: ${e.message}\n${e.stack?.split('\n').slice(0, 5).join('\n')}` : String(e);
     }
 
-    // Test 3: findMany without include (just where)
-    let findManyOk = false;
-    let findManyCount: number | null = null;
-    let findManyError: string | null = null;
+    // Test 3: bare findMany (no where, no select)
+    let bareOk = false;
+    let bareError: string | null = null;
     try {
-        const animals = await prisma.animal.findMany({
-            where: { status: { in: ['LISTED', 'URGENT'] } },
-        });
-        findManyCount = animals.length;
-        findManyOk = true;
+        const animals = await prisma.animal.findMany({ take: 1 });
+        bareOk = true;
+        // Also report what columns came back
+        bareError = animals.length > 0 ? `cols: ${Object.keys(animals[0]).join(',')}` : 'empty table';
     } catch (e: unknown) {
-        findManyError = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+        bareError = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
     }
 
-    // Test 4: findMany WITH include: { shelter: true }
+    // Test 4: findMany with select (only safe scalar fields)
+    let selectOk = false;
+    let selectError: string | null = null;
+    try {
+        const animals = await prisma.animal.findMany({
+            select: { id: true, name: true, species: true, status: true },
+            take: 3,
+        });
+        selectOk = true;
+        selectError = JSON.stringify(animals.map(a => ({ id: a.id.slice(0, 8), name: a.name, species: a.species, status: a.status })));
+    } catch (e: unknown) {
+        selectError = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+    }
+
+    // Test 5: findMany with where enum filter
+    let whereOk = false;
+    let whereError: string | null = null;
+    try {
+        const animals = await prisma.animal.findMany({
+            where: { status: 'LISTED' },
+            select: { id: true, status: true },
+            take: 1,
+        });
+        whereOk = true;
+        whereError = `found ${animals.length}`;
+    } catch (e: unknown) {
+        whereError = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+    }
+
+    // Test 6: findMany with include shelter
     let joinOk = false;
-    let joinCount: number | null = null;
     let joinError: string | null = null;
     try {
         const animals = await prisma.animal.findMany({
-            where: { status: { in: ['LISTED', 'URGENT'] } },
             include: { shelter: true },
+            take: 1,
         });
-        joinCount = animals.length;
         joinOk = true;
+        joinError = `found ${animals.length}`;
     } catch (e: unknown) {
         joinError = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
     }
 
-    // Test 5: findMany with include + orderBy (the full page query)
-    let fullQueryOk = false;
-    let fullQueryCount: number | null = null;
-    let fullQueryError: string | null = null;
-    try {
-        const animals = await prisma.animal.findMany({
-            where: { status: { in: ['LISTED', 'URGENT'] } },
-            include: { shelter: true },
-            orderBy: [{ createdAt: 'desc' }],
-        });
-        fullQueryCount = animals.length;
-        fullQueryOk = true;
-    } catch (e: unknown) {
-        fullQueryError = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
-    }
-
-    // Test 6: getDistinctStates query
+    // Test 7: getDistinctStates query
     let statesOk = false;
     let statesResult: string[] | null = null;
     let statesError: string | null = null;
@@ -103,16 +113,17 @@ export async function GET() {
         statesError = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
     }
 
-    const allOk = rawPgOk && prismaOk && findManyOk && joinOk && fullQueryOk && statesOk;
+    const allOk = rawPgOk && prismaOk && bareOk && selectOk && whereOk && joinOk && statesOk;
     return NextResponse.json({
         ...info,
-        deployedAt: '43f062d', // version marker
+        deployedAt: 'a031251-v2',
         status: allOk ? 'ok' : 'partial',
         rawPg: { ok: rawPgOk, animalCount: rawPgCount, error: rawPgError },
-        prismaCount: { ok: prismaOk, animalCount: prismaCount, error: prismaError },
-        findMany: { ok: findManyOk, count: findManyCount, error: findManyError },
-        joinQuery: { ok: joinOk, count: joinCount, error: joinError },
-        fullQuery: { ok: fullQueryOk, count: fullQueryCount, error: fullQueryError },
+        prismaCount: { ok: prismaOk, count: prismaCount, error: prismaError },
+        bareFindMany: { ok: bareOk, detail: bareError },
+        selectFindMany: { ok: selectOk, detail: selectError },
+        whereFindMany: { ok: whereOk, detail: whereError },
+        joinFindMany: { ok: joinOk, detail: joinError },
         statesQuery: { ok: statesOk, states: statesResult, error: statesError },
     }, { status: allOk ? 200 : 500 });
 }

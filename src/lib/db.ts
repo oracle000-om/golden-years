@@ -36,12 +36,19 @@ function createPrismaClient(): PrismaClient {
       },
     });
   }
+  // Railway internal connections don't use SSL; external proxy connections do
+  const needsSsl = connectionString.includes('.rlwy.net') ||
+    (!connectionString.includes('.railway.internal') && process.env.NODE_ENV === 'production');
+
   const pool = new pg.Pool({
     connectionString,
-    ssl: process.env.NODE_ENV === 'production'
-      ? { rejectUnauthorized: false }
-      : false,
+    ssl: needsSsl ? { rejectUnauthorized: false } : undefined,
   });
+
+  pool.on('error', (err) => {
+    console.error('Unexpected PG pool error:', err.message);
+  });
+
   const adapter = new PrismaPg(pool);
   return new (PrismaClient as any)({ adapter });
 }

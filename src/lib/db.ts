@@ -36,7 +36,12 @@ function createPrismaClient(): PrismaClient {
       },
     });
   }
-  const pool = new pg.Pool({ connectionString });
+  const pool = new pg.Pool({
+    connectionString,
+    ssl: process.env.NODE_ENV === 'production'
+      ? { rejectUnauthorized: false }
+      : false,
+  });
   const adapter = new PrismaPg(pool);
   return new (PrismaClient as any)({ adapter });
 }

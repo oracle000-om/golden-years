@@ -35,7 +35,7 @@ export async function GET() {
         rawPgError = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
     }
 
-    // Test 2: Prisma client connection
+    // Test 2: Prisma client connection (simple count)
     let prismaOk = false;
     let prismaCount: number | null = null;
     let prismaError: string | null = null;
@@ -46,11 +46,44 @@ export async function GET() {
         prismaError = e instanceof Error ? `${e.name}: ${e.message}\n${e.stack?.split('\n').slice(0, 5).join('\n')}` : String(e);
     }
 
-    const allOk = rawPgOk && prismaOk;
+    // Test 3: The exact query used by the main listings page
+    let queryOk = false;
+    let queryCount: number | null = null;
+    let queryError: string | null = null;
+    try {
+        const animals = await prisma.animal.findMany({
+            where: { status: { in: ['LISTED', 'URGENT'] } },
+            include: { shelter: true },
+            orderBy: [
+                { euthScheduledAt: { sort: 'asc', nulls: 'last' } },
+                { createdAt: 'desc' },
+            ],
+        });
+        queryCount = animals.length;
+        queryOk = true;
+    } catch (e: unknown) {
+        queryError = e instanceof Error ? `${e.name}: ${e.message}\n${e.stack?.split('\n').slice(0, 5).join('\n')}` : String(e);
+    }
+
+    // Test 4: getDistinctStates query
+    let statesOk = false;
+    let statesResult: string[] | null = null;
+    let statesError: string | null = null;
+    try {
+        const shelters = await prisma.shelter.findMany({ select: { state: true } });
+        statesResult = [...new Set(shelters.map((s: { state: string }) => s.state.toUpperCase()))].sort();
+        statesOk = true;
+    } catch (e: unknown) {
+        statesError = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+    }
+
+    const allOk = rawPgOk && prismaOk && queryOk && statesOk;
     return NextResponse.json({
         ...info,
         status: allOk ? 'ok' : 'partial',
         rawPg: { ok: rawPgOk, animalCount: rawPgCount, error: rawPgError },
-        prisma: { ok: prismaOk, animalCount: prismaCount, error: prismaError },
+        prismaCount: { ok: prismaOk, animalCount: prismaCount, error: prismaError },
+        listingsQuery: { ok: queryOk, animalCount: queryCount, error: queryError },
+        statesQuery: { ok: statesOk, states: statesResult, error: statesError },
     }, { status: allOk ? 200 : 500 });
 }

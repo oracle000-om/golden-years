@@ -6,7 +6,7 @@ import { SearchBar } from './listings/search-bar';
 import { AnimalGrid } from './listings/animal-grid';
 import type { AnimalWithShelter } from '@/lib/types';
 
-export const revalidate = 60; // ISR: revalidate every 60 seconds
+export const dynamic = 'force-dynamic'; // Don't pre-render at build time — DB may not be reachable
 
 export const metadata: Metadata = {
   title: 'Golden Years Club',

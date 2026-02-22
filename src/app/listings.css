@@ -926,3 +926,95 @@
 .shelter-data-card__metric-value--flat {
   color: var(--color-text-muted);
 }
+
+/* --- Responsive — Listings --- */
+@media (max-width: 768px) {
+  .listings-page {
+    padding: var(--space-lg) 0;
+  }
+
+  .search-bar__input {
+    padding: var(--space-sm) var(--space-md);
+    padding-right: var(--space-xl);
+    font-size: var(--font-size-sm);
+  }
+
+  .gy-tooltip__popup {
+    position: fixed;
+    bottom: auto;
+    top: 50%;
+    left: 50%;
+    right: auto;
+    transform: translate(-50%, -50%);
+    min-width: 200px;
+    z-index: 100;
+  }
+
+  .shelter-data-card {
+    padding: var(--space-md);
+  }
+
+  .shelter-data-card__header {
+    flex-direction: column;
+    gap: var(--space-xs);
+  }
+
+  .shelter-data-card__metrics {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .listings-show-more__btn {
+    width: 100%;
+    max-width: 320px;
+  }
+
+  .skeleton-filters {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .skeleton--filter {
+    width: 100%;
+    max-width: 300px;
+  }
+}
+
+@media (max-width: 480px) {
+  .listings-page {
+    padding: var(--space-md) 0;
+  }
+
+  .search-bar {
+    margin-bottom: var(--space-md);
+  }
+
+  .shelter-data-card__stats {
+    gap: var(--space-sm);
+  }
+
+  .shelter-data-card__stat {
+    padding: var(--space-sm);
+  }
+
+  .shelter-data-card__metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .shelter-data-card__save-rate-header {
+    flex-direction: column;
+    gap: var(--space-xs);
+  }
+
+  .animal-card__urgency-badge {
+    padding: 4px 10px;
+    font-size: var(--font-size-xs);
+  }
+
+  .animal-card__name {
+    font-size: var(--font-size-lg);
+  }
+
+  .animal-card__life-cut-short {
+    font-size: var(--font-size-xs);
+  }
+}

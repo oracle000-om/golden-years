@@ -119,3 +119,44 @@
   background: rgba(212, 165, 116, 0.08);
 }
 
+/* --- Responsive — Shelter Detail --- */
+@media (max-width: 768px) {
+  .shelter-detail {
+    padding: var(--space-lg) 0;
+  }
+
+  .shelter-detail__header {
+    margin-bottom: var(--space-lg);
+  }
+
+  .shelter-cta {
+    flex-direction: column;
+  }
+
+  .shelter-cta__actions {
+    width: 100%;
+  }
+
+  .shelter-cta__btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .shelter-detail__name {
+    font-size: var(--font-size-xl);
+  }
+
+  .shelter-detail__location {
+    font-size: var(--font-size-base);
+  }
+
+  .shelter-detail__animals-header {
+    font-size: var(--font-size-lg);
+  }
+
+  .shelter-cta {
+    padding: var(--space-md);
+  }
+}

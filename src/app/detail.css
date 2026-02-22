@@ -400,3 +400,80 @@
 .animal-card__discrepancy--minor {
   color: #78AAFF;
 }
+
+/* --- Responsive — Detail Page --- */
+@media (max-width: 768px) {
+  .animal-detail {
+    padding: var(--space-lg) var(--space-md);
+  }
+
+  .animal-detail__detail-grid {
+    grid-template-columns: 1fr;
+    gap: var(--space-sm);
+  }
+
+  .animal-detail__report {
+    padding: var(--space-md);
+    margin-top: var(--space-md);
+  }
+
+  .animal-detail__report-title {
+    font-size: var(--font-size-xs);
+    margin-bottom: var(--space-md);
+  }
+
+  .animal-detail__shelter-card {
+    padding: var(--space-md);
+    margin-top: var(--space-md);
+  }
+
+  .animal-detail__actions {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-sm);
+  }
+
+  .animal-detail__tod-card {
+    padding: var(--space-sm) var(--space-md);
+  }
+
+  .animal-detail__back {
+    margin-bottom: var(--space-md);
+  }
+}
+
+@media (max-width: 480px) {
+  .animal-detail {
+    padding: var(--space-md) var(--space-sm);
+  }
+
+  .animal-detail__name {
+    font-size: var(--font-size-xl);
+  }
+
+  .animal-detail__gender-species {
+    font-size: var(--font-size-base);
+  }
+
+  .animal-detail__report-section h3 {
+    font-size: var(--font-size-sm);
+  }
+
+  .animal-detail__report-section p {
+    font-size: var(--font-size-xs);
+  }
+
+  .animal-detail__shelter-name {
+    font-size: var(--font-size-lg);
+  }
+
+  .animal-detail__ers-badge {
+    font-size: 0.65rem;
+    padding: 0.2rem 0.5rem;
+  }
+
+  .copy-link-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}

@@ -1,0 +1,140 @@
+# Golden Years Club — Automated Scraper Schedule
+#
+# Keeps animal listings and shelter data fresh by running
+# scraper pipelines on a cron schedule.
+#
+# Budget: ~1,458 of 2,000 free GitHub Actions min/month
+#
+# Required repository secrets:
+#   DATABASE_URL        — Railway PostgreSQL connection string
+#   GEMINI_API_KEY      — Google Gemini for CV age estimation
+#   RESCUE_GROUPS_API_KEY — RescueGroups.org API key
+
+name: Scrape
+
+on:
+  # ── Cron Schedules ──────────────────────────────────────
+  schedule:
+    # Shelter scraper + RescueGroups: every 8 hours (3x/day)
+    - cron: '0 2,10,18 * * *'       # 2am, 10am, 6pm UTC
+    # Open data stats: weekly on Sunday at 4am UTC
+    - cron: '0 4 * * 0'
+    # Breed DB + shelter stats: 1st of every month at 5am UTC
+    - cron: '0 5 1 * *'
+
+  # Manual trigger from GitHub UI
+  workflow_dispatch:
+    inputs:
+      pipeline:
+        description: 'Which pipeline to run'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - shelters
+          - rescuegroups
+          - opendata
+          - breeds
+          - shelter-stats
+
+# Only one scrape at a time to avoid DB conflicts
+concurrency:
+  group: scrape
+  cancel-in-progress: false
+
+env:
+  DATABASE_URL: ${{ secrets.DATABASE_URL }}
+  GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+  RESCUE_GROUPS_API_KEY: ${{ secrets.RESCUE_GROUPS_API_KEY }}
+
+jobs:
+  # ── Shelter Scraper + RescueGroups (every 8 hours) ──────
+  scrape-animals:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.schedule == '0 2,10,18 * * *'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npx prisma generate
+
+      - name: Run shelter scrapers
+        if: >-
+          github.event_name == 'schedule' ||
+          github.event.inputs.pipeline == 'all' ||
+          github.event.inputs.pipeline == 'shelters'
+        run: npm run scrape
+
+      - name: Run RescueGroups
+        if: >-
+          github.event_name == 'schedule' ||
+          github.event.inputs.pipeline == 'all' ||
+          github.event.inputs.pipeline == 'rescuegroups'
+        run: npx tsx scraper/run-rescuegroups.ts
+
+  # ── Open Data Stats (weekly) ────────────────────────────
+  scrape-stats:
+    if: >-
+      github.event.schedule == '0 4 * * 0' ||
+      (github.event_name == 'workflow_dispatch' &&
+       (github.event.inputs.pipeline == 'all' ||
+        github.event.inputs.pipeline == 'opendata'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npx prisma generate
+
+      - name: Run open data pipeline
+        run: npm run scrape:opendata
+
+  # ── Breed DB + Shelter Stats (monthly) ──────────────────
+  scrape-monthly:
+    if: >-
+      github.event.schedule == '0 5 1 * *' ||
+      (github.event_name == 'workflow_dispatch' &&
+       (github.event.inputs.pipeline == 'all' ||
+        github.event.inputs.pipeline == 'breeds' ||
+        github.event.inputs.pipeline == 'shelter-stats'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npx prisma generate
+
+      - name: Run breed database
+        if: >-
+          github.event.schedule == '0 5 1 * *' ||
+          github.event.inputs.pipeline == 'all' ||
+          github.event.inputs.pipeline == 'breeds'
+        run: npm run scrape:breeds
+
+      - name: Run shelter stats
+        if: >-
+          github.event.schedule == '0 5 1 * *' ||
+          github.event.inputs.pipeline == 'all' ||
+          github.event.inputs.pipeline == 'shelter-stats'
+        run: npm run scrape:shelter-stats

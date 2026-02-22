@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
 import Image from 'next/image';
-import Link from 'next/link';
 
 export const metadata: Metadata = {
     title: 'About | Golden Years Club',
@@ -11,27 +10,40 @@ export default function AboutPage() {
     return (
         <section className="about-minimal">
             <div className="container about-minimal__content">
-                <div className="about-minimal__image">
+                {/* Row 1: image left, text right */}
+                <div className="about-minimal__image about-minimal__image--left">
                     <Image
-                        src="/no-photo.svg"
-                        alt="Golden Years Club"
-                        width={320}
-                        height={320}
-                        style={{ objectFit: 'cover', borderRadius: 'var(--radius-lg)', opacity: 0.7 }}
+                        src="/about-hero.jpg"
+                        alt="Senior German Shepherd resting on a pink dog bed"
+                        width={520}
+                        height={390}
+                        style={{ objectFit: 'cover', borderRadius: 'var(--radius-lg)' }}
+                        priority
                     />
                 </div>
                 <div className="about-minimal__text">
                     <p className="about-minimal__story">
-                        Every year, thousands of senior animals are placed on shelter euthanasia lists — not because they&apos;re sick or dangerous, but because they&apos;re old. They&apos;ve already lived full lives. They&apos;ve already loved someone. And now, in a concrete kennel, they wait for a second chance that rarely comes.
+                        More than half a million animals are euthanized at shelters every year in the United States. That averages out to roughly 1,600 dogs and cats per day. Without collective action and a systemic shift in how we treat animals in this country, that number is unlikely to go down.
+                    </p>
+                </div>
+
+                {/* Row 2: text left, image right */}
+                <div className="about-minimal__text about-minimal__text--row2">
+                    <p className="about-minimal__story">
+                        When we adopted Henry, the shelter thought he was 7. He was closer to 10, and his heartworm was more progressed than we knew. We had 10 months with him. It made me realize how close he was to passing without a loving home.
                     </p>
                     <p className="about-minimal__story">
-                        Golden Years Club exists to surface these animals. To make them visible. To give every gray muzzle and clouded eye one more shot at a warm bed and a gentle hand.
+                        Seniors are special. Golden Years Club is dedicated to giving seniors in shelters a final chance at living out their golden years.
                     </p>
-                    <p className="about-minimal__links">
-                        <Link href="https://www.reddit.com/r/SeniorDogs/" target="_blank" rel="noopener noreferrer">
-                            r/SeniorDogs ↗
-                        </Link>
-                    </p>
+                </div>
+                <div className="about-minimal__image about-minimal__image--right">
+                    <Image
+                        src="/about-hero-2.jpg"
+                        alt="Senior German Shepherd sitting outdoors in Joshua Tree"
+                        width={520}
+                        height={693}
+                        style={{ objectFit: 'cover', borderRadius: 'var(--radius-lg)' }}
+                    />
                 </div>
             </div>
         </section>

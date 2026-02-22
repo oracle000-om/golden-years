@@ -242,12 +242,16 @@ export function formatYearsRemaining(
     }
     if (currentAge === null) return null;
 
-    const remainingLow = Math.max(0, lifeExpLow - currentAge);
-    const remainingHigh = Math.max(0, lifeExpHigh - currentAge);
+    // Round to nearest 0.5
+    const roundHalf = (n: number) => Math.round(n * 2) / 2;
+    const remainingLow = roundHalf(Math.max(0, lifeExpLow - currentAge));
+    const remainingHigh = roundHalf(Math.max(0, lifeExpHigh - currentAge));
+
+    const fmt = (n: number) => Number.isInteger(n) ? `${n}` : `${n}`;
 
     if (remainingHigh === 0) return 'near end of life';
-    if (remainingLow === remainingHigh) return `~${remainingLow} year${remainingLow !== 1 ? 's' : ''}`;
-    return `${remainingLow}–${remainingHigh} years`;
+    if (remainingLow === remainingHigh) return `~${fmt(remainingLow)} year${remainingLow !== 1 ? 's' : ''}`;
+    return `~${fmt(remainingLow)}–${fmt(remainingHigh)} years`;
 }
 
 /**

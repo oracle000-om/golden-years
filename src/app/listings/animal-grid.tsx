@@ -227,7 +227,7 @@ export function AnimalGrid({ animals }: { animals: AnimalWithShelter[] }) {
                                     )}
                                     {lifeCutShort && (
                                         <div className="animal-card__life-cut-short">
-                                            Potential years of life lost: {lifeCutShort}
+                                            Golden Years remaining: {lifeCutShort}
                                         </div>
                                     )}
                                 </div>

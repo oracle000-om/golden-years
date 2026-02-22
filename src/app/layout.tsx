@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ErrorBoundary } from "@/components/error-boundary";
+import { FactBubbles } from "@/components/fact-bubbles";
 import "./globals.css";
 import "./listings.css";
 import "./detail.css";
@@ -51,6 +52,8 @@ export default function RootLayout({
             </p>
           </div>
         </footer>
+
+        <FactBubbles />
       </body>
     </html>
   );

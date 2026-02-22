@@ -206,16 +206,16 @@ export default async function AnimalDetailPage({
                                 <span className="animal-detail__detail-label">Intake ID</span>
                                 <span className="animal-detail__detail-value">{animal.intakeId || 'N/A'}</span>
                             </div>
-                            <div className="animal-detail__detail-row">
-                                <span className="animal-detail__detail-label">Intake date</span>
-                                <span className="animal-detail__detail-value">
-                                    {animal.intakeDate
-                                        ? new Date(animal.intakeDate).toLocaleDateString('en-US', {
+                            {animal.intakeDate && (
+                                <div className="animal-detail__detail-row">
+                                    <span className="animal-detail__detail-label">Intake date</span>
+                                    <span className="animal-detail__detail-value">
+                                        {new Date(animal.intakeDate).toLocaleDateString('en-US', {
                                             month: 'short', day: 'numeric', year: 'numeric',
-                                        })
-                                        : 'Unknown'}
-                                </span>
-                            </div>
+                                        })}
+                                    </span>
+                                </div>
+                            )}
                         </div>
 
                         {/* Only show urgency badge when real euthanasia schedule exists */}
@@ -227,19 +227,7 @@ export default async function AnimalDetailPage({
                             </div>
                         )}
 
-                        {/* Time of Death card */}
-                        <div className="animal-detail__tod-card">
-                            <div className="animal-detail__tod-label">Time of Death</div>
-                            {animal.euthScheduledAt ? (
-                                <div className={`animal-detail__tod-value ${urgency}`}>
-                                    {formatDeathMarker(animal.euthScheduledAt)}
-                                </div>
-                            ) : (
-                                <div className="animal-detail__tod-value animal-detail__tod-value--tbd">
-                                    TBD
-                                </div>
-                            )}
-                        </div>
+
                     </div>
                 </div>
 

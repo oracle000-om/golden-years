@@ -26,28 +26,18 @@ export interface DedupMatch {
 // ── Perceptual Hash ──
 
 /**
- * Compute a perceptual hash (average hash / aHash) for an image URL.
+ * Compute a perceptual hash (average hash / aHash) from a raw image Buffer.
  *
  * Algorithm:
- *   1. Fetch the image
- *   2. Resize to 8×8 grayscale (64 pixels)
- *   3. Compute the mean pixel value
- *   4. Encode each pixel as 1 (above mean) or 0 (below mean)
- *   5. Pack into a 16-character hex string (64 bits)
+ *   1. Resize to 8×8 grayscale (64 pixels)
+ *   2. Compute the mean pixel value
+ *   3. Encode each pixel as 1 (above mean) or 0 (below mean)
+ *   4. Pack into a 16-character hex string (64 bits)
  *
- * Returns null if the image can't be fetched or processed.
+ * Returns null if the image can't be processed.
  */
-export async function computePhotoHash(photoUrl: string): Promise<string | null> {
+export async function computePhotoHashFromBuffer(buffer: Buffer): Promise<string | null> {
     try {
-        // Fetch image
-        const response = await fetch(photoUrl, {
-            signal: AbortSignal.timeout(10_000),
-            headers: { 'User-Agent': 'GoldenYearsClub/1.0 (dedup)' },
-        });
-        if (!response.ok) return null;
-
-        const buffer = Buffer.from(await response.arrayBuffer());
-
         // Resize to 8×8 grayscale and get raw pixel data
         const pixels = await sharp(buffer)
             .resize(8, 8, { fit: 'fill' })
@@ -83,6 +73,24 @@ export async function computePhotoHash(photoUrl: string): Promise<string | null>
 }
 
 /**
+ * Compute a perceptual hash from an image URL.
+ * Convenience wrapper that fetches the image first.
+ */
+export async function computePhotoHash(photoUrl: string): Promise<string | null> {
+    try {
+        const response = await fetch(photoUrl, {
+            signal: AbortSignal.timeout(10_000),
+            headers: { 'User-Agent': 'GoldenYearsClub/1.0 (dedup)' },
+        });
+        if (!response.ok) return null;
+        const buffer = Buffer.from(await response.arrayBuffer());
+        return computePhotoHashFromBuffer(buffer);
+    } catch {
+        return null;
+    }
+}
+
+/**
  * Compute the Hamming distance between two hex hash strings.
  * The Hamming distance is the number of differing bits.
  *
@@ -112,7 +120,7 @@ function popcount4(n: number): number {
 
 // ── Dedup Logic ──
 
-const PHASH_THRESHOLD = 5; // Max hamming distance for pHash match
+export const PHASH_THRESHOLD = 5; // Max hamming distance for pHash match
 
 /**
  * Find an existing animal that is a duplicate of the given scraped animal.

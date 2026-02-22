@@ -18,7 +18,11 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import pg from 'pg';
 import { scrapeRescueGroups } from './adapters/rescuegroups';
 import { createAgeEstimationProvider, lookupLifeExpectancy, type AgeEstimationProvider } from './cv';
-import { findDuplicate, computePhotoHash } from './dedup';
+import { findDuplicate, computePhotoHashFromBuffer, hammingDistance, PHASH_THRESHOLD } from './dedup';
+import type { ScrapedAnimal } from './types';
+
+/** How many animals to process in parallel */
+const CONCURRENCY = 5;
 
 async function createPrisma() {
     const url = process.env.DATABASE_URL;
@@ -27,6 +31,26 @@ async function createPrisma() {
     const adapter = new PrismaPg(pool);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return new (PrismaClient as any)({ adapter }) as PrismaClient;
+}
+
+/**
+ * Download an image and return as Buffer.
+ * Shared between CV and photo hash to avoid double-fetching.
+ */
+async function downloadImage(url: string): Promise<Buffer | null> {
+    try {
+        const response = await fetch(url, {
+            signal: AbortSignal.timeout(15_000),
+            headers: { 'User-Agent': 'GoldenYearsClub/1.0' },
+        });
+        if (!response.ok) return null;
+        const ct = response.headers.get('content-type') || '';
+        if (ct.startsWith('text/html') || ct.startsWith('application/json')) return null;
+        const buf = Buffer.from(await response.arrayBuffer());
+        return buf.length < 500 ? null : buf;
+    } catch {
+        return null;
+    }
 }
 
 async function main() {
@@ -90,7 +114,6 @@ async function main() {
 
     function normalizeState(raw: string): string {
         const trimmed = raw.trim();
-        // Already a 2-letter code?
         if (/^[A-Z]{2}$/.test(trimmed)) return trimmed;
         if (/^[a-z]{2}$/i.test(trimmed)) return trimmed.toUpperCase();
         return STATE_ABBREV[trimmed.toLowerCase()] || trimmed.toUpperCase();
@@ -108,7 +131,7 @@ async function main() {
                 create: {
                     id: dbId,
                     name: s.name,
-                    county: s.city, // RescueGroups doesn't provide county, use city
+                    county: s.city,
                     state: stateNormalized,
                     phone: s.phone,
                     websiteUrl: s.url,
@@ -126,52 +149,74 @@ async function main() {
     }
     console.log(`\n🏠 ${sheltersCreated} shelters upserted`);
 
-    // Step 3: Upsert animals
+    // Step 3: Preload existing photo hashes for in-memory Tier 3 dedup
+    // This avoids querying ALL hashes per-animal (was ~1710 full-table scans)
+    const existingHashes: Map<string, string> = new Map(); // animalId → photoHash
+    try {
+        const hashRecords = await (prisma as any).animal.findMany({
+            where: { photoHash: { not: null } },
+            select: { id: true, photoHash: true },
+        });
+        for (const r of hashRecords) {
+            if (r.photoHash) existingHashes.set(r.id, r.photoHash);
+        }
+        console.log(`   Preloaded ${existingHashes.size} photo hashes for Tier 3 dedup`);
+    } catch (err) {
+        console.warn(`   ⚠ Could not preload hashes: ${(err as Error).message?.substring(0, 80)}`);
+    }
+
+    // Step 4: Upsert animals with concurrency
     let created = 0;
     let updated = 0;
     let cvProcessed = 0;
     let skippedNonPhoto = 0;
     let dedupMerged = 0;
+    let cvSkipped = 0;
+    let errors = 0;
+    const startTime = Date.now();
 
-    for (let i = 0; i < withPhotos.length; i++) {
-        const animal = withPhotos[i];
+    /**
+     * Process a single animal: download image once, run CV + hash + dedup + DB upsert.
+     * Skips Gemini CV for returning animals that already have assessments (same photo).
+     */
+    async function processAnimal(animal: ScrapedAnimal): Promise<void> {
         const shelterId = animal._shelterId || 'unknown';
 
-        // CV age estimation
-        let cvEstimate = null;
-        if (cvProvider && animal.photoUrl) {
-            try {
-                cvEstimate = await cvProvider.estimateAge(animal.photoUrl);
-                if (cvEstimate) cvProcessed++;
-            } catch (err) {
-                // Silently skip CV errors
-            }
-            await new Promise(r => setTimeout(r, 250));
-        }
-
-        // Skip non-photo images (drawings, sketches, illustrations)
-        if (cvEstimate && cvEstimate.confidence === 'NONE') {
-            skippedNonPhoto++;
-            continue;
-        }
-
-        // Life expectancy
-        const lifeExp = cvEstimate?.detectedBreeds?.length
-            ? lookupLifeExpectancy(cvEstimate.detectedBreeds, animal.species)
-            : null;
-
-        // Compute photo hash for dedup
-        let photoHash: string | null = null;
+        // Download image once (shared between CV and photo hash)
+        let imageBuffer: Buffer | null = null;
         if (animal.photoUrl) {
+            imageBuffer = await downloadImage(animal.photoUrl);
+        }
+
+        // Compute photo hash from the already-downloaded buffer (no re-fetch!)
+        let photoHash: string | null = null;
+        if (imageBuffer) {
             try {
-                photoHash = await computePhotoHash(animal.photoUrl);
+                photoHash = await computePhotoHashFromBuffer(imageBuffer);
             } catch {
                 // Non-fatal
             }
         }
 
         try {
-            const match = await findDuplicate(prisma, animal.intakeId, shelterId, animal.photoUrl, photoHash);
+            // Tier 1 + 2: DB-backed dedup (fast indexed queries)
+            let match = await findDuplicate(prisma, animal.intakeId, shelterId, animal.photoUrl, null);
+
+            // Tier 3: In-memory perceptual hash (skip the full-table-scan query)
+            if (!match && photoHash) {
+                for (const [candidateId, candidateHash] of existingHashes) {
+                    const dist = hammingDistance(photoHash, candidateHash);
+                    if (dist <= PHASH_THRESHOLD) {
+                        match = {
+                            animalId: candidateId,
+                            tier: 3,
+                            reason: `Perceptual hash match (hamming distance: ${dist}, threshold: ${PHASH_THRESHOLD})`,
+                        };
+                        break;
+                    }
+                }
+            }
+
             const existing = match
                 ? await (prisma as any).animal.findUnique({ where: { id: match.animalId } })
                 : null;
@@ -181,8 +226,38 @@ async function main() {
                 dedupMerged++;
             }
 
+            // CV age estimation — skip if existing record already has CV data with same photo
+            let cvEstimate = null;
+            const hasExistingCv = existing?.ageEstimatedLow != null;
+            const photoUnchanged = existing?.photoUrl === animal.photoUrl;
+
+            if (hasExistingCv && photoUnchanged) {
+                // Reuse existing CV data — no Gemini call needed
+                cvSkipped++;
+            } else if (cvProvider && animal.photoUrl) {
+                try {
+                    cvEstimate = await cvProvider.estimateAge(animal.photoUrl);
+                    if (cvEstimate) cvProcessed++;
+                } catch {
+                    // Silently skip CV errors
+                }
+            }
+
+            // Skip non-photo images (drawings, sketches, illustrations)
+            if (cvEstimate && cvEstimate.confidence === 'NONE') {
+                skippedNonPhoto++;
+                return;
+            }
+
+            // Life expectancy (only compute for new CV results)
+            const lifeExp = cvEstimate?.detectedBreeds?.length
+                ? lookupLifeExpectancy(cvEstimate.detectedBreeds, animal.species)
+                : null;
+
             const now = new Date();
-            const data = {
+
+            // Build data — only overwrite CV fields if we have a new estimate
+            const data: Record<string, any> = {
                 name: animal.name,
                 species: animal.species,
                 breed: animal.breed,
@@ -192,38 +267,43 @@ async function main() {
                 photoHash,
                 status: animal.status,
                 ageKnownYears: animal.ageKnownYears != null ? Number(animal.ageKnownYears) : null,
-                ageSource: cvEstimate ? 'CV_ESTIMATED' : (animal.ageSource || 'SHELTER_REPORTED'),
-                ageEstimatedLow: cvEstimate?.estimatedAgeLow ?? null,
-                ageEstimatedHigh: cvEstimate?.estimatedAgeHigh ?? null,
-                ageConfidence: cvEstimate?.confidence ?? 'NONE',
-                ageIndicators: cvEstimate?.indicators ?? [],
-                detectedBreeds: cvEstimate?.detectedBreeds ?? [],
-                breedConfidence: cvEstimate?.detectedBreeds?.length ? cvEstimate.confidence : 'NONE',
-                lifeExpectancyLow: lifeExp?.low ?? null,
-                lifeExpectancyHigh: lifeExp?.high ?? null,
-                // v2: health assessment
-                bodyConditionScore: cvEstimate?.bodyConditionScore ?? null,
-                coatCondition: cvEstimate?.coatCondition ?? null,
-                visibleConditions: cvEstimate?.visibleConditions ?? [],
-                healthNotes: cvEstimate?.healthNotes ?? null,
-                // v2: behavioral signals
-                aggressionRisk: cvEstimate?.aggressionRisk ?? null,
-                fearIndicators: cvEstimate?.fearIndicators ?? [],
-                stressLevel: cvEstimate?.stressLevel ?? null,
-                behaviorNotes: cvEstimate?.behaviorNotes ?? null,
-                // v2: photo quality
-                photoQuality: cvEstimate?.photoQuality ?? null,
-                // v2: care guidance
-                likelyCareNeeds: cvEstimate?.likelyCareNeeds ?? [],
-                estimatedCareLevel: cvEstimate?.estimatedCareLevel ?? null,
                 intakeReason: animal.intakeReason,
                 intakeReasonDetail: animal.intakeReasonDetail,
                 euthScheduledAt: animal.euthScheduledAt,
                 intakeDate: animal.intakeDate,
                 notes: animal.notes,
-                // v2: temporal tracking
                 lastSeenAt: now,
             };
+
+            // Only overwrite CV fields when we have a fresh estimate
+            if (cvEstimate) {
+                Object.assign(data, {
+                    ageSource: 'CV_ESTIMATED',
+                    ageEstimatedLow: cvEstimate.estimatedAgeLow,
+                    ageEstimatedHigh: cvEstimate.estimatedAgeHigh,
+                    ageConfidence: cvEstimate.confidence,
+                    ageIndicators: cvEstimate.indicators ?? [],
+                    detectedBreeds: cvEstimate.detectedBreeds ?? [],
+                    breedConfidence: cvEstimate.detectedBreeds?.length ? cvEstimate.confidence : 'NONE',
+                    lifeExpectancyLow: lifeExp?.low ?? null,
+                    lifeExpectancyHigh: lifeExp?.high ?? null,
+                    bodyConditionScore: cvEstimate.bodyConditionScore ?? null,
+                    coatCondition: cvEstimate.coatCondition ?? null,
+                    visibleConditions: cvEstimate.visibleConditions ?? [],
+                    healthNotes: cvEstimate.healthNotes ?? null,
+                    aggressionRisk: cvEstimate.aggressionRisk ?? null,
+                    fearIndicators: cvEstimate.fearIndicators ?? [],
+                    stressLevel: cvEstimate.stressLevel ?? null,
+                    behaviorNotes: cvEstimate.behaviorNotes ?? null,
+                    photoQuality: cvEstimate.photoQuality ?? null,
+                    likelyCareNeeds: cvEstimate.likelyCareNeeds ?? [],
+                    estimatedCareLevel: cvEstimate.estimatedCareLevel ?? null,
+                });
+            } else if (!hasExistingCv) {
+                // No CV and no existing data — set defaults
+                data.ageSource = animal.ageSource || 'SHELTER_REPORTED';
+                data.ageConfidence = 'NONE';
+            }
 
             let animalId: string;
             if (existing) {
@@ -244,9 +324,12 @@ async function main() {
                 });
                 animalId = record.id;
                 created++;
+
+                // Add new hash to in-memory map so subsequent animals can match
+                if (photoHash) existingHashes.set(animalId, photoHash);
             }
 
-            // v2: Create temporal snapshot
+            // Create temporal snapshot
             await (prisma as any).animalSnapshot.create({
                 data: {
                     animalId,
@@ -265,18 +348,31 @@ async function main() {
                 },
             });
         } catch (err) {
+            errors++;
             console.error(`   ❌ ${animal.intakeId}: ${(err as Error).message?.substring(0, 100)}`);
-        }
-
-        // Progress every 50
-        if ((i + 1) % 50 === 0) {
-            console.log(`   ... ${i + 1}/${withPhotos.length} processed (${created} new, ${updated} updated)`);
         }
     }
 
-    console.log(`\n🏁 Done!`);
-    console.log(`   Animals: ${created} created, ${updated} updated`);
-    console.log(`   CV estimates: ${cvProcessed}/${withPhotos.length}`);
+    // Process in batches of CONCURRENCY
+    for (let i = 0; i < withPhotos.length; i += CONCURRENCY) {
+        const batch = withPhotos.slice(i, i + CONCURRENCY);
+        await Promise.allSettled(batch.map(animal => processAnimal(animal)));
+
+        // Progress every 50 animals
+        const processed = Math.min(i + CONCURRENCY, withPhotos.length);
+        if (processed % 50 < CONCURRENCY || processed === withPhotos.length) {
+            const elapsed = ((Date.now() - startTime) / 1000).toFixed(0);
+            const rate = (processed / ((Date.now() - startTime) / 1000)).toFixed(1);
+            const eta = processed > 0
+                ? (((withPhotos.length - processed) / (processed / ((Date.now() - startTime) / 1000)))).toFixed(0)
+                : '?';
+            console.log(`   ... ${processed}/${withPhotos.length} processed (${created} new, ${updated} updated) — ${elapsed}s elapsed, ~${rate}/s, ETA ${eta}s`);
+        }
+    }
+
+    console.log(`\n🏁 Done in ${((Date.now() - startTime) / 1000).toFixed(0)}s!`);
+    console.log(`   Animals: ${created} created, ${updated} updated, ${errors} errors`);
+    console.log(`   CV: ${cvProcessed} new estimates, ${cvSkipped} reused from previous run`);
     console.log(`   Cross-source dedup merges: ${dedupMerged}`);
     console.log(`   Non-photo images skipped: ${skippedNonPhoto}`);
     console.log(`   Shelters: ${sheltersCreated}`);

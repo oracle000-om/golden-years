@@ -73,7 +73,7 @@ jobs:
        (github.event.inputs.pipeline == 'all' ||
         github.event.inputs.pipeline == 'rescuegroups'))
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 

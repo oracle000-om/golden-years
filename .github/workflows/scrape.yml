@@ -38,24 +38,21 @@ on:
           - breeds
           - shelter-stats
 
-# Only one scrape at a time to avoid DB conflicts
-concurrency:
-  group: scrape
-  cancel-in-progress: false
-
 env:
   DATABASE_URL: ${{ secrets.DATABASE_URL }}
   GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
   RESCUE_GROUPS_API_KEY: ${{ secrets.RESCUE_GROUPS_API_KEY }}
 
 jobs:
-  # ── Shelter Scraper + RescueGroups (every 8 hours) ──────
-  scrape-animals:
+  # ── Shelter Scrapers (every 8 hours) ────────────────────
+  scrape-shelters:
     if: >-
-      github.event_name == 'workflow_dispatch' ||
-      github.event.schedule == '0 2,10,18 * * *'
+      github.event.schedule == '0 2,10,18 * * *' ||
+      (github.event_name == 'workflow_dispatch' &&
+       (github.event.inputs.pipeline == 'all' ||
+        github.event.inputs.pipeline == 'shelters'))
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
@@ -66,20 +63,28 @@ jobs:
 
       - run: npm ci
       - run: npx prisma generate
+      - run: npm run scrape
 
-      - name: Run shelter scrapers
-        if: >-
-          github.event_name == 'schedule' ||
-          github.event.inputs.pipeline == 'all' ||
-          github.event.inputs.pipeline == 'shelters'
-        run: npm run scrape
+  # ── RescueGroups (every 8 hours) ────────────────────────
+  scrape-rescuegroups:
+    if: >-
+      github.event.schedule == '0 2,10,18 * * *' ||
+      (github.event_name == 'workflow_dispatch' &&
+       (github.event.inputs.pipeline == 'all' ||
+        github.event.inputs.pipeline == 'rescuegroups'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
 
-      - name: Run RescueGroups
-        if: >-
-          github.event_name == 'schedule' ||
-          github.event.inputs.pipeline == 'all' ||
-          github.event.inputs.pipeline == 'rescuegroups'
-        run: npx tsx scraper/run-rescuegroups.ts
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npx tsx scraper/run-rescuegroups.ts
 
   # ── Open Data Stats (weekly) ────────────────────────────
   scrape-stats:

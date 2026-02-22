@@ -196,10 +196,12 @@ export default async function AnimalDetailPage({
                                 <span className="animal-detail__detail-label">Shelter breed</span>
                                 <span className="animal-detail__detail-value">{shelterBreed}</span>
                             </div>
-                            <div className="animal-detail__detail-row">
-                                <span className="animal-detail__detail-label">Golden Years breed</span>
-                                <span className={`animal-detail__detail-value ${gyBreed !== 'Pending' ? 'cv-estimated' : ''}`}>{gyBreed}</span>
-                            </div>
+                            {animal.species !== 'CAT' && (
+                                <div className="animal-detail__detail-row">
+                                    <span className="animal-detail__detail-label">Golden Years breed</span>
+                                    <span className={`animal-detail__detail-value ${gyBreed !== 'Pending' ? 'cv-estimated' : ''}`}>{gyBreed}</span>
+                                </div>
+                            )}
                             <div className="animal-detail__detail-row">
                                 <span className="animal-detail__detail-label">Intake ID</span>
                                 <span className="animal-detail__detail-value">{animal.intakeId || 'N/A'}</span>

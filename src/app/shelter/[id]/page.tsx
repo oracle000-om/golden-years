@@ -4,7 +4,6 @@ import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { getShelterById, getShelterForMetadata } from '@/lib/queries';
 import { formatDeathMarker, hoursUntil, getUrgencyLevel, getSaveRate, formatAge, getPerCapitaIntake, getYoYTrend, getTransferRate } from '@/lib/utils';
-import { EmailAlert } from '@/components/email-alert';
 import type { ShelterWithAnimals, Animal } from '@/lib/types';
 
 export const revalidate = 60;
@@ -68,7 +67,7 @@ export default async function ShelterDetailPage({
         return (
             <div className="shelter-detail">
                 <div className="container">
-                    <Link href="/listings" className="animal-detail__back">
+                    <Link href="/" className="animal-detail__back">
                         ← Back to Listings
                     </Link>
                     <div className="error-state">
@@ -100,7 +99,7 @@ export default async function ShelterDetailPage({
     return (
         <div className="shelter-detail">
             <div className="container">
-                <Link href="/listings" className="animal-detail__back">
+                <Link href="/" className="animal-detail__back">
                     ← Back to Listings
                 </Link>
 
@@ -318,7 +317,6 @@ export default async function ShelterDetailPage({
                     </div>
                 )}
 
-                <EmailAlert />
             </div>
         </div>
     );

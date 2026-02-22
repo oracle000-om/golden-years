@@ -2,6 +2,8 @@
  * Seed only the polls table — safe to run on production
  * without touching shelters or animals.
  *
+ * Uses upsert to preserve existing votes when re-seeding.
+ *
  * Usage: npx tsx prisma/seed-polls.ts
  */
 import 'dotenv/config';
@@ -9,16 +11,14 @@ import { PrismaClient } from '../src/generated/prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import pg from 'pg';
 
-const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
+const url = process.env.DATABASE_URL!;
+const needsSsl = url.includes('.rlwy.net');
+const pool = new pg.Pool({ connectionString: url, ssl: needsSsl ? { rejectUnauthorized: false } : undefined });
 const adapter = new PrismaPg(pool);
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const prisma = new (PrismaClient as any)({ adapter });
 
 async function main() {
-    // Clear existing polls (safe — does not touch shelters/animals)
-    await prisma.pollVote.deleteMany();
-    await prisma.poll.deleteMany();
-
     const polls = [
         {
             slug: 'animal-limits-per-household',
@@ -48,13 +48,13 @@ async function main() {
             slug: 'breed-specific-legislation',
             title: 'Breed-specific bans',
             statement:
-                'Over 900 U.S. cities have enacted breed-specific legislation (BSL) targeting pit bulls, Rottweilers, and other breeds deemed dangerous. These laws can range from mandatory muzzling to full ownership bans. The CDC, ASPCA, and AKC have all opposed BSL.',
+                'Over 900 U.S. cities have passed laws banning or restricting ownership of specific dog breeds like pit bulls, Rottweilers, and others deemed dangerous. These laws can range from mandatory muzzling to full ownership bans. Major animal organizations including the ASPCA have opposed breed-specific bans.',
             forTitle: 'I support breed-specific rules',
             forArgument:
-                'Pit bull-type dogs account for a disproportionate share of severe bite injuries. Municipalities with BSL report fewer hospitalizations from dog attacks. Public safety must be the priority, and breed-specific rules give animal control officers clearer enforcement guidelines.',
+                'Pit bull-type dogs account for a disproportionate share of severe bite injuries. Cities with breed-specific rules report fewer hospitalizations from dog attacks. Public safety must be the priority, and these rules give animal control officers clearer enforcement guidelines.',
             againstTitle: 'I oppose breed-specific bans',
             againstArgument:
-                'BSL punishes dogs for their appearance, not behavior. Studies show no reduction in overall bite rates after BSL enactment. Breed identification is unreliable — visual identification is wrong over 60% of the time. Behavior-based dangerous dog laws are more effective and fair.',
+                'Breed-specific bans punish dogs for their appearance, not behavior. Studies show no reduction in overall bite rates after these bans are enacted. Breed identification is unreliable — visual identification is wrong over 60% of the time. Laws that focus on a dog\'s actual behavior are more effective and fair.',
         },
         {
             slug: 'shelter-euthanasia-moratorium',
@@ -63,7 +63,7 @@ async function main() {
                 'Some cities have explored or enacted moratoriums on shelter euthanasia for adoptable animals, pushing toward "no-kill" status (defined as saving 90%+ of intake). Critics say these policies can lead to overcrowded, underfunded shelters that harm animal welfare.',
             forTitle: 'I support euthanasia moratoriums',
             forArgument:
-                'No healthy, adoptable animal should die because of shelter overcrowding. Cities like Austin and Reno achieved no-kill status through community partnerships, foster programs, and TNR — proving it is operationally possible. Moratoriums force the innovation shelters need.',
+                'No healthy, adoptable animal should die because of shelter overcrowding. Cities like Austin and Reno achieved no-kill status through community partnerships, foster programs, and spay/neuter outreach — proving it is possible. Moratoriums push shelters to find better solutions.',
             againstTitle: 'I oppose blanket moratoriums',
             againstArgument:
                 'Moratoriums without adequate funding lead to warehouse shelters where animals languish in small cages for months or years. Quality of life matters — a crowded, stressed animal suffers differently but meaningfully. Resources should go to prevention, not just warehousing.',
@@ -90,7 +90,7 @@ async function main() {
                 'The majority of pet store puppies come from commercial mills with documented welfare violations. Retail incentivizes impulse purchases and volume breeding. Shelter partnerships in stores have proven successful — Petco and PetSmart both switched exclusively to adoption events.',
             againstTitle: 'I oppose pet store bans',
             againstArgument:
-                'Bans push buyers online where there is even less oversight and more fraud. Responsible small breeders are already excluded from pet stores. The real problem is USDA inspection enforcement, not the retail venue. Consumers should have the right to choose their pet source.',
+                'Bans push buyers online where there is even less oversight and more fraud. Responsible small breeders are already excluded from pet stores. The real problem is enforcing federal breeder inspections, not the retail venue. Consumers should have the right to choose their pet source.',
         },
         {
             slug: 'shelter-transparency-reporting',
@@ -99,7 +99,7 @@ async function main() {
                 'Only 12 U.S. states require animal shelters to publicly report intake, adoption, euthanasia, and live-release rates. Advocates say transparency is essential to accountability; some shelters argue reporting burdens are unfair without additional funding.',
             forTitle: 'I support mandatory reporting',
             forArgument:
-                'Public shelters spend taxpayer money — the public deserves to see outcomes. The Asilomar Accords established a standard reporting framework in 2004, but adoption is voluntary. States with mandatory reporting like California and Virginia have seen measurable improvements in save rates.',
+                'Public shelters spend taxpayer money — the public deserves to see outcomes. A national reporting standard was established in 2004, but participation is voluntary. States with mandatory reporting like California and Virginia have seen measurable improvements in save rates.',
             againstTitle: 'I oppose mandatory reporting',
             againstArgument:
                 'Reporting without context is misleading. A shelter that takes in aggressive animals other shelters refuse will have a higher euthanasia rate — that does not make it worse. Unfunded mandates divert staff time from animal care to paperwork. Voluntary reporting with community trust is more productive.',
@@ -120,7 +120,7 @@ async function main() {
             slug: 'tethering-laws',
             title: 'Anti-tethering legislation',
             statement:
-                'Over 30 states have enacted laws regulating or banning the practice of tethering (chaining) dogs outdoors for extended periods. Violations can range from fines to animal seizure. The AVMA considers prolonged tethering a welfare concern, but enforcement varies widely.',
+                'Over 30 states have enacted laws regulating or banning the practice of chaining dogs outdoors for extended periods. Violations can range from fines to animal seizure. Veterinary experts consider prolonged chaining a welfare concern, but enforcement varies widely.',
             forTitle: 'I support anti-tethering laws',
             forArgument:
                 'Tethered dogs are 2.8x more likely to bite. Prolonged chaining causes physical injuries (embedded collars, muscle atrophy) and behavioral issues (aggression, anxiety). Anti-tethering laws protect both animals and communities — and they are straightforward to enforce through animal control.',
@@ -132,28 +132,46 @@ async function main() {
             slug: 'housing-pet-restrictions',
             title: 'Banning pet breed restrictions in rentals',
             statement:
-                'Many landlords and HOAs prohibit specific breeds (typically pit bulls, German Shepherds, Dobermans) or impose weight limits. An estimated 25% of pets surrendered to shelters are given up due to housing restrictions. Some states are considering legislation to ban breed-based rental discrimination.',
+                'Many landlords and homeowner associations prohibit specific breeds (typically pit bulls, German Shepherds, Dobermans) or impose weight limits. An estimated 25% of pets surrendered to shelters are given up due to housing restrictions. Some states are considering laws to ban breed-based rental discrimination.',
             forTitle: 'I support banning breed restrictions',
             forArgument:
-                'Housing restrictions are the #1 reason owners surrender dogs to shelters. Breed bans in rentals are based on the same flawed logic as BSL — punishing appearance, not behavior. Insurance data does not support breed-based risk assessment. Liability should be based on individual animal history.',
+                'Housing restrictions are the #1 reason owners surrender dogs to shelters. Breed bans in rentals are based on the same flawed logic as breed-specific bans — punishing appearance, not behavior. Insurance data does not support breed-based risk assessment. Liability should be based on individual animal history.',
             againstTitle: 'I oppose banning breed restrictions',
             againstArgument:
                 'Property owners have a right to set rules for their property. Insurance companies charge higher premiums for certain breeds, and landlords should not be forced to absorb that cost. Tenants with restricted breeds can seek pet-friendly housing — the market should decide, not legislation.',
         },
     ];
 
+    let created = 0;
+    let updated = 0;
+
     for (const poll of polls) {
-        await prisma.poll.create({
-            data: {
-                ...poll,
-                neitherTitle: "It's not that simple",
-                neitherPrompt: "Here's what needs to change:",
-                active: true,
-            },
-        });
+        const existing = await prisma.poll.findUnique({ where: { slug: poll.slug } });
+        if (existing) {
+            await prisma.poll.update({
+                where: { slug: poll.slug },
+                data: {
+                    ...poll,
+                    neitherTitle: "It's not that simple",
+                    neitherPrompt: "Here's what needs to change:",
+                    active: true,
+                },
+            });
+            updated++;
+        } else {
+            await prisma.poll.create({
+                data: {
+                    ...poll,
+                    neitherTitle: "It's not that simple",
+                    neitherPrompt: "Here's what needs to change:",
+                    active: true,
+                },
+            });
+            created++;
+        }
     }
 
-    console.log(`✅ ${polls.length} polls seeded successfully`);
+    console.log(`✅ Polls seeded: ${created} created, ${updated} updated (votes preserved)`);
 }
 
 main()

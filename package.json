@@ -5,10 +5,14 @@
   "scripts": {
     "dev": "next dev -p 3002",
     "build": "prisma generate && next build",
-    "start": "prisma migrate deploy && next start -p ${PORT:-3000}",
+    "start": "next start -p ${PORT:-3000}",
+    "migrate:deploy": "prisma migrate deploy",
     "lint": "eslint",
     "seed": "npx prisma db seed",
     "scrape": "npx tsx scraper/index.ts",
+    "scrape:shelter-stats": "npx tsx scraper/run-shelter-stats.ts",
+    "scrape:opendata": "npx tsx scraper/run-opendata.ts",
+    "scrape:breeds": "npx tsx scraper/run-breed-db.ts",
     "postinstall": "prisma generate"
   },
   "prisma": {

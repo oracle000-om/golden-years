@@ -47,6 +47,7 @@ model Animal {
   sex                   Sex?
   size                  AnimalSize?
   photoUrl              String?     @map("photo_url")
+  photoHash             String?     @map("photo_hash")
   status                AnimalStatus @default(LISTED)
   ageKnownYears         Int?        @map("age_known_years")
   ageEstimatedLow       Int?        @map("age_estimated_low")
@@ -58,17 +59,45 @@ model Animal {
   breedConfidence       AgeConfidence @default(NONE) @map("breed_confidence")
   lifeExpectancyLow     Int?        @map("life_expectancy_low")
   lifeExpectancyHigh    Int?        @map("life_expectancy_high")
+
+  // ── v2: Health assessment ──
+  bodyConditionScore    Int?        @map("body_condition_score")
+  coatCondition         String?     @map("coat_condition")
+  visibleConditions     String[]    @default([]) @map("visible_conditions")
+  healthNotes           String?     @map("health_notes")
+
+  // ── v2: Behavioral signals ──
+  aggressionRisk        Int?        @map("aggression_risk")
+  fearIndicators        String[]    @default([]) @map("fear_indicators")
+  stressLevel           String?     @map("stress_level")
+  behaviorNotes         String?     @map("behavior_notes")
+
+  // ── v2: Photo quality ──
+  photoQuality          String?     @map("photo_quality")
+
+  // ── v2: Veterinary care guidance ──
+  likelyCareNeeds       String[]    @default([]) @map("likely_care_needs")
+  estimatedCareLevel    String?     @map("estimated_care_level")
+
   intakeReason          IntakeReason @default(UNKNOWN) @map("intake_reason")
   intakeReasonDetail    String?     @map("intake_reason_detail")
   notes                 String?
   intakeDate            DateTime?   @map("intake_date")
   euthScheduledAt       DateTime?   @map("euth_scheduled_at")
+
+  // ── v2: Temporal tracking ──
+  firstSeenAt           DateTime?   @map("first_seen_at")
+  lastSeenAt            DateTime?   @map("last_seen_at")
+  daysInShelter         Int?        @map("days_in_shelter")
+
   createdAt             DateTime    @default(now()) @map("created_at")
   updatedAt             DateTime    @updatedAt @map("updated_at")
 
-  shelter  Shelter  @relation(fields: [shelterId], references: [id])
-  sources  Source[]
+  shelter   Shelter           @relation(fields: [shelterId], references: [id])
+  sources   Source[]
+  snapshots AnimalSnapshot[]
 
+  @@index([photoHash])
   @@map("animals")
 }
 
@@ -144,6 +173,36 @@ enum SourceType {
   OTHER
 }
 
+model AnimalSnapshot {
+  id                String       @id @default(uuid())
+  animalId          String       @map("animal_id")
+  scrapedAt         DateTime     @default(now()) @map("scraped_at")
+  listingSource     String       @map("listing_source")
+
+  // ── Listing state (what changes over time) ──
+  status            AnimalStatus
+  name              String?
+  photoUrl          String?      @map("photo_url")
+  notes             String?
+  euthScheduledAt   DateTime?    @map("euth_scheduled_at")
+
+  // ── CV assessment at this moment ──
+  bodyConditionScore  Int?       @map("body_condition_score")
+  coatCondition       String?    @map("coat_condition")
+  aggressionRisk      Int?       @map("aggression_risk")
+  stressLevel         String?    @map("stress_level")
+  photoQuality        String?    @map("photo_quality")
+
+  // ── Raw data (future-proofing) ──
+  rawAssessment     Json?        @map("raw_assessment")
+  rawSourceData     Json?        @map("raw_source_data")
+
+  animal Animal @relation(fields: [animalId], references: [id])
+
+  @@index([animalId, scrapedAt])
+  @@map("animal_snapshots")
+}
+
 model Poll {
   id              String     @id @default(uuid())
   slug            String     @unique
@@ -181,4 +240,25 @@ enum VoteChoice {
   FOR
   AGAINST
   NEITHER
+}
+
+model BreedProfile {
+  id                 String   @id @default(cuid())
+  name               String
+  species            String   // DOG, CAT
+  breedGroup         String?  @map("breed_group")
+  lifeExpectancyLow  Int?     @map("life_expectancy_low")
+  lifeExpectancyHigh Int?     @map("life_expectancy_high")
+  temperament        String?
+  healthRiskScore    Int?     @map("health_risk_score")
+  commonConditions   String[] @default([]) @map("common_conditions")
+  seniorAgeThreshold Int?     @map("senior_age_threshold")
+  careNotes          String?  @map("care_notes")
+  sourceApi          String   @map("source_api")
+  lastFetchedAt      DateTime @default(now()) @map("last_fetched_at")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  @@unique([name, species])
+  @@map("breed_profiles")
 }

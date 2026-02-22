@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { ErrorBoundary } from "@/components/error-boundary";
 import "./globals.css";
 import "./listings.css";
 import "./detail.css";
@@ -35,7 +36,11 @@ export default function RootLayout({
           </div>
         </header>
 
-        <main>{children}</main>
+        <main>
+          <ErrorBoundary>
+            {children}
+          </ErrorBoundary>
+        </main>
 
         <footer className="footer">
           <div className="container">

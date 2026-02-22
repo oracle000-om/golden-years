@@ -57,7 +57,8 @@ export async function scrapeOcAnimalCare(): Promise<ScrapedAnimal[]> {
 
         for (const raw of animals) {
             const age = raw.years_old ?? null;
-            if (age === null || age < SENIOR_AGE) continue;
+            const seniorAge = type === 'CAT' ? 10 : 7;
+            if (age === null || age < seniorAge) continue;
 
             // Photo via servicethumb.php
             const photoUrl = `${PHOTO_BASE}?tab=adopt&detailid=${raw.animal_id}`;

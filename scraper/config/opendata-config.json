@@ -1,0 +1,32 @@
+[
+    {
+        "id": "austin-tx",
+        "shelterName": "Austin Animal Center",
+        "city": "Austin",
+        "state": "TX",
+        "domain": "data.austintexas.gov",
+        "outcomesResourceId": "hcup-htgu",
+        "intakesResourceId": "wter-evkm",
+        "notes": "City of Austin Open Data. Includes euthanasia_reason field. Data through May 2025."
+    },
+    {
+        "id": "dallas-tx",
+        "shelterName": "Dallas Animal Services",
+        "city": "Dallas",
+        "state": "TX",
+        "domain": "www.dallasopendata.com",
+        "outcomesResourceId": "uyte-zi7f",
+        "intakesResourceId": null,
+        "notes": "Dallas Chameleon DB. Fields: outcome_type, outcome_date, intake_date, animal_type, animal_breed. FY2023-2026."
+    },
+    {
+        "id": "sonoma-ca",
+        "shelterName": "Sonoma County Animal Services",
+        "city": "Santa Rosa",
+        "state": "CA",
+        "domain": "data.sonomacounty.ca.gov",
+        "outcomesResourceId": "924a-vesw",
+        "intakesResourceId": null,
+        "notes": "Sonoma County open data. Uses EUTHANIZE as outcome_type. Fields: outcome_type, outcome_date, type, breed, id."
+    }
+]

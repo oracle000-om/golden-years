@@ -107,7 +107,8 @@ export async function scrapeLaCounty(): Promise<ScrapedAnimal[]> {
 
             for (const raw of data) {
                 const age = raw.yearsOld ?? null;
-                if (age === null || age < SENIOR_AGE) continue;
+                const seniorAge = mapSpecies(raw.animalType) === 'CAT' ? 10 : 7;
+                if (age === null || age < seniorAge) continue;
 
                 // Photo required — skip if no images
                 const hasPhoto = (raw.imageCount ?? 0) > 0;

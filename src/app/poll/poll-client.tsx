@@ -48,7 +48,7 @@ export function PollPageClient({ polls }: { polls: Poll[] }) {
             <div className="poll-header">
                 <div className="poll-header__center">
                     <span className="page-badge">🗳️ Public Square</span>
-                    <h1 className="poll-header__title">What Does the Club Think?</h1>
+                    <h1 className="poll-header__title">What Do You Think?</h1>
                     <p className="poll-header__subtitle">
                         Read the facts. Pick a side. See where the club lands.
                     </p>
@@ -79,15 +79,7 @@ export function PollPageClient({ polls }: { polls: Poll[] }) {
                 ))}
             </div>
 
-            <div className="poll-request-more">
-                <p className="poll-request-more__text">Have a topic the club should weigh in on?</p>
-                <a
-                    href="mailto:hello@goldenyears.club?subject=Public%20Square%20Topic%20Request"
-                    className="poll-request-more__btn"
-                >
-                    Request a Topic →
-                </a>
-            </div>
+
         </div>
     );
 }

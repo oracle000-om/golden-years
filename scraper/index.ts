@@ -22,6 +22,7 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import pg from 'pg';
 import { shelterConfigs } from './shelters';
 import { createAgeEstimationProvider, lookupLifeExpectancy, type AgeEstimationProvider } from './cv';
+import { findDuplicate, computePhotoHash } from './dedup';
 
 async function createPrisma() {
     const url = process.env.DATABASE_URL;
@@ -69,6 +70,7 @@ async function main() {
     let grandTotalCreated = 0;
     let grandTotalUpdated = 0;
     let grandTotalCvProcessed = 0;
+    let grandTotalDedupMerged = 0;
 
     for (const shelter of shelters) {
         console.log(`🏠 ${shelter.name}`);
@@ -114,17 +116,15 @@ async function main() {
                 address: shelter.address,
                 phone: shelter.phone,
                 websiteUrl: shelter.websiteUrl,
-                totalIntakeAnnual: shelter.totalIntakeAnnual,
-                totalEuthanizedAnnual: shelter.totalEuthanizedAnnual,
-                dataYear: shelter.dataYear,
-                dataSourceName: shelter.dataSourceName,
-                dataSourceUrl: shelter.dataSourceUrl,
+                totalIntakeAnnual: 0,
+                totalEuthanizedAnnual: 0,
             },
         });
 
         let created = 0;
         let updated = 0;
         let cvProcessed = 0;
+        let dedupMerged = 0;
 
         for (const animal of withPhotos) {
             // Step 3: CV age estimation
@@ -138,7 +138,7 @@ async function main() {
                         const breeds = cvEstimate.detectedBreeds.length > 0
                             ? cvEstimate.detectedBreeds.join(' / ')
                             : 'unknown breed';
-                        console.log(`      → ${cvEstimate.estimatedAgeLow}–${cvEstimate.estimatedAgeHigh}yr (${cvEstimate.confidence}) | ${breeds} [${cvEstimate.indicators.join(', ')}]`);
+                        console.log(`      → ${cvEstimate.estimatedAgeLow}–${cvEstimate.estimatedAgeHigh}yr (${cvEstimate.confidence}) | ${breeds} | BCS:${cvEstimate.bodyConditionScore ?? '?'} | Aggr:${cvEstimate.aggressionRisk}/5 | Care:${cvEstimate.estimatedCareLevel}`);
                     }
                 } catch (err) {
                     console.log(`      ⚠ CV error: ${(err as Error).message}`);
@@ -153,12 +153,29 @@ async function main() {
                 ? lookupLifeExpectancy(cvEstimate.detectedBreeds, animal.species)
                 : null;
 
-            // Step 4: Upsert animal
-            try {
-                const existing = await prisma.animal.findFirst({
-                    where: { shelterId: shelter.id, intakeId: animal.intakeId },
-                });
+            // Step 4: Compute photo hash for dedup
+            let photoHash: string | null = null;
+            if (animal.photoUrl) {
+                try {
+                    photoHash = await computePhotoHash(animal.photoUrl);
+                } catch {
+                    // Non-fatal: proceed without hash
+                }
+            }
 
+            // Step 5: Dedup + upsert animal
+            try {
+                const match = await findDuplicate(prisma, animal.intakeId, shelter.id, animal.photoUrl, photoHash);
+                const existing = match
+                    ? await prisma.animal.findUnique({ where: { id: match.animalId } })
+                    : null;
+
+                if (match && match.tier > 1) {
+                    console.log(`      🔗 Dedup T${match.tier}: ${match.reason}`);
+                    dedupMerged++;
+                }
+
+                const now = new Date();
                 const data = {
                     name: animal.name,
                     species: animal.species,
@@ -166,6 +183,7 @@ async function main() {
                     sex: animal.sex,
                     size: animal.size,
                     photoUrl: animal.photoUrl,
+                    photoHash,
                     status: animal.status,
                     ageKnownYears: animal.ageKnownYears != null ? Number(animal.ageKnownYears) : null,
                     ageSource: cvEstimate ? 'CV_ESTIMATED' as const : (animal.ageSource || 'SHELTER_REPORTED' as const),
@@ -177,29 +195,75 @@ async function main() {
                     breedConfidence: cvEstimate?.detectedBreeds?.length ? cvEstimate.confidence : 'NONE' as const,
                     lifeExpectancyLow: lifeExp?.low ?? null,
                     lifeExpectancyHigh: lifeExp?.high ?? null,
+                    // v2: health assessment
+                    bodyConditionScore: cvEstimate?.bodyConditionScore ?? null,
+                    coatCondition: cvEstimate?.coatCondition ?? null,
+                    visibleConditions: cvEstimate?.visibleConditions ?? [],
+                    healthNotes: cvEstimate?.healthNotes ?? null,
+                    // v2: behavioral signals
+                    aggressionRisk: cvEstimate?.aggressionRisk ?? null,
+                    fearIndicators: cvEstimate?.fearIndicators ?? [],
+                    stressLevel: cvEstimate?.stressLevel ?? null,
+                    behaviorNotes: cvEstimate?.behaviorNotes ?? null,
+                    // v2: photo quality
+                    photoQuality: cvEstimate?.photoQuality ?? null,
+                    // v2: care guidance
+                    likelyCareNeeds: cvEstimate?.likelyCareNeeds ?? [],
+                    estimatedCareLevel: cvEstimate?.estimatedCareLevel ?? null,
                     intakeReason: animal.intakeReason,
                     intakeReasonDetail: animal.intakeReasonDetail,
                     euthScheduledAt: animal.euthScheduledAt,
                     intakeDate: animal.intakeDate,
                     notes: animal.notes,
+                    // v2: temporal tracking
+                    lastSeenAt: now,
                 };
 
+                let animalId: string;
                 if (existing) {
                     await prisma.animal.update({
                         where: { id: existing.id },
-                        data,
+                        data: {
+                            ...data,
+                            daysInShelter: existing.firstSeenAt
+                                ? Math.floor((now.getTime() - existing.firstSeenAt.getTime()) / (1000 * 60 * 60 * 24))
+                                : 0,
+                        },
                     });
+                    animalId = existing.id;
                     updated++;
                 } else {
-                    await prisma.animal.create({
+                    const created_record = await prisma.animal.create({
                         data: {
                             shelterId: shelter.id,
                             intakeId: animal.intakeId,
                             ...data,
+                            firstSeenAt: now,
+                            daysInShelter: 0,
                         },
                     });
+                    animalId = created_record.id;
                     created++;
                 }
+
+                // v2: Create temporal snapshot
+                await prisma.animalSnapshot.create({
+                    data: {
+                        animalId,
+                        listingSource: shelter.id,
+                        status: animal.status as 'LISTED' | 'URGENT',
+                        name: animal.name,
+                        photoUrl: animal.photoUrl,
+                        notes: animal.notes,
+                        euthScheduledAt: animal.euthScheduledAt,
+                        bodyConditionScore: cvEstimate?.bodyConditionScore ?? null,
+                        coatCondition: cvEstimate?.coatCondition ?? null,
+                        aggressionRisk: cvEstimate?.aggressionRisk ?? null,
+                        stressLevel: cvEstimate?.stressLevel ?? null,
+                        photoQuality: cvEstimate?.photoQuality ?? null,
+                        rawAssessment: cvEstimate ? JSON.parse(JSON.stringify(cvEstimate)) : null,
+                    },
+                });
             } catch (err) {
                 console.error(`      ❌ DB error for ${animal.intakeId}: ${(err as Error).message?.substring(0, 120)}`);
             }
@@ -208,11 +272,12 @@ async function main() {
         grandTotalCreated += created;
         grandTotalUpdated += updated;
         grandTotalCvProcessed += cvProcessed;
+        grandTotalDedupMerged += dedupMerged;
 
-        console.log(`   ✅ Created: ${created}, Updated: ${updated}, CV: ${cvProcessed}/${withPhotos.length}\n`);
+        console.log(`   ✅ Created: ${created}, Updated: ${updated}, Dedup: ${dedupMerged}, CV: ${cvProcessed}/${withPhotos.length}\n`);
     }
 
-    console.log(`🏁 Done. Total: ${grandTotalCreated} created, ${grandTotalUpdated} updated, ${grandTotalCvProcessed} CV estimates.`);
+    console.log(`🏁 Done. Total: ${grandTotalCreated} created, ${grandTotalUpdated} updated, ${grandTotalDedupMerged} deduped, ${grandTotalCvProcessed} CV estimates.`);
     process.exit(0);
 }
 

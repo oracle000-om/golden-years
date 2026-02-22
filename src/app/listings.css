@@ -688,8 +688,9 @@
 }
 
 .animal-card__shelter-stats-pct {
-  font-size: var(--font-size-sm);
+  font-size: 0.7rem;
   font-weight: 700;
+  margin-left: 8px;
 }
 
 .animal-card__shelter-stats-pct.high {

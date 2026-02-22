@@ -155,7 +155,7 @@ export function AnimalGrid({ animals }: { animals: AnimalWithShelter[] }) {
                                     {animal.sex ? animal.sex.charAt(0) + animal.sex.slice(1).toLowerCase() : ''}
                                 </p>
                                 <p className="animal-card__shelter">
-                                    {animal.shelter.name}
+                                    {animal.shelter.name}{animal.shelter.county || animal.shelter.state ? `, ${[animal.shelter.county, animal.shelter.state].filter(Boolean).join(', ')}` : ''}
                                     {animal.shelter.phone && <span className="animal-card__shelter-phone"> · {animal.shelter.phone}</span>}
                                 </p>
 
@@ -175,8 +175,14 @@ export function AnimalGrid({ animals }: { animals: AnimalWithShelter[] }) {
                                         </span>
                                     </div>
                                     <div className="animal-card__detail">
-                                        <span className="animal-card__detail-label">Breed lifespan</span>
-                                        <span className="animal-card__detail-value">{breedLifespan}</span>
+                                        <span className="animal-card__detail-label">Breed life expectancy</span>
+                                        <span className="gy-tooltip">
+                                            <span className="animal-card__detail-value">{breedLifespan}</span>
+                                            <span className="gy-tooltip__popup">
+                                                <span className="gy-tooltip__label">Disclaimer</span>
+                                                <span className="gy-tooltip__pct">Life expectancy value is based on AI approximations of breed mix</span>
+                                            </span>
+                                        </span>
                                     </div>
                                 </div>
                             </div>

@@ -28,6 +28,8 @@ model Shelter {
   priorYearIntake         Int?     @map("prior_year_intake")
   priorYearEuthanized     Int?     @map("prior_year_euthanized")
   priorDataYear           Int?     @map("prior_data_year")
+  latitude              Float?
+  longitude             Float?
   lastScrapedAt         DateTime? @map("last_scraped_at")
   createdAt          DateTime @default(now()) @map("created_at")
   updatedAt          DateTime @updatedAt @map("updated_at")
@@ -48,7 +50,7 @@ model Animal {
   size                  AnimalSize?
   photoUrl              String?     @map("photo_url")
   photoHash             String?     @map("photo_hash")
-  status                AnimalStatus @default(LISTED)
+  status                AnimalStatus @default(AVAILABLE)
   ageKnownYears         Int?        @map("age_known_years")
   ageEstimatedLow       Int?        @map("age_estimated_low")
   ageEstimatedHigh      Int?        @map("age_estimated_high")
@@ -90,6 +92,11 @@ model Animal {
   lastSeenAt            DateTime?   @map("last_seen_at")
   daysInShelter         Int?        @map("days_in_shelter")
 
+  // ── v3: Status lifecycle ──
+  delistedAt            DateTime?   @map("delisted_at")
+  outcomeDate           DateTime?   @map("outcome_date")
+  outcomeNotes          String?     @map("outcome_notes")
+
   createdAt             DateTime    @default(now()) @map("created_at")
   updatedAt             DateTime    @updatedAt @map("updated_at")
 
@@ -98,6 +105,8 @@ model Animal {
   snapshots AnimalSnapshot[]
 
   @@index([photoHash])
+  @@index([shelterId, status])
+  @@index([status])
   @@map("animals")
 }
 
@@ -133,12 +142,14 @@ enum AnimalSize {
 }
 
 enum AnimalStatus {
-  LISTED
+  AVAILABLE
   URGENT
-  PULLED
+  RESCUE_PULL
   ADOPTED
+  TRANSFERRED
+  RETURNED_OWNER
   EUTHANIZED
-  UNKNOWN
+  DELISTED
 }
 
 enum AgeSource {

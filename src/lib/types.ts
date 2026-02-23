@@ -22,6 +22,8 @@ export interface Shelter {
     priorYearIntake: number | null;
     priorYearEuthanized: number | null;
     priorDataYear: number | null;
+    latitude: number | null;
+    longitude: number | null;
     lastScrapedAt: Date | null;
     createdAt: Date;
     updatedAt: Date;
@@ -38,7 +40,11 @@ export interface Animal {
     sex: 'MALE' | 'FEMALE' | 'UNKNOWN' | null;
     size: 'SMALL' | 'MEDIUM' | 'LARGE' | 'XLARGE' | null;
     photoUrl: string | null;
-    status: 'LISTED' | 'URGENT' | 'PULLED' | 'ADOPTED' | 'EUTHANIZED' | 'UNKNOWN';
+    status: 'AVAILABLE' | 'URGENT' | 'RESCUE_PULL' | 'ADOPTED' | 'TRANSFERRED' | 'RETURNED_OWNER' | 'EUTHANIZED' | 'DELISTED';
+    lastSeenAt: Date | null;
+    delistedAt: Date | null;
+    outcomeDate: Date | null;
+    outcomeNotes: string | null;
     ageKnownYears: number | null;
     ageEstimatedLow: number | null;
     ageEstimatedHigh: number | null;

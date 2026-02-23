@@ -5,10 +5,10 @@ import { parseSearchQuery } from '@/lib/search-parser';
 import { FilterBar } from './listings/filter-bar';
 import { SearchBar } from './listings/search-bar';
 import { AnimalGrid } from './listings/animal-grid';
-import type { AnimalWithShelter } from '@/lib/types';
-import type { SearchSuggestion } from '@/lib/queries';
+import { Pagination } from './listings/pagination';
+import type { SearchSuggestion, PaginatedResult } from '@/lib/queries';
 
-export const dynamic = 'force-dynamic'; // Don't pre-render at build time — DB may not be reachable
+export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   title: 'Golden Years Club',
@@ -33,6 +33,9 @@ interface SearchParams {
   sex?: string;
   q?: string;
   zip?: string;
+  sort?: string;
+  page?: string;
+  radius?: string;
 }
 
 export default async function Home({
@@ -42,19 +45,19 @@ export default async function Home({
 }) {
   const params = await searchParams;
 
-  let animals: AnimalWithShelter[] = [];
+  let result: PaginatedResult = { animals: [], totalCount: 0, page: 1, totalPages: 1, pageSize: 24 };
   let states: string[] = [];
   let suggestions: SearchSuggestion[] = [];
   let error = false;
 
   try {
-    [animals, states] = await Promise.all([
+    [result, states] = await Promise.all([
       getFilteredAnimals(params),
       getDistinctStates(),
     ]);
 
     // Generate suggestions when search returns 0 results
-    if (animals.length === 0 && params.q?.trim()) {
+    if (result.animals.length === 0 && params.q?.trim()) {
       const intent = parseSearchQuery(params.q);
       suggestions = await getSuggestions(intent);
     }
@@ -83,11 +86,14 @@ export default async function Home({
     );
   }
 
+  const { animals, totalCount, page, totalPages } = result;
+  const hasLocation = !!(params.zip || params.q);
+
   return (
     <div className="listings-page">
       <div className="container">
         <div className="listings-header">
-          <span className="page-badge">📡 LIST ({animals.length})</span>
+          <span className="page-badge">📡 LIST ({totalCount})</span>
         </div>
 
         <p className="listings-header__description">
@@ -101,6 +107,9 @@ export default async function Home({
           currentState={params.state || 'all'}
           currentSex={params.sex || 'all'}
           currentZip={params.zip || ''}
+          currentSort={params.sort || 'urgency'}
+          currentRadius={params.radius || '100'}
+          hasLocation={hasLocation}
           states={states}
         />
 
@@ -126,7 +135,12 @@ export default async function Home({
             )}
           </div>
         ) : (
-          <AnimalGrid animals={animals} />
+          <>
+            <AnimalGrid animals={animals} totalCount={totalCount} page={page} totalPages={totalPages} />
+            {totalPages > 1 && (
+              <Pagination page={page} totalPages={totalPages} />
+            )}
+          </>
         )}
       </div>
     </div>

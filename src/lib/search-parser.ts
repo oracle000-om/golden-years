@@ -32,6 +32,7 @@ export interface SearchIntent {
     colors: string[];
     nearMe: boolean;
     zip: string | null;
+    radiusMiles: number | null;
     textTokens: string[];
 }
 
@@ -323,6 +324,9 @@ export function getIntentLabels(intent: SearchIntent): { emoji: string; label: s
     if (intent.zip) {
         labels.push({ emoji: '📮', label: intent.zip, field: 'zip' });
     }
+    if (intent.radiusMiles) {
+        labels.push({ emoji: '📏', label: `${intent.radiusMiles} mi`, field: 'radius' });
+    }
     for (const token of intent.textTokens) {
         labels.push({ emoji: '🔤', label: token, field: 'text' });
     }
@@ -347,6 +351,7 @@ export function parseSearchQuery(raw: string): SearchIntent {
         colors: [],
         nearMe: false,
         zip: null,
+        radiusMiles: null,
         textTokens: [],
     };
 
@@ -355,7 +360,21 @@ export function parseSearchQuery(raw: string): SearchIntent {
     // Normalize: lowercase, collapse whitespace, remove punctuation except hyphens
     let text = raw.toLowerCase().replace(/[^\w\s-]/g, '').replace(/\s+/g, ' ').trim();
 
-    // ── 0. Extract zip codes (5-digit) ─────────────────────
+    // ── 0. Extract radius phrases ──────────────────────────
+    const radiusPatterns = [
+        /\bwithin\s+(\d+)\s*(?:mi|miles?)\b/,
+        /\b(\d+)\s*(?:mi|miles?)\s*(?:radius|away)?\b/,
+    ];
+    for (const pat of radiusPatterns) {
+        const match = text.match(pat);
+        if (match) {
+            intent.radiusMiles = parseInt(match[1], 10);
+            text = text.replace(match[0], ' ').trim();
+            break;
+        }
+    }
+
+    // ── 0.5. Extract zip codes (5-digit) ───────────────────
     const zipMatch = text.match(/\b(\d{5})\b/);
     if (zipMatch) {
         intent.zip = zipMatch[1];

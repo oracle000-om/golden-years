@@ -8,10 +8,16 @@ interface FilterBarProps {
     currentState: string;
     currentSex: string;
     currentZip: string;
+    currentSort: string;
+    currentRadius: string;
+    hasLocation: boolean;
     states: string[];
 }
 
-export function FilterBar({ currentSpecies, currentState, currentSex, currentZip, states }: FilterBarProps) {
+export function FilterBar({
+    currentSpecies, currentState, currentSex, currentZip,
+    currentSort, currentRadius, hasLocation, states,
+}: FilterBarProps) {
     const router = useRouter();
     const searchParams = useSearchParams();
     const [zipValue, setZipValue] = useState(currentZip);
@@ -22,7 +28,7 @@ export function FilterBar({ currentSpecies, currentState, currentSex, currentZip
     const updateFilter = useCallback(
         (key: string, value: string) => {
             const params = new URLSearchParams(searchParams.toString());
-            if (value === 'all' || value === '') {
+            if (value === 'all' || value === '' || (key === 'sort' && value === 'urgency') || (key === 'radius' && value === '100')) {
                 params.delete(key);
             } else {
                 params.set(key, value);
@@ -38,13 +44,11 @@ export function FilterBar({ currentSpecies, currentState, currentSex, currentZip
 
     const handleZipChange = useCallback(
         (value: string) => {
-            // Only allow digits, max 5
             const cleaned = value.replace(/\D/g, '').slice(0, 5);
             setZipValue(cleaned);
 
             if (debounceRef.current) clearTimeout(debounceRef.current);
 
-            // Apply filter when 5 digits entered, or clear when empty
             if (cleaned.length === 5 || cleaned.length === 0) {
                 debounceRef.current = setTimeout(() => {
                     updateFilter('zip', cleaned);
@@ -75,7 +79,7 @@ export function FilterBar({ currentSpecies, currentState, currentSex, currentZip
                         updateFilter('zip', zip);
                     }
                 } catch {
-                    // Silently fail — user can still type manually
+                    // Silently fail
                 } finally {
                     setLocating(false);
                 }
@@ -130,6 +134,18 @@ export function FilterBar({ currentSpecies, currentState, currentSex, currentZip
                 ))}
             </select>
 
+            <select
+                className="filter-bar__select"
+                value={currentSort}
+                onChange={(e) => updateFilter('sort', e.target.value)}
+                aria-label="Sort results"
+            >
+                <option value="urgency">Sort: Urgency</option>
+                <option value="newest">Sort: Newest</option>
+                <option value="distance">Sort: Distance</option>
+                <option value="age">Sort: Oldest</option>
+            </select>
+
             <div className="filter-bar__location-group">
                 <input
                     className="filter-bar__input"
@@ -151,6 +167,21 @@ export function FilterBar({ currentSpecies, currentState, currentSex, currentZip
                     {locating ? '…' : '📍'}
                 </button>
             </div>
+
+            {hasLocation && (
+                <select
+                    className="filter-bar__select filter-bar__select--sm"
+                    value={currentRadius}
+                    onChange={(e) => updateFilter('radius', e.target.value)}
+                    aria-label="Search radius"
+                >
+                    <option value="25">25 mi</option>
+                    <option value="50">50 mi</option>
+                    <option value="100">100 mi</option>
+                    <option value="250">250 mi</option>
+                    <option value="any">Any distance</option>
+                </select>
+            )}
 
             <button className="filter-bar__reset" onClick={resetFilters} disabled={isPending}>
                 {isPending ? 'Resetting…' : 'Reset'}

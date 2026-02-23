@@ -40,6 +40,7 @@ export interface Animal {
     sex: 'MALE' | 'FEMALE' | 'UNKNOWN' | null;
     size: 'SMALL' | 'MEDIUM' | 'LARGE' | 'XLARGE' | null;
     photoUrl: string | null;
+    photoUrls: string[];
     status: 'AVAILABLE' | 'URGENT' | 'RESCUE_PULL' | 'ADOPTED' | 'TRANSFERRED' | 'RETURNED_OWNER' | 'EUTHANIZED' | 'DELISTED';
     lastSeenAt: Date | null;
     delistedAt: Date | null;

@@ -127,12 +127,14 @@ function isLikelyRescueOrg(name: string): boolean {
     return RESCUE_KEYWORDS.some(kw => lower.includes(kw));
 }
 
-function getBestPhotoUrl(
+function getAllPhotoUrls(
     animal: RGAnimal,
     includedMap: Map<string, RGPicture | RGOrg>,
-): string | null {
-    // Prefer high-res included pictures over tiny thumbnails
-    // (some orgs upload sketches/illustrations as 100px thumbnails)
+): string[] {
+    const urls: string[] = [];
+    const seen = new Set<string>();
+
+    // Collect high-res included pictures
     const picRefs = animal.relationships?.pictures?.data || [];
     for (const ref of picRefs) {
         const pic = includedMap.get(`pictures:${ref.id}`) as RGPicture | undefined;
@@ -141,16 +143,19 @@ function getBestPhotoUrl(
                 || pic.attributes.original?.url
                 || pic.attributes.small?.url
                 || null;
-            if (url) return url;
+            if (url && !seen.has(url)) {
+                seen.add(url);
+                urls.push(url);
+            }
         }
     }
 
     // Fall back to thumbnail if no included pictures
-    if (animal.attributes.pictureThumbnailUrl) {
-        return animal.attributes.pictureThumbnailUrl;
+    if (urls.length === 0 && animal.attributes.pictureThumbnailUrl) {
+        urls.push(animal.attributes.pictureThumbnailUrl);
     }
 
-    return null;
+    return urls;
 }
 
 function getOrg(
@@ -204,10 +209,9 @@ export async function scrapeRescueGroups(options: ScrapeOptions = {}): Promise<{
             );
             url.searchParams.set('fields[orgs]', 'name,citystate,state,city,postalcode,phone,url');
 
-            // Build filter body — only fetch from shelter-type orgs, not rescues
+            // Build filter body — fetch seniors from ALL org types (shelters, rescues, sanctuaries, etc.)
             const filters: Array<{ fieldName: string; operation: string; criteria: string }> = [
                 { fieldName: 'animals.ageGroup', operation: 'equals', criteria: 'Senior' },
-                { fieldName: 'orgs.type', operation: 'equals', criteria: 'Shelter' },
             ];
 
             // Location filters
@@ -263,15 +267,14 @@ export async function scrapeRescueGroups(options: ScrapeOptions = {}): Promise<{
                     // Parse age
                     const ageYears = parseAgeFromString(attrs.ageString);
 
-                    // Get photo
-                    const photoUrl = getBestPhotoUrl(animal, includedMap);
+                    // Get all photos
+                    const allPhotos = getAllPhotoUrls(animal, includedMap);
+                    const photoUrl = allPhotos[0] || null;
+                    const photoUrls = allPhotos.slice(1);
 
-                    // Get organization — skip rescue/foster orgs (safety net)
+                    // Get organization
                     const org = getOrg(animal, includedMap);
                     if (!org) continue;
-                    if (isLikelyRescueOrg(org.attributes.name)) {
-                        continue; // Skip rescue orgs even if API filter missed them
-                    }
                     if (!shelterMap.has(org.id)) {
                         shelterMap.set(org.id, {
                             name: org.attributes.name,
@@ -299,7 +302,8 @@ export async function scrapeRescueGroups(options: ScrapeOptions = {}): Promise<{
                         sex: mapSex(attrs.sex),
                         size: mapSize(attrs.sizeGroup),
                         photoUrl,
-                        status: attrs.isSpecialNeeds ? 'URGENT' : 'LISTED',
+                        photoUrls,
+                        status: attrs.isSpecialNeeds ? 'URGENT' : 'AVAILABLE',
                         ageKnownYears: ageYears,
                         ageSource: ageYears !== null ? 'SHELTER_REPORTED' : 'UNKNOWN',
                         euthScheduledAt: null,

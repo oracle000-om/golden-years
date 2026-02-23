@@ -152,8 +152,10 @@ function parseResponse(text: string): AnimalAssessment | null {
 export function createGeminiProvider(apiKey: string): AgeEstimationProvider {
     const genai = new GoogleGenAI({ apiKey });
 
-    async function assess(photoUrl: string): Promise<AnimalAssessment | null> {
-        // Step 1: Download the image
+    const MAX_ADDITIONAL_PHOTOS = 4; // cap at 5 total (1 primary + 4 extra)
+
+    async function assess(photoUrl: string, additionalPhotos?: string[]): Promise<AnimalAssessment | null> {
+        // Step 1: Download the primary image
         const imageBuffer = await downloadImage(photoUrl);
         if (!imageBuffer) {
             console.log('      ⚠ Could not download image');
@@ -167,24 +169,45 @@ export function createGeminiProvider(apiKey: string): AgeEstimationProvider {
             return null;
         }
 
-        // Step 3: Send to Gemini
+        // Step 3: Download and preprocess additional photos (best-effort)
+        const allProcessed: { buffer: Buffer; mimeType: string }[] = [processed];
+
+        if (additionalPhotos && additionalPhotos.length > 0) {
+            const extras = additionalPhotos.slice(0, MAX_ADDITIONAL_PHOTOS);
+            const downloads = await Promise.all(extras.map(url => downloadImage(url)));
+            for (const buf of downloads) {
+                if (!buf) continue;
+                const p = await preprocessImage(buf);
+                if (p) allProcessed.push(p);
+            }
+        }
+
+        const isMultiPhoto = allProcessed.length > 1;
+
+        // Step 4: Build parts — all images + prompt
+        const parts: Array<{ inlineData: { mimeType: string; data: string } } | { text: string }> = [];
+
+        for (const img of allProcessed) {
+            parts.push({
+                inlineData: {
+                    mimeType: img.mimeType,
+                    data: img.buffer.toString('base64'),
+                },
+            });
+        }
+
+        // Use multi-image preamble when applicable
+        const promptText = isMultiPhoto
+            ? `You are provided with ${allProcessed.length} photos of the SAME animal. Synthesize your assessment across ALL photos for maximum accuracy. Different angles help with breed identification (side profiles), body condition scoring (full body), and health assessment (close-ups). Use the combination of all views.\n\n${ANIMAL_ASSESSMENT_PROMPT}`
+            : ANIMAL_ASSESSMENT_PROMPT;
+
+        parts.push({ text: promptText });
+
+        // Step 5: Send to Gemini
         try {
             const response = await genai.models.generateContent({
                 model: MODEL,
-                contents: [
-                    {
-                        role: 'user',
-                        parts: [
-                            {
-                                inlineData: {
-                                    mimeType: processed.mimeType,
-                                    data: processed.buffer.toString('base64'),
-                                },
-                            },
-                            { text: ANIMAL_ASSESSMENT_PROMPT },
-                        ],
-                    },
-                ],
+                contents: [{ role: 'user', parts }],
             });
 
             const text = response.text;
@@ -193,11 +216,15 @@ export function createGeminiProvider(apiKey: string): AgeEstimationProvider {
                 return null;
             }
 
-            // Step 4: Parse response
+            // Step 6: Parse response
             const estimate = parseResponse(text);
             if (!estimate) {
                 console.log('      ⚠ Could not parse Gemini response');
                 return null;
+            }
+
+            if (isMultiPhoto) {
+                console.log(`      📸 Multi-photo assessment (${allProcessed.length} images)`);
             }
 
             return estimate;

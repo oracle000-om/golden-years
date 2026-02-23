@@ -34,6 +34,7 @@ on:
           - all
           - shelters
           - rescuegroups
+          - petango
           - opendata
           - breeds
           - shelter-stats
@@ -52,7 +53,7 @@ jobs:
        (github.event.inputs.pipeline == 'all' ||
         github.event.inputs.pipeline == 'shelters'))
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 
@@ -85,6 +86,27 @@ jobs:
       - run: npm ci
       - run: npx prisma generate
       - run: npx tsx scraper/run-rescuegroups.ts
+
+  # ── Petango / 24PetConnect (every 8 hours) ──────────────
+  scrape-petango:
+    if: >-
+      github.event.schedule == '0 2,10,18 * * *' ||
+      (github.event_name == 'workflow_dispatch' &&
+       (github.event.inputs.pipeline == 'all' ||
+        github.event.inputs.pipeline == 'petango'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npx tsx scraper/run-petango.ts
 
   # ── Open Data Stats (weekly) ────────────────────────────
   scrape-stats:

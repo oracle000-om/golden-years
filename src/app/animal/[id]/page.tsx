@@ -3,8 +3,9 @@ import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { getAnimalById, getAnimalForMetadata } from '@/lib/queries';
-import { formatDeathMarker, hoursUntil, getUrgencyLevel, formatAge, formatShelterStats, formatIntakeReason, formatYearsRemaining, getAgeDiscrepancy, getGoldenYearsConfidence, computeHealthScore } from '@/lib/utils';
+import { formatDeathMarker, hoursUntil, getUrgencyLevel, formatAge, formatShelterStats, formatIntakeReason, formatYearsRemaining, getAgeDiscrepancy, getGoldenYearsConfidence, computeHealthScore, getSaveRate } from '@/lib/utils';
 import { CopyLinkButton } from '@/components/copy-link-button';
+import { PhotoGallery } from '@/components/photo-gallery';
 import type { AnimalWithShelterAndSources, Source } from '@/lib/types';
 
 export const revalidate = 60;
@@ -103,6 +104,7 @@ export default async function AnimalDetailPage({
     const hours = hoursUntil(animal.euthScheduledAt);
     const urgency = getUrgencyLevel(hours);
     const shelterStatsLine = formatShelterStats(animal.shelter.totalIntakeAnnual, animal.shelter.totalEuthanizedAnnual, animal.shelter.dataYear);
+    const saveRate = getSaveRate(animal.shelter.totalIntakeAnnual, animal.shelter.totalEuthanizedAnnual);
     const ageDisplay = formatAge(
         animal.ageKnownYears,
         animal.ageEstimatedLow,
@@ -154,15 +156,57 @@ export default async function AnimalDetailPage({
                     ← Back to the list
                 </Link>
 
+                {/* --- Status Banners --- */}
+                {animal.status === 'ADOPTED' && (
+                    <div className="animal-detail__status-banner animal-detail__status-banner--positive">
+                        🎉 Great news — {animal.name || 'This animal'} has been adopted!
+                        {animal.outcomeDate && <span className="animal-detail__status-banner-date">Confirmed {new Date(animal.outcomeDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>}
+                    </div>
+                )}
+                {animal.status === 'RESCUE_PULL' && (
+                    <div className="animal-detail__status-banner animal-detail__status-banner--positive">
+                        🎉 {animal.name || 'This animal'} was pulled by a rescue!
+                    </div>
+                )}
+                {animal.status === 'TRANSFERRED' && (
+                    <div className="animal-detail__status-banner animal-detail__status-banner--neutral">
+                        {animal.name || 'This animal'} was transferred to another facility.
+                    </div>
+                )}
+                {animal.status === 'RETURNED_OWNER' && (
+                    <div className="animal-detail__status-banner animal-detail__status-banner--positive">
+                        🏠 {animal.name || 'This animal'} was returned to their owner!
+                    </div>
+                )}
+                {animal.status === 'DELISTED' && (
+                    <div className="animal-detail__status-banner animal-detail__status-banner--neutral">
+                        <strong>ℹ️ {animal.name || 'This animal'} is no longer listed</strong>
+                        <span>This usually means the animal was adopted, transferred, or pulled by a rescue.</span>
+                        {animal.lastSeenAt && <span className="animal-detail__status-banner-date">Last seen on shelter site {new Date(animal.lastSeenAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>}
+                    </div>
+                )}
+                {animal.status === 'EUTHANIZED' && (
+                    <div className="animal-detail__status-banner animal-detail__status-banner--memorial">
+                        🕊️ {animal.name || 'This animal'} has passed. We honor their memory.
+                        {animal.outcomeDate && <span className="animal-detail__status-banner-date">{new Date(animal.outcomeDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>}
+                    </div>
+                )}
+
                 <div className="animal-detail__hero">
                     <div className="animal-detail__photo">
-                        {animal.photoUrl ? (
-                            <Image src={animal.photoUrl} alt={animal.name || 'Unnamed animal'} fill sizes="(max-width: 768px) 100vw, 50vw" style={{ objectFit: 'cover' }} priority />
-                        ) : (
-                            <div className="animal-detail__photo-placeholder">
-                                {animal.species === 'DOG' ? '🐕' : animal.species === 'CAT' ? '🐈' : '🐾'}
-                            </div>
-                        )}
+                        {(() => {
+                            const allPhotos = [animal.photoUrl, ...(animal.photoUrls || [])].filter(Boolean) as string[];
+                            if (allPhotos.length > 1) {
+                                return <PhotoGallery photos={allPhotos} name={animal.name || 'Unnamed animal'} />;
+                            }
+                            return animal.photoUrl ? (
+                                <Image src={animal.photoUrl} alt={animal.name || 'Unnamed animal'} fill sizes="(max-width: 768px) 100vw, 50vw" style={{ objectFit: 'cover' }} priority />
+                            ) : (
+                                <div className="animal-detail__photo-placeholder">
+                                    {animal.species === 'DOG' ? '🐕' : animal.species === 'CAT' ? '🐈' : '🐾'}
+                                </div>
+                            );
+                        })()}
                     </div>
 
                     <div className="animal-detail__info">
@@ -365,6 +409,28 @@ export default async function AnimalDetailPage({
                     {shelterStatsLine && (
                         <div className="animal-detail__shelter-stats">
                             <p>{shelterStatsLine}</p>
+                        </div>
+                    )}
+                    {saveRate !== null && (
+                        <div className="animal-detail__shelter-stats">
+                            <div className="animal-card__shelter-stats-header">
+                                <span className="gy-tooltip">
+                                    <span className="animal-card__shelter-stats-label">Live release rate</span>
+                                    <span className="gy-tooltip__popup">
+                                        <span className="gy-tooltip__label">What is this?</span>
+                                        <span className="gy-tooltip__pct">The percentage of animals that leave this shelter alive — via adoption, rescue, or transfer — rather than being euthanized. A lower rate means higher euthanasia risk.</span>
+                                    </span>
+                                </span>
+                                <span className={`animal-card__shelter-stats-pct ${saveRate >= 90 ? 'high' : saveRate >= 50 ? 'mid' : 'low'}`}>
+                                    {saveRate}%
+                                </span>
+                            </div>
+                            <div className="animal-card__shelter-stats-bar">
+                                <div
+                                    className={`animal-card__shelter-stats-fill ${saveRate >= 90 ? 'high' : saveRate >= 50 ? 'mid' : 'low'}`}
+                                    style={{ width: `${Math.min(saveRate, 100)}%` }}
+                                />
+                            </div>
                         </div>
                     )}
                     <div className="animal-detail__shelter-cta">

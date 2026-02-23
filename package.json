@@ -13,6 +13,7 @@
     "scrape:shelter-stats": "npx tsx scraper/run-shelter-stats.ts",
     "scrape:opendata": "npx tsx scraper/run-opendata.ts",
     "scrape:breeds": "npx tsx scraper/run-breed-db.ts",
+    "scrape:petango": "npx tsx scraper/run-petango.ts",
     "postinstall": "prisma generate"
   },
   "prisma": {

@@ -50,6 +50,7 @@ model Animal {
   size                  AnimalSize?
   photoUrl              String?     @map("photo_url")
   photoHash             String?     @map("photo_hash")
+  photoUrls             String[]    @default([]) @map("photo_urls")
   status                AnimalStatus @default(AVAILABLE)
   ageKnownYears         Int?        @map("age_known_years")
   ageEstimatedLow       Int?        @map("age_estimated_low")
@@ -272,4 +273,13 @@ model BreedProfile {
 
   @@unique([name, species])
   @@map("breed_profiles")
+}
+
+model RoadmapVote {
+  id         String   @id @default(uuid())
+  choice     String
+  voterToken String   @unique @map("voter_token")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@map("roadmap_votes")
 }

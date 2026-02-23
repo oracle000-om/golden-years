@@ -1,0 +1,175 @@
+/* ============================================
+   GIVE PAGE — Roadmap Poll
+   ============================================ */
+
+.give-page {
+    padding: var(--space-2xl) 0;
+    min-height: 60vh;
+}
+
+/* --- Roadmap --- */
+.roadmap {
+    max-width: 560px;
+    margin: var(--space-xl) auto 0;
+    text-align: center;
+}
+
+.roadmap__coming-soon {
+    display: inline-block;
+    padding: var(--space-xs) var(--space-md);
+    background: var(--color-gold-glow);
+    border: 1px solid rgba(255, 192, 75, 0.25);
+    border-radius: var(--radius-full);
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    color: var(--color-gold);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: var(--space-md);
+}
+
+.roadmap__question {
+    font-family: var(--font-sans);
+    font-size: var(--font-size-xl);
+    font-weight: 600;
+    color: var(--color-text);
+    margin-bottom: var(--space-xl);
+    letter-spacing: -0.01em;
+}
+
+/* --- Options (stacked buttons) --- */
+.roadmap__options {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+}
+
+.roadmap__option {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: var(--space-md) var(--space-lg);
+    background: var(--color-bg-card);
+    border: 1px solid rgba(255, 240, 224, 0.08);
+    border-radius: var(--radius-md);
+    color: var(--color-text);
+    font-family: var(--font-sans);
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+    text-align: left;
+    overflow: hidden;
+    transition: all var(--transition-base);
+}
+
+.roadmap__option:not(:disabled):hover {
+    border-color: rgba(255, 192, 75, 0.4);
+    background: var(--color-bg-card-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.roadmap__option:disabled {
+    cursor: default;
+}
+
+.roadmap__option--voted {
+    border-color: rgba(255, 240, 224, 0.06);
+    transform: none;
+    box-shadow: none;
+}
+
+.roadmap__option--voted:not(.roadmap__option--selected) {
+    opacity: 0.65;
+}
+
+.roadmap__option--selected {
+    border-color: rgba(255, 192, 75, 0.5) !important;
+    opacity: 1;
+}
+
+/* --- Fill bar (animated percentage background) --- */
+.roadmap__option-fill {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    border-radius: var(--radius-md);
+    background: linear-gradient(90deg, rgba(255, 192, 75, 0.12), rgba(255, 192, 75, 0.06));
+    transition: width 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+    pointer-events: none;
+    z-index: 0;
+}
+
+.roadmap__option--selected .roadmap__option-fill {
+    background: linear-gradient(90deg, rgba(255, 192, 75, 0.22), rgba(255, 192, 75, 0.10));
+}
+
+/* --- Content (icon + label) --- */
+.roadmap__option-content {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+}
+
+.roadmap__option-icon {
+    font-size: 1.25rem;
+    flex-shrink: 0;
+    line-height: 1;
+}
+
+.roadmap__option-label {
+    font-weight: 500;
+}
+
+/* --- Percentage badge --- */
+.roadmap__option-pct {
+    position: relative;
+    z-index: 1;
+    font-size: var(--font-size-sm);
+    font-weight: 700;
+    color: var(--color-gold);
+    font-variant-numeric: tabular-nums;
+    min-width: 3ch;
+    text-align: right;
+    flex-shrink: 0;
+    animation: roadmap-fade-in 0.4s ease forwards;
+}
+
+@keyframes roadmap-fade-in {
+    from {
+        opacity: 0;
+        transform: translateX(6px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+/* --- Total count --- */
+.roadmap__total {
+    margin-top: var(--space-md);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-dim);
+}
+
+/* --- Responsive --- */
+@media (max-width: 480px) {
+    .roadmap__question {
+        font-size: var(--font-size-lg);
+    }
+
+    .roadmap__option {
+        padding: var(--space-sm) var(--space-md);
+        font-size: var(--font-size-xs);
+    }
+
+    .roadmap__option-icon {
+        font-size: 1rem;
+    }
+}

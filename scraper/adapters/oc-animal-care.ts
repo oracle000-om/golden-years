@@ -72,7 +72,7 @@ export async function scrapeOcAnimalCare(): Promise<ScrapedAnimal[]> {
                 sex: mapSex(raw.sex),
                 size: null,
                 photoUrl,
-                status: 'LISTED',
+                status: 'AVAILABLE',
                 ageKnownYears: age,
                 ageSource: 'SHELTER_REPORTED',
                 euthScheduledAt: null,

@@ -1,0 +1,16 @@
+[
+    {
+        "id": "maricopa-petango",
+        "shelterName": "Maricopa County Animal Care (PetPoint)",
+        "authkey": "v584zuru1b4130d72y11xaa3r7oqy985cu3xh81mk7wft687bu",
+        "city": "Phoenix",
+        "state": "AZ"
+    },
+    {
+        "id": "sacramento-petango",
+        "shelterName": "Sacramento County Animal Care (PetPoint)",
+        "authkey": "hxym4cn4tnbm0ys26jo20ebskdhb1t3wyfgabvt03wqup07vcd",
+        "city": "Sacramento",
+        "state": "CA"
+    }
+]

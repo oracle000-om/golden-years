@@ -150,7 +150,7 @@ async function main() {
 
             // Life expectancy lookup from breed data
             const lifeExp = cvEstimate?.detectedBreeds?.length
-                ? lookupLifeExpectancy(cvEstimate.detectedBreeds, animal.species)
+                ? lookupLifeExpectancy(cvEstimate.detectedBreeds, animal.species, animal.size)
                 : null;
 
             // Step 4: Compute photo hash for dedup
@@ -251,7 +251,7 @@ async function main() {
                     data: {
                         animalId,
                         listingSource: shelter.id,
-                        status: animal.status as 'LISTED' | 'URGENT',
+                        status: animal.status as 'AVAILABLE' | 'URGENT',
                         name: animal.name,
                         photoUrl: animal.photoUrl,
                         notes: animal.notes,
@@ -267,6 +267,23 @@ async function main() {
             } catch (err) {
                 console.error(`      ❌ DB error for ${animal.intakeId}: ${(err as Error).message?.substring(0, 120)}`);
             }
+        }
+
+        // Step 6: Reconciliation — delist stale animals
+        const runStart = new Date(Date.now() - 5 * 60 * 1000); // 5 min grace period
+        const delisted = await prisma.animal.updateMany({
+            where: {
+                shelterId: shelter.id,
+                status: { in: ['AVAILABLE', 'URGENT'] },
+                lastSeenAt: { lt: runStart },
+            },
+            data: {
+                status: 'DELISTED',
+                delistedAt: new Date(),
+            },
+        });
+        if (delisted.count > 0) {
+            console.log(`   🔄 Delisted ${delisted.count} animals no longer found on source`);
         }
 
         grandTotalCreated += created;

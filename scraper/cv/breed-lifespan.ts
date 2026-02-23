@@ -135,6 +135,56 @@ const CAT_BREEDS: Record<string, LifeExpectancy> = {
 const GENERIC_DOG: LifeExpectancy = { low: 10, high: 13 };
 const GENERIC_CAT: LifeExpectancy = { low: 12, high: 18 };
 
+/** Size-specific fallbacks for dogs (cats vary less by size) */
+const DOG_SIZE_FALLBACKS: Record<string, LifeExpectancy> = {
+    SMALL: { low: 12, high: 16 },
+    MEDIUM: { low: 10, high: 14 },
+    LARGE: { low: 8, high: 12 },
+    XLARGE: { low: 7, high: 10 },
+};
+
+/** Expected size category for known breeds (dogs only — cats are ~uniform) */
+const BREED_EXPECTED_SIZE: Record<string, 'SMALL' | 'MEDIUM' | 'LARGE' | 'XLARGE'> = {
+    // XLARGE breeds
+    'great dane': 'XLARGE', 'mastiff': 'XLARGE', 'saint bernard': 'XLARGE',
+    'irish wolfhound': 'XLARGE', 'newfoundland': 'XLARGE', 'great pyrenees': 'XLARGE',
+    'cane corso': 'XLARGE', 'bullmastiff': 'XLARGE',
+    // LARGE breeds
+    'german shepherd': 'LARGE', 'golden retriever': 'LARGE', 'labrador retriever': 'LARGE',
+    'rottweiler': 'LARGE', 'doberman': 'LARGE', 'doberman pinscher': 'LARGE',
+    'bernese mountain dog': 'LARGE', 'rhodesian ridgeback': 'LARGE', 'weimaraner': 'LARGE',
+    'akita': 'LARGE', 'alaskan malamute': 'LARGE', 'bloodhound': 'LARGE',
+    'chesapeake bay retriever': 'LARGE', 'collie': 'LARGE', 'old english sheepdog': 'LARGE',
+    'siberian husky': 'LARGE', 'husky': 'LARGE', 'boxer': 'LARGE',
+    'american bulldog': 'LARGE', 'chow chow': 'LARGE', 'dalmatian': 'LARGE',
+    'greyhound': 'LARGE', 'irish setter': 'LARGE', 'samoyed': 'LARGE',
+    'standard poodle': 'LARGE', 'vizsla': 'LARGE',
+    'german shorthaired pointer': 'LARGE', 'english setter': 'LARGE',
+    'english springer spaniel': 'LARGE',
+    // MEDIUM breeds
+    'australian shepherd': 'MEDIUM', 'australian cattle dog': 'MEDIUM', 'border collie': 'MEDIUM',
+    'bulldog': 'MEDIUM', 'english bulldog': 'MEDIUM', 'basset hound': 'MEDIUM',
+    'beagle': 'MEDIUM', 'brittany': 'MEDIUM', 'cocker spaniel': 'MEDIUM',
+    'corgi': 'MEDIUM', 'pembroke welsh corgi': 'MEDIUM', 'shar pei': 'MEDIUM',
+    'staffordshire bull terrier': 'MEDIUM', 'whippet': 'MEDIUM',
+    'american pit bull terrier': 'MEDIUM', 'american staffordshire terrier': 'MEDIUM',
+    'pit bull': 'MEDIUM', 'pit bull terrier': 'MEDIUM', 'bull terrier': 'MEDIUM',
+    'plott hound': 'MEDIUM', 'french bulldog': 'MEDIUM',
+    // SMALL breeds
+    'chihuahua': 'SMALL', 'dachshund': 'SMALL', 'yorkshire terrier': 'SMALL', 'yorkie': 'SMALL',
+    'maltese': 'SMALL', 'pomeranian': 'SMALL', 'shih tzu': 'SMALL', 'pug': 'SMALL',
+    'boston terrier': 'SMALL', 'bichon frise': 'SMALL', 'havanese': 'SMALL',
+    'cavalier king charles spaniel': 'SMALL', 'papillon': 'SMALL', 'pekingese': 'SMALL',
+    'miniature pinscher': 'SMALL', 'miniature schnauzer': 'SMALL', 'lhasa apso': 'SMALL',
+    'cairn terrier': 'SMALL', 'jack russell terrier': 'SMALL', 'rat terrier': 'SMALL',
+    'scottish terrier': 'SMALL', 'west highland terrier': 'SMALL', 'westie': 'SMALL',
+    'brussels griffon': 'SMALL', 'chinese crested': 'SMALL', 'japanese chin': 'SMALL',
+    'shiba inu': 'SMALL',
+};
+
+/** Size rank for comparing expected vs actual */
+const SIZE_RANK: Record<string, number> = { SMALL: 0, MEDIUM: 1, LARGE: 2, XLARGE: 3 };
+
 /** Mix uncertainty — add this many years to the range for mixed breeds */
 const MIX_BUFFER = 1;
 
@@ -173,26 +223,53 @@ function findBreedMatch(breed: string, table: Record<string, LifeExpectancy>): L
 }
 
 /**
- * Look up life expectancy for detected breeds.
+ * Find the expected size for a breed string.
+ */
+function findExpectedSize(breed: string): 'SMALL' | 'MEDIUM' | 'LARGE' | 'XLARGE' | null {
+    const normalized = normalize(breed);
+    if (BREED_EXPECTED_SIZE[normalized]) return BREED_EXPECTED_SIZE[normalized];
+
+    for (const [key, size] of Object.entries(BREED_EXPECTED_SIZE)) {
+        if (normalized.includes(key)) return size;
+    }
+    for (const [key, size] of Object.entries(BREED_EXPECTED_SIZE)) {
+        if (key.includes(normalized) && normalized.length >= 3) return size;
+    }
+    return null;
+}
+
+export type AnimalSize = 'SMALL' | 'MEDIUM' | 'LARGE' | 'XLARGE' | null;
+
+/**
+ * Look up life expectancy for detected breeds, factoring in shelter-reported size.
  *
  * Strategy:
  *   1. Try each detected breed against the lookup table
  *   2. If multiple breeds match (mix), average their ranges
  *   3. If it's a mix, widen the range by MIX_BUFFER
- *   4. Fall back to generic species average
+ *   4. Check for breed-size conflict: if shelter size disagrees with breed's
+ *      expected size by 2+ categories, blend the breed range with the
+ *      size-based fallback to account for possible misidentification
+ *   5. If no breed matched, use size-specific fallback (dogs) or generic
  *
  * @param detectedBreeds - Array of CV-detected breed strings
  * @param species - DOG, CAT, or OTHER
+ * @param shelterSize - Size reported by the data source (SMALL/MEDIUM/LARGE/XLARGE)
  * @returns Life expectancy range, or null for OTHER species
  */
 export function lookupLifeExpectancy(
     detectedBreeds: string[],
     species: 'DOG' | 'CAT' | 'OTHER',
+    shelterSize: AnimalSize = null,
 ): LifeExpectancy | null {
     if (species === 'OTHER') return null;
 
     const table = species === 'DOG' ? DOG_BREEDS : CAT_BREEDS;
-    const fallback = species === 'DOG' ? GENERIC_DOG : GENERIC_CAT;
+
+    // Size-aware fallback for dogs, generic for cats
+    const fallback = species === 'DOG' && shelterSize && DOG_SIZE_FALLBACKS[shelterSize]
+        ? DOG_SIZE_FALLBACKS[shelterSize]
+        : (species === 'DOG' ? GENERIC_DOG : GENERIC_CAT);
 
     if (detectedBreeds.length === 0) return fallback;
 
@@ -208,12 +285,41 @@ export function lookupLifeExpectancy(
     if (matches.length === 0) return fallback;
 
     // Average the matched ranges
-    const avgLow = Math.round(matches.reduce((sum, m) => sum + m.low, 0) / matches.length);
-    const avgHigh = Math.round(matches.reduce((sum, m) => sum + m.high, 0) / matches.length);
+    let avgLow = Math.round(matches.reduce((sum, m) => sum + m.low, 0) / matches.length);
+    let avgHigh = Math.round(matches.reduce((sum, m) => sum + m.high, 0) / matches.length);
 
     // Widen range for mixes
-    return {
-        low: isMix ? Math.max(avgLow - MIX_BUFFER, 5) : avgLow,
-        high: isMix ? avgHigh + MIX_BUFFER : avgHigh,
-    };
+    if (isMix) {
+        avgLow = Math.max(avgLow - MIX_BUFFER, 5);
+        avgHigh = avgHigh + MIX_BUFFER;
+    }
+
+    // Breed-size conflict detection (dogs only — cats don't vary much by size)
+    if (species === 'DOG' && shelterSize) {
+        const expectedSizes = detectedBreeds
+            .map(b => findExpectedSize(b))
+            .filter((s): s is NonNullable<typeof s> => s !== null);
+
+        if (expectedSizes.length > 0) {
+            // Use the first detected breed's expected size as primary
+            const expectedSize = expectedSizes[0];
+            const shelterRank = SIZE_RANK[shelterSize] ?? 1;
+            const expectedRank = SIZE_RANK[expectedSize] ?? 1;
+            const sizeDiff = Math.abs(shelterRank - expectedRank);
+
+            // If shelter size disagrees by 2+ categories (e.g., mastiff listed as SMALL),
+            // blend the breed-based range with the size-based fallback.
+            // This handles cases like "looks like a mastiff but listed as medium."
+            if (sizeDiff >= 2) {
+                const sizeFallback = DOG_SIZE_FALLBACKS[shelterSize] || GENERIC_DOG;
+                // 60% breed-based, 40% size-based — breed ID still has more weight
+                // but the size discrepancy meaningfully adjusts the estimate
+                avgLow = Math.round(avgLow * 0.6 + sizeFallback.low * 0.4);
+                avgHigh = Math.round(avgHigh * 0.6 + sizeFallback.high * 0.4);
+            }
+        }
+    }
+
+    return { low: avgLow, high: avgHigh };
 }
+

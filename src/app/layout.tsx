@@ -8,6 +8,7 @@ import "./detail.css";
 import "./shelter.css";
 import "./components.css";
 import "./poll.css";
+import "./give.css";
 
 export const metadata: Metadata = {
   title: "Golden Years Club",

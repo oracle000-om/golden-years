@@ -495,57 +495,84 @@
   }
 }
 
+/* Mobile face-only mascots */
+.mascot--mobile {
+  width: 64px !important;
+  height: 64px !important;
+  border-radius: 50%;
+  overflow: hidden;
+  animation: none;
+}
+
+.mascot--mobile.mascot--left {
+  left: 8px !important;
+  bottom: 12px;
+}
+
+.mascot--mobile.mascot--right {
+  right: 8px !important;
+  bottom: 12px;
+}
+
+.mascot--mobile .mascot__img {
+  object-fit: cover;
+  object-position: center top;
+  border-radius: 50%;
+}
+
 /* Tablet: smaller mascots */
 @media (min-width: 481px) and (max-width: 768px) {
-  .mascot {
+  .mascot:not(.mascot--mobile) {
     width: 60px;
     height: 70px;
     bottom: 6px;
   }
 
-  .mascot--left {
+  .mascot--left:not(.mascot--mobile) {
     left: 4px;
     width: 68px;
     height: 80px;
   }
 
-  .mascot--right {
+  .mascot--right:not(.mascot--mobile) {
     right: 4px;
     width: 44px;
     height: 52px;
   }
 
   .fact-float {
-    max-width: 200px;
+    max-width: 180px;
     font-size: 11px;
     padding: 8px 12px;
   }
 }
 
-/* Mobile: tiny mascots tucked into corners */
+/* Mobile: fact bubble positioning & smaller mascots for non-mobile class */
 @media (max-width: 480px) {
-  .mascot {
+  .mascot:not(.mascot--mobile) {
     width: 44px;
     height: 52px;
     bottom: 4px;
   }
 
-  .mascot--left {
+  .mascot--left:not(.mascot--mobile) {
     left: 2px;
     width: 50px;
     height: 58px;
   }
 
-  .mascot--right {
+  .mascot--right:not(.mascot--mobile) {
     right: 2px;
     width: 32px;
     height: 38px;
   }
 
   .fact-float {
-    max-width: 200px;
+    max-width: min(200px, 75vw);
     font-size: 12px;
     padding: 8px 12px;
+    margin-left: 4px;
+    margin-right: 4px;
   }
 }
 

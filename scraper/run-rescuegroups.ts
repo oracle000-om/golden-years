@@ -236,7 +236,7 @@ async function main() {
                 cvSkipped++;
             } else if (cvProvider && animal.photoUrl) {
                 try {
-                    cvEstimate = await cvProvider.estimateAge(animal.photoUrl);
+                    cvEstimate = await cvProvider.estimateAge(animal.photoUrl, animal.photoUrls);
                     if (cvEstimate) cvProcessed++;
                 } catch {
                     // Silently skip CV errors
@@ -251,7 +251,7 @@ async function main() {
 
             // Life expectancy (only compute for new CV results)
             const lifeExp = cvEstimate?.detectedBreeds?.length
-                ? lookupLifeExpectancy(cvEstimate.detectedBreeds, animal.species)
+                ? lookupLifeExpectancy(cvEstimate.detectedBreeds, animal.species, animal.size)
                 : null;
 
             const now = new Date();
@@ -264,6 +264,7 @@ async function main() {
                 sex: animal.sex,
                 size: animal.size,
                 photoUrl: animal.photoUrl,
+                photoUrls: animal.photoUrls ?? [],
                 photoHash,
                 status: animal.status,
                 ageKnownYears: animal.ageKnownYears != null ? Number(animal.ageKnownYears) : null,

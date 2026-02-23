@@ -24,8 +24,11 @@ export interface ScrapedAnimal {
     /** URL to the animal's photo */
     photoUrl: string | null;
 
+    /** Additional photo URLs beyond the primary */
+    photoUrls?: string[];
+
     /** Listing status */
-    status: 'LISTED' | 'URGENT';
+    status: 'AVAILABLE' | 'URGENT';
 
     /** Known age in years, if reported */
     ageKnownYears: number | null;

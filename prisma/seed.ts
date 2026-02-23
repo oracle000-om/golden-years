@@ -1,49 +1,18 @@
+/**
+ * Database Seed — Village Polls Only
+ *
+ * Seeds the poll data for the Public Square feature.
+ * Shelter and animal data is populated by the live scraper pipeline
+ * (index.ts, run-petango.ts, run-rescuegroups.ts) and enriched
+ * with stats via run-shelter-stats.ts.
+ *
+ * Usage:
+ *   npx tsx prisma/seed.ts
+ */
+
 import { PrismaClient } from '../src/generated/prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import pg from 'pg';
-import { californiaShelters } from './seeds/california-shelters';
-import { texasShelters } from './seeds/texas-shelters';
-import { floridaShelters } from './seeds/florida-shelters';
-import { newYorkShelters } from './seeds/new-york-shelters';
-import { georgiaShelters } from './seeds/georgia-shelters';
-import { northCarolinaShelters } from './seeds/north-carolina-shelters';
-// Phase 2
-import { ohioShelters } from './seeds/ohio-shelters';
-import { pennsylvaniaShelters } from './seeds/pennsylvania-shelters';
-import { virginiaShelters } from './seeds/virginia-shelters';
-import { southCarolinaShelters } from './seeds/south-carolina-shelters';
-import { tennesseeShelters } from './seeds/tennessee-shelters';
-import { louisianaShelters } from './seeds/louisiana-shelters';
-import { alabamaShelters } from './seeds/alabama-shelters';
-import { michiganShelters } from './seeds/michigan-shelters';
-// Phase 3
-import { arizonaShelters } from './seeds/arizona-shelters';
-import { indianaShelters } from './seeds/indiana-shelters';
-import { missouriShelters } from './seeds/missouri-shelters';
-import { illinoisShelters } from './seeds/illinois-shelters';
-import { coloradoShelters } from './seeds/colorado-shelters';
-import { wisconsinShelters } from './seeds/wisconsin-shelters';
-import { minnesotaShelters } from './seeds/minnesota-shelters';
-import { oklahomaShelters } from './seeds/oklahoma-shelters';
-// Phase 4
-import { washingtonShelters } from './seeds/washington-shelters';
-import { oregonShelters } from './seeds/oregon-shelters';
-import { nevadaShelters } from './seeds/nevada-shelters';
-import { newMexicoShelters } from './seeds/new-mexico-shelters';
-import { mississippiShelters } from './seeds/mississippi-shelters';
-import { arkansasShelters } from './seeds/arkansas-shelters';
-import { kansasShelters } from './seeds/kansas-shelters';
-import { kentuckyShelters } from './seeds/kentucky-shelters';
-import { iowaShelters } from './seeds/iowa-shelters';
-import { nebraskaShelters } from './seeds/nebraska-shelters';
-// Phase 5
-import { newJerseyShelters } from './seeds/new-jersey-shelters';
-import { marylandShelters } from './seeds/maryland-shelters';
-import { connecticutShelters } from './seeds/connecticut-shelters';
-import { massachusettsShelters } from './seeds/massachusetts-shelters';
-import { westVirginiaShelters, utahShelters, hawaiiShelters, idahoShelters, montanaShelters, delawareShelters, rhodeIslandShelters, dcShelters } from './seeds/small-states-shelters';
-// Phase 6
-import { maineShelters, newHampshireShelters, vermontShelters, wyomingShelters, northDakotaShelters, southDakotaShelters, alaskaShelters } from './seeds/rural-states-shelters';
 
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
 const adapter = new PrismaPg(pool);
@@ -51,42 +20,7 @@ const adapter = new PrismaPg(pool);
 const prisma = new (PrismaClient as any)({ adapter });
 
 async function main() {
-    // Clear existing data (polls are handled separately below)
-    await prisma.source.deleteMany();
-    await prisma.animal.deleteMany();
-    await prisma.shelter.deleteMany();
-
-    // ─── Seed shelters from state files ─────────────────────
-    const allShelters = [
-        ...californiaShelters, ...texasShelters, ...floridaShelters, ...newYorkShelters,
-        ...georgiaShelters, ...northCarolinaShelters,
-        ...ohioShelters, ...pennsylvaniaShelters, ...virginiaShelters, ...southCarolinaShelters,
-        ...tennesseeShelters, ...louisianaShelters, ...alabamaShelters, ...michiganShelters,
-        ...arizonaShelters, ...indianaShelters, ...missouriShelters, ...illinoisShelters,
-        ...coloradoShelters, ...wisconsinShelters, ...minnesotaShelters, ...oklahomaShelters,
-        ...washingtonShelters, ...oregonShelters, ...nevadaShelters, ...newMexicoShelters,
-        ...mississippiShelters, ...arkansasShelters, ...kansasShelters, ...kentuckyShelters,
-        ...iowaShelters, ...nebraskaShelters,
-        ...newJerseyShelters, ...marylandShelters, ...connecticutShelters, ...massachusettsShelters,
-        ...westVirginiaShelters, ...utahShelters, ...hawaiiShelters, ...idahoShelters,
-        ...montanaShelters, ...delawareShelters, ...rhodeIslandShelters, ...dcShelters,
-        ...maineShelters, ...newHampshireShelters, ...vermontShelters, ...wyomingShelters,
-        ...northDakotaShelters, ...southDakotaShelters, ...alaskaShelters,
-    ];
-    const shelterMap: Record<string, string> = {}; // name → id
-
-    for (const s of allShelters) {
-        const created = await prisma.shelter.create({ data: s });
-        shelterMap[created.name] = created.id;
-    }
-
-    console.log(`   🏠 ${allShelters.length} shelters seeded across 50 states + DC`);
-
-
-    // Animals are now sourced live from the RescueGroups API — no seed data needed.
-
-    console.log('✅ Seed data created successfully');
-
+    console.log('🌱 Golden Years Club — Database Seed');
 
     // --- Village Poll seed (only if empty — preserves existing votes) ---
     const existingPolls = await prisma.poll.count();
@@ -227,9 +161,10 @@ async function main() {
 
         console.log(`   🗳️ ${polls.length} village polls seeded`);
     } else {
-        console.log(`   ⏭️ ${existingPolls} polls already exist, skipping (use seed-polls.ts to reset)`);
+        console.log(`   ⏭️ ${existingPolls} polls already exist, skipping`);
     }
 
+    console.log('✅ Seed complete');
 }
 
 main()

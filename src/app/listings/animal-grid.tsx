@@ -178,7 +178,13 @@ export function AnimalGrid({ animals, totalCount, page, totalPages }: AnimalGrid
                                     ) : saveRate !== null ? (
                                         <div className="animal-card__shelter-stats">
                                             <div className="animal-card__shelter-stats-header">
-                                                <span className="animal-card__shelter-stats-label">Live release rate</span>
+                                                <span className="gy-tooltip">
+                                                    <span className="animal-card__shelter-stats-label">Live release rate</span>
+                                                    <span className="gy-tooltip__popup">
+                                                        <span className="gy-tooltip__label">What is this?</span>
+                                                        <span className="gy-tooltip__pct">The percentage of animals that leave this shelter alive — via adoption, rescue, or transfer — rather than being euthanized. A lower rate means higher euthanasia risk.</span>
+                                                    </span>
+                                                </span>
                                                 <span className={`animal-card__shelter-stats-pct ${saveRate >= 90 ? 'high' : saveRate >= 50 ? 'mid' : 'low'}`}>
                                                     {saveRate}%
                                                 </span>

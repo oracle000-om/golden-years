@@ -71,10 +71,10 @@ export type AgeEstimate = AnimalAssessment;
  * Returns null if the image can't be assessed (bad photo, not an animal, etc.)
  */
 export interface AssessmentProvider {
-    assess(photoUrl: string): Promise<AnimalAssessment | null>;
+    assess(photoUrl: string, additionalPhotos?: string[]): Promise<AnimalAssessment | null>;
 }
 
 /** Backward compatibility alias */
 export type AgeEstimationProvider = AssessmentProvider & {
-    estimateAge(photoUrl: string): Promise<AnimalAssessment | null>;
+    estimateAge(photoUrl: string, additionalPhotos?: string[]): Promise<AnimalAssessment | null>;
 };

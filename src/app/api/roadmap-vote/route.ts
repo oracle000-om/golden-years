@@ -1,0 +1,99 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/db';
+
+const VALID_CHOICES = ['enhance_site', 'grants', 'vet_costs', 'new_programs'] as const;
+
+/* ── Rate limiter (mirrors poll route) ── */
+const RATE_LIMIT_WINDOW_MS = 60_000;
+const RATE_LIMIT_MAX = 10;
+const ipCounts = new Map<string, { count: number; resetAt: number }>();
+
+function isRateLimited(ip: string): boolean {
+    const now = Date.now();
+    const entry = ipCounts.get(ip);
+    if (!entry || now > entry.resetAt) {
+        ipCounts.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+        return false;
+    }
+    entry.count++;
+    return entry.count > RATE_LIMIT_MAX;
+}
+
+async function getResults() {
+    const votes = await prisma.roadmapVote.findMany({ select: { choice: true } });
+    const total = votes.length;
+    const counts: Record<string, number> = {};
+    for (const c of VALID_CHOICES) counts[c] = 0;
+    for (const v of votes) counts[v.choice] = (counts[v.choice] || 0) + 1;
+
+    const percentages: Record<string, number> = {};
+    for (const c of VALID_CHOICES) {
+        percentages[c] = total > 0 ? Math.round((counts[c] / total) * 100) : 0;
+    }
+
+    return { total, counts, percentages };
+}
+
+/* ── POST: cast / change vote ── */
+export async function POST(request: NextRequest) {
+    try {
+        const ip =
+            request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+            request.headers.get('x-real-ip') ||
+            'unknown';
+
+        if (isRateLimited(ip)) {
+            return NextResponse.json(
+                { error: 'Too many requests. Please wait a moment.' },
+                { status: 429 },
+            );
+        }
+
+        const { choice, voterToken } = await request.json();
+
+        if (!choice || !voterToken) {
+            return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+        }
+
+        if (!VALID_CHOICES.includes(choice)) {
+            return NextResponse.json({ error: 'Invalid choice' }, { status: 400 });
+        }
+
+        await prisma.roadmapVote.upsert({
+            where: { voterToken },
+            create: { choice, voterToken },
+            update: { choice },
+        });
+
+        const results = await getResults();
+        return NextResponse.json({ success: true, results, userChoice: choice });
+    } catch (error) {
+        console.error('Roadmap vote error:', error);
+        return NextResponse.json({ error: 'Failed to record vote' }, { status: 500 });
+    }
+}
+
+/* ── GET: check existing vote + results ── */
+export async function GET(request: NextRequest) {
+    try {
+        const voterToken = new URL(request.url).searchParams.get('voterToken');
+        if (!voterToken) {
+            return NextResponse.json({ error: 'Missing voterToken' }, { status: 400 });
+        }
+
+        const existing = await prisma.roadmapVote.findUnique({
+            where: { voterToken },
+            select: { choice: true },
+        });
+
+        if (!existing) {
+            return NextResponse.json({ voted: false });
+        }
+
+        const results = await getResults();
+        return NextResponse.json({ voted: true, userChoice: existing.choice, results });
+    } catch (error) {
+        console.error('Roadmap results error:', error);
+        return NextResponse.json({ error: 'Failed to load results' }, { status: 500 });
+    }
+}

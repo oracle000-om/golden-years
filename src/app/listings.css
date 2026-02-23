@@ -598,9 +598,19 @@
 .animal-card__golden-remaining {
   margin-top: var(--space-xs);
   font-size: var(--font-size-sm);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.animal-card__golden-remaining-label {
   color: var(--color-gold);
   font-weight: 500;
-  letter-spacing: 0.01em;
+}
+
+.animal-card__golden-remaining-value {
+  color: var(--color-gold);
+  font-weight: 500;
 }
 
 .animal-card__days-in-shelter {

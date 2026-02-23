@@ -251,6 +251,7 @@ export function formatYearsRemaining(
 
     if (remainingHigh === 0) return 'near end of life';
     if (remainingLow === remainingHigh) return `~${fmt(remainingLow)} year${remainingLow !== 1 ? 's' : ''}`;
+    if (remainingLow === 0) return `up to ~${fmt(remainingHigh)} year${remainingHigh !== 1 ? 's' : ''}`;
     return `~${fmt(remainingLow)}–${fmt(remainingHigh)} years`;
 }
 
@@ -395,6 +396,106 @@ export function getBestAge(
  * the animal would lose if euthanized on the scheduled date.
  * Returns a human-readable string like "~3 years, 2 months" or null.
  */
+/**
+ * Compute an overall health score (0–100) from CV assessment data.
+ * Returns the numeric score plus a list of contributing factors.
+ *
+ * Weighting:
+ *   - Body Condition Score (40 pts): ideal BCS = 4–5 on 1–9 scale
+ *   - Visible Conditions   (20 pts): deductions per detected condition
+ *   - Stress & Fear        (20 pts): based on stress level + fear indicator count
+ *   - Coat Condition       (10 pts): good/fair/poor
+ *   - Estimated Care Level (10 pts): low/moderate/high
+ *
+ * Returns null if no CV health data is available (all fields empty/null).
+ */
+export function computeHealthScore(
+    bodyConditionScore: number | null,
+    coatCondition: string | null,
+    visibleConditions: string[],
+    stressLevel: string | null,
+    fearIndicators: string[],
+    estimatedCareLevel: string | null,
+): { score: number; label: string; factors: string[] } | null {
+    // Need at least one signal to produce a score
+    const hasAnyData = bodyConditionScore !== null
+        || coatCondition !== null
+        || visibleConditions.length > 0
+        || stressLevel !== null
+        || fearIndicators.length > 0
+        || estimatedCareLevel !== null;
+    if (!hasAnyData) return null;
+
+    let total = 0;
+    const factors: string[] = [];
+
+    // ── Body Condition Score (40 pts) ──
+    if (bodyConditionScore !== null) {
+        // BCS 4-5 = ideal (40), 3 or 6 = good (32), 2 or 7 = okay (20), 1 or 8-9 = concerning (8)
+        const bcsPoints = bodyConditionScore >= 4 && bodyConditionScore <= 5 ? 40
+            : bodyConditionScore === 3 || bodyConditionScore === 6 ? 32
+                : bodyConditionScore === 2 || bodyConditionScore === 7 ? 20
+                    : 8;
+        total += bcsPoints;
+        const bcsLabel = bcsPoints >= 40 ? 'Ideal' : bcsPoints >= 32 ? 'Good' : bcsPoints >= 20 ? 'Slightly off' : 'Concerning';
+        factors.push(`Body condition: ${bcsLabel} (${bodyConditionScore}/9)`);
+    } else {
+        total += 30; // neutral default
+        factors.push('Body condition: Not assessed');
+    }
+
+    // ── Visible Conditions (20 pts) ──
+    if (visibleConditions.length === 0) {
+        total += 20;
+        factors.push('No visible health concerns detected');
+    } else {
+        const deduction = Math.min(20, visibleConditions.length * 5);
+        total += 20 - deduction;
+        factors.push(`Visible observations: ${visibleConditions.join(', ')}`);
+    }
+
+    // ── Stress & Fear (20 pts) ──
+    let stressPts = 15; // default moderate
+    if (stressLevel === 'low') stressPts = 20;
+    else if (stressLevel === 'moderate') stressPts = 14;
+    else if (stressLevel === 'high') stressPts = 6;
+    // Deduct for fear indicators
+    stressPts = Math.max(0, stressPts - fearIndicators.length * 3);
+    total += stressPts;
+    if (stressLevel) {
+        factors.push(`Stress level: ${stressLevel}${fearIndicators.length > 0 ? ` · Fear signals: ${fearIndicators.join(', ')}` : ''}`);
+    } else if (fearIndicators.length > 0) {
+        factors.push(`Fear signals: ${fearIndicators.join(', ')}`);
+    } else {
+        factors.push('Stress/fear: Not assessed');
+    }
+
+    // ── Coat Condition (10 pts) ──
+    if (coatCondition === 'good') { total += 10; }
+    else if (coatCondition === 'fair') { total += 6; }
+    else if (coatCondition === 'poor') { total += 2; }
+    else { total += 7; } // neutral default
+
+    // ── Estimated Care Level (10 pts) ──
+    if (estimatedCareLevel === 'low') { total += 10; }
+    else if (estimatedCareLevel === 'moderate') { total += 6; }
+    else if (estimatedCareLevel === 'high') { total += 2; }
+    else { total += 6; } // neutral default
+
+    // Clamp
+    const score = Math.max(0, Math.min(100, total));
+
+    // Label
+    let label: string;
+    if (score >= 85) label = 'Excellent';
+    else if (score >= 70) label = 'Good';
+    else if (score >= 50) label = 'Fair';
+    else if (score >= 30) label = 'Needs Attention';
+    else label = 'Concerning';
+
+    return { score, label, factors };
+}
+
 export function formatLifeCutShort(
     knownYears: number | null,
     estimatedLow: number | null,

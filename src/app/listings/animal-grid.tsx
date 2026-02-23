@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { formatScheduledDate, formatIntakeDate, hoursUntil, getUrgencyLevel, formatLifeCutShort, getGoldenYearsConfidence, getSaveRate } from '@/lib/utils';
+import { formatScheduledDate, formatIntakeDate, hoursUntil, getUrgencyLevel, getGoldenYearsConfidence, getSaveRate } from '@/lib/utils';
 import type { AnimalWithShelter } from '@/lib/types';
 
 const PAGE_SIZE = 24;
@@ -93,16 +93,6 @@ export function AnimalGrid({ animals }: { animals: AnimalWithShelter[] }) {
                         animal.shelter?.totalEuthanizedAnnual ?? 0,
                     );
 
-                    const lifeCutShort = formatLifeCutShort(
-                        animal.ageKnownYears,
-                        animal.ageEstimatedLow,
-                        animal.ageEstimatedHigh,
-                        animal.ageSource,
-                        animal.lifeExpectancyLow,
-                        animal.lifeExpectancyHigh,
-                        animal.euthScheduledAt,
-                    );
-
                     const shelterAge = animal.ageKnownYears !== null
                         ? `${animal.ageKnownYears} yr${animal.ageKnownYears !== 1 ? 's' : ''}`
                         : '—';
@@ -124,6 +114,31 @@ export function AnimalGrid({ animals }: { animals: AnimalWithShelter[] }) {
                     const breedLifespan = (animal.lifeExpectancyLow && animal.lifeExpectancyHigh)
                         ? `${animal.lifeExpectancyLow}–${animal.lifeExpectancyHigh} yrs`
                         : '—';
+
+                    // Golden Years remaining: age range vs life expectancy
+                    let goldenYearsRemaining: string | null = null;
+                    if (animal.lifeExpectancyLow !== null && animal.lifeExpectancyHigh !== null) {
+                        const age = animal.ageEstimatedLow !== null && animal.ageEstimatedHigh !== null
+                            ? (animal.ageEstimatedLow + animal.ageEstimatedHigh) / 2
+                            : animal.ageKnownYears;
+                        if (age !== null) {
+                            const low = Math.max(0, Math.round(animal.lifeExpectancyLow - age));
+                            const high = Math.max(0, Math.round(animal.lifeExpectancyHigh - age));
+                            if (high > 0) {
+                                goldenYearsRemaining = low === high
+                                    ? `Up to ${high} yr${high !== 1 ? 's' : ''}`
+                                    : `Up to ${low}–${high} yrs`;
+                            }
+                        }
+                    }
+
+                    // Days in shelter
+                    let daysInShelter: number | null = null;
+                    if (animal.intakeDate) {
+                        const intake = new Date(animal.intakeDate);
+                        const now = new Date();
+                        daysInShelter = Math.max(0, Math.floor((now.getTime() - intake.getTime()) / (1000 * 60 * 60 * 24)));
+                    }
 
                     const intakeDisplay = formatIntakeDate(animal.intakeDate);
 
@@ -189,6 +204,12 @@ export function AnimalGrid({ animals }: { animals: AnimalWithShelter[] }) {
                                             </span>
                                         </span>
                                     </div>
+                                    {goldenYearsRemaining && (
+                                        <div className="animal-card__golden-remaining">
+                                            <span className="animal-card__golden-remaining-label">Golden Years remaining</span>
+                                            <span className="animal-card__golden-remaining-value">{goldenYearsRemaining}</span>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
@@ -230,9 +251,9 @@ export function AnimalGrid({ animals }: { animals: AnimalWithShelter[] }) {
                                             <span className="animal-card__death-marker-time standard">In Shelter</span>
                                         </>
                                     )}
-                                    {lifeCutShort && (
-                                        <div className="animal-card__life-cut-short">
-                                            Golden Years remaining: {lifeCutShort}
+                                    {daysInShelter !== null && (
+                                        <div className="animal-card__days-in-shelter">
+                                            {daysInShelter === 0 ? 'Arrived today' : `${daysInShelter} day${daysInShelter !== 1 ? 's' : ''} in shelter`}
                                         </div>
                                     )}
                                 </div>

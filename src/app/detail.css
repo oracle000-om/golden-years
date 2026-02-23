@@ -295,6 +295,107 @@
   font-size: var(--font-size-xs) !important;
 }
 
+/* --- Actions (inside hero info) --- */
+.animal-detail__actions {
+  margin-top: auto;
+  padding-top: var(--space-sm);
+}
+
+/* --- Health Score --- */
+.animal-detail__health-score {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  margin-bottom: var(--space-sm);
+}
+
+.animal-detail__health-score-bar {
+  flex: 1;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.animal-detail__health-score-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.6s ease;
+}
+
+.animal-detail__health-score-fill.excellent {
+  background: linear-gradient(90deg, #4ade80, #22c55e);
+}
+
+.animal-detail__health-score-fill.good {
+  background: linear-gradient(90deg, #86efac, #4ade80);
+}
+
+.animal-detail__health-score-fill.fair {
+  background: linear-gradient(90deg, #fbbf24, #f59e0b);
+}
+
+.animal-detail__health-score-fill.concerning {
+  background: linear-gradient(90deg, #f87171, #ef4444);
+}
+
+.animal-detail__health-score-value {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text);
+  white-space: nowrap;
+}
+
+.animal-detail__health-factors {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 var(--space-sm) 0;
+}
+
+.animal-detail__health-factors li {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  line-height: 1.8;
+  padding-left: 1rem;
+  position: relative;
+}
+
+.animal-detail__health-factors li::before {
+  content: '·';
+  position: absolute;
+  left: 0;
+  color: var(--color-text-dim);
+  font-weight: 700;
+}
+
+/* --- Report Tags (pill-style) --- */
+.animal-detail__report-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  margin: var(--space-sm) 0;
+}
+
+.animal-detail__report-tag {
+  display: inline-block;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  padding: 0.2rem 0.6rem;
+}
+
+/* --- AI Disclaimer --- */
+.animal-detail__report-disclaimer {
+  font-size: var(--font-size-xs) !important;
+  color: var(--color-text-dim) !important;
+  font-style: italic;
+  margin-top: var(--space-sm);
+  opacity: 0.7;
+}
+
 /* --- Shelter Card --- */
 .animal-detail__shelter-card {
   margin-top: var(--space-lg);

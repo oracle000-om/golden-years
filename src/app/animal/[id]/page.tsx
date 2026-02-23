@@ -3,7 +3,7 @@ import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { getAnimalById, getAnimalForMetadata } from '@/lib/queries';
-import { formatDeathMarker, hoursUntil, getUrgencyLevel, formatAge, formatShelterStats, formatIntakeReason, formatYearsRemaining, getAgeDiscrepancy, getGoldenYearsConfidence } from '@/lib/utils';
+import { formatDeathMarker, hoursUntil, getUrgencyLevel, formatAge, formatShelterStats, formatIntakeReason, formatYearsRemaining, getAgeDiscrepancy, getGoldenYearsConfidence, computeHealthScore } from '@/lib/utils';
 import { CopyLinkButton } from '@/components/copy-link-button';
 import type { AnimalWithShelterAndSources, Source } from '@/lib/types';
 
@@ -78,7 +78,7 @@ export default async function AnimalDetailPage({
             <div className="animal-detail">
                 <div className="container">
                     <Link href="/" className="animal-detail__back">
-                        ← Back to Listings
+                        ← Back to the list
                     </Link>
                     <div className="error-state">
                         <div className="error-state__icon">⚠️</div>
@@ -151,7 +151,7 @@ export default async function AnimalDetailPage({
         <div className="animal-detail">
             <div className="container">
                 <Link href="/" className="animal-detail__back">
-                    ← Back to Listings
+                    ← Back to the list
                 </Link>
 
                 <div className="animal-detail__hero">
@@ -227,12 +227,11 @@ export default async function AnimalDetailPage({
                             </div>
                         )}
 
+                        <div className="animal-detail__actions">
+                            <CopyLinkButton />
+                        </div>
 
                     </div>
-                </div>
-
-                <div className="animal-detail__actions">
-                    <CopyLinkButton />
                 </div>
 
                 {/* --- Consolidated Report Card --- */}
@@ -300,6 +299,50 @@ export default async function AnimalDetailPage({
                             <p>{animal.notes}</p>
                         </div>
                     )}
+
+                    {/* --- Health Assessment --- */}
+                    {(() => {
+                        const health = computeHealthScore(
+                            animal.bodyConditionScore,
+                            animal.coatCondition,
+                            animal.visibleConditions,
+                            animal.stressLevel,
+                            animal.fearIndicators,
+                            animal.estimatedCareLevel,
+                        );
+                        if (!health) return null;
+                        return (
+                            <div className="animal-detail__report-section">
+                                <h3>Health Assessment</h3>
+                                <div className="animal-detail__health-score">
+                                    <div className="animal-detail__health-score-bar">
+                                        <div
+                                            className={`animal-detail__health-score-fill ${health.score >= 85 ? 'excellent' : health.score >= 70 ? 'good' : health.score >= 50 ? 'fair' : 'concerning'}`}
+                                            style={{ width: `${health.score}%` }}
+                                        />
+                                    </div>
+                                    <span className="animal-detail__health-score-value">
+                                        {health.score}/100 · {health.label}
+                                    </span>
+                                </div>
+                                <ul className="animal-detail__health-factors">
+                                    {health.factors.map((f, i) => (
+                                        <li key={i}>{f}</li>
+                                    ))}
+                                </ul>
+                                {animal.visibleConditions.length > 0 && (
+                                    <div className="animal-detail__report-tags">
+                                        {animal.visibleConditions.map((c, i) => (
+                                            <span key={i} className="animal-detail__report-tag">{c}</span>
+                                        ))}
+                                    </div>
+                                )}
+                                <p className="animal-detail__report-disclaimer">
+                                    Assessed via AI analysis of the animal&apos;s photo and adoption listing. This is not a veterinary diagnosis.
+                                </p>
+                            </div>
+                        );
+                    })()}
                 </div>
 
                 {/* --- Shelter Card --- */}
@@ -308,15 +351,16 @@ export default async function AnimalDetailPage({
                         <h2 className="animal-detail__shelter-name">{animal.shelter.name}</h2>
                     </div>
                     <div className="animal-detail__shelter-contact">
+                        {animal.shelter.address && (
+                            <p>{animal.shelter.address}</p>
+                        )}
                         <p>
                             {animal.shelter.county} County, {animal.shelter.state}
-                            {animal.shelter.address && ` · ${animal.shelter.address}`}
+                            {animal.shelter.zipCode && ` ${animal.shelter.zipCode}`}
                         </p>
-                        {animal.shelter.phone && (
-                            <p className="animal-detail__shelter-phone-line">
-                                📞 {animal.shelter.phone}
-                            </p>
-                        )}
+                        <p className="animal-detail__shelter-phone-line">
+                            📞 {animal.shelter.phone || 'Phone not available'}
+                        </p>
                     </div>
                     {shelterStatsLine && (
                         <div className="animal-detail__shelter-stats">

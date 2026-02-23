@@ -49,6 +49,14 @@ export interface Animal {
     breedConfidence: 'HIGH' | 'MEDIUM' | 'LOW' | 'NONE';
     lifeExpectancyLow: number | null;
     lifeExpectancyHigh: number | null;
+    bodyConditionScore: number | null;
+    coatCondition: string | null;
+    visibleConditions: string[];
+    healthNotes: string | null;
+    stressLevel: string | null;
+    fearIndicators: string[];
+    likelyCareNeeds: string[];
+    estimatedCareLevel: string | null;
     intakeReason: 'OWNER_SURRENDER' | 'STRAY' | 'OWNER_DECEASED' | 'CONFISCATE' | 'RETURN' | 'TRANSFER' | 'INJURED' | 'OTHER' | 'UNKNOWN';
     intakeReasonDetail: string | null;
     notes: string | null;

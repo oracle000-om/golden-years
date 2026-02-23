@@ -1,10 +1,12 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
-import { getFilteredAnimals, getDistinctStates } from '@/lib/queries';
+import { getFilteredAnimals, getDistinctStates, getSuggestions } from '@/lib/queries';
+import { parseSearchQuery } from '@/lib/search-parser';
 import { FilterBar } from './listings/filter-bar';
 import { SearchBar } from './listings/search-bar';
 import { AnimalGrid } from './listings/animal-grid';
 import type { AnimalWithShelter } from '@/lib/types';
+import type { SearchSuggestion } from '@/lib/queries';
 
 export const dynamic = 'force-dynamic'; // Don't pre-render at build time — DB may not be reachable
 
@@ -42,6 +44,7 @@ export default async function Home({
 
   let animals: AnimalWithShelter[] = [];
   let states: string[] = [];
+  let suggestions: SearchSuggestion[] = [];
   let error = false;
 
   try {
@@ -49,6 +52,12 @@ export default async function Home({
       getFilteredAnimals(params),
       getDistinctStates(),
     ]);
+
+    // Generate suggestions when search returns 0 results
+    if (animals.length === 0 && params.q?.trim()) {
+      const intent = parseSearchQuery(params.q);
+      suggestions = await getSuggestions(intent);
+    }
   } catch (e) {
     console.error('Failed to load listings:', e);
     error = true;
@@ -101,6 +110,20 @@ export default async function Home({
             <p className="empty-state__text">
               No animals match your current filters. Try adjusting your search criteria.
             </p>
+            {suggestions.length > 0 && (
+              <div className="empty-state__suggestions">
+                <p className="empty-state__suggestions-label">Did you mean:</p>
+                {suggestions.map((s) => (
+                  <Link
+                    key={s.q}
+                    href={`/?q=${encodeURIComponent(s.q)}`}
+                    className="empty-state__suggestion"
+                  >
+                    &ldquo;{s.q}&rdquo; — {s.label} ({s.count} results)
+                  </Link>
+                ))}
+              </div>
+            )}
           </div>
         ) : (
           <AnimalGrid animals={animals} />

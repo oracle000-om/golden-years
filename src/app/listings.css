@@ -16,10 +16,13 @@
 }
 
 /* --- Search Bar --- */
-.search-bar {
-  position: relative;
+.search-wrapper {
   max-width: 560px;
   margin: 0 auto var(--space-lg);
+}
+
+.search-bar {
+  position: relative;
 }
 
 .search-bar__input {
@@ -84,6 +87,64 @@
 
 .search-bar__voice:hover {
   opacity: 1;
+}
+
+/* --- Search Intent Chips --- */
+.search-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  justify-content: center;
+  margin-top: var(--space-sm);
+}
+
+.search-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 10px;
+  font-size: 0.72rem;
+  color: var(--color-gold);
+  border: 1px solid rgba(255, 192, 75, 0.25);
+  border-radius: var(--radius-full);
+  background: rgba(255, 192, 75, 0.06);
+  white-space: nowrap;
+}
+
+.search-chip__emoji {
+  font-size: 0.8em;
+}
+
+/* --- Did You Mean Suggestions --- */
+.empty-state__suggestions {
+  margin-top: var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.empty-state__suggestions-label {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-dim);
+  margin-bottom: var(--space-xs);
+}
+
+.empty-state__suggestion {
+  display: inline-block;
+  padding: var(--space-xs) var(--space-md);
+  font-size: var(--font-size-sm);
+  color: var(--color-gold);
+  border: 1px solid rgba(255, 192, 75, 0.2);
+  border-radius: var(--radius-full);
+  background: rgba(255, 192, 75, 0.05);
+  text-decoration: none;
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.empty-state__suggestion:hover {
+  background: rgba(255, 192, 75, 0.12);
+  border-color: var(--color-gold);
 }
 
 /* --- Filter Bar --- */
@@ -534,16 +595,19 @@
   color: var(--color-gold);
 }
 
-.animal-card__life-cut-short {
-  margin-top: var(--space-sm);
-  padding: var(--space-xs) var(--space-sm);
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 192, 75, 0.3);
-  border-radius: var(--radius-sm);
+.animal-card__golden-remaining {
+  margin-top: var(--space-xs);
   font-size: var(--font-size-sm);
-  color: var(--color-text-muted);
+  color: var(--color-gold);
   font-weight: 500;
   letter-spacing: 0.01em;
+}
+
+.animal-card__days-in-shelter {
+  margin-top: var(--space-xs);
+  font-size: 0.7rem;
+  color: var(--color-text-dim);
+  font-style: italic;
 }
 
 .animal-card__detail-label--gy {
@@ -1016,9 +1080,5 @@
 
   .animal-card__name {
     font-size: var(--font-size-lg);
-  }
-
-  .animal-card__life-cut-short {
-    font-size: var(--font-size-xs);
   }
 }

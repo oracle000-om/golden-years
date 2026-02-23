@@ -90,7 +90,7 @@ export async function getFilteredAnimals(filters: AnimalFilters): Promise<Animal
 
     if (filters.q && filters.q.trim()) {
         const intent = parseSearchQuery(filters.q);
-        applySearchIntent(where, intent);
+        await applySearchIntent(where, intent);
     }
 
     const animals = await prisma.animal.findMany({
@@ -121,10 +121,10 @@ export async function getFilteredAnimals(filters: AnimalFilters): Promise<Animal
 // ─── NLP Search Intent → Prisma WHERE ────────────────────
 
 /** Apply parsed NLP search intent to a Prisma WHERE clause. */
-function applySearchIntent(
+async function applySearchIntent(
     where: Record<string, unknown>,
     intent: SearchIntent,
-): void {
+): Promise<void> {
     const andClauses: Record<string, unknown>[] = [];
 
     // Species
@@ -179,12 +179,51 @@ function applySearchIntent(
         });
     }
 
+    // City — match against shelter county, name, or address
+    if (intent.city) {
+        andClauses.push({
+            OR: [
+                { shelter: { county: { contains: intent.city, mode: 'insensitive' } } },
+                { shelter: { name: { contains: intent.city, mode: 'insensitive' } } },
+            ],
+        });
+    }
+
+    // Color keywords — match against breed field
+    if (intent.colors.length > 0) {
+        const colorOr = intent.colors.map((c) => ({
+            breed: { contains: c, mode: 'insensitive' as const },
+        }));
+        andClauses.push({ OR: colorOr });
+    }
+
     // Breed matches
     if (intent.breeds.length > 0) {
         const breedOr = intent.breeds.map((b) => ({
             breed: { contains: b, mode: 'insensitive' as const },
         }));
         andClauses.push({ OR: breedOr });
+    }
+
+    // Breed group expansion — lookup breed names from BreedProfile table
+    if (intent.breedGroups.length > 0) {
+        const profiles = await prisma.breedProfile.findMany({
+            where: { breedGroup: { in: intent.breedGroups } },
+            select: { name: true },
+        });
+        if (profiles.length > 0) {
+            const groupBreedOr = profiles.map((p: { name: string }) => ({
+                breed: { contains: p.name, mode: 'insensitive' as const },
+            }));
+            andClauses.push({ OR: groupBreedOr });
+        }
+    }
+
+    // Zip code — match against shelter zipCode
+    if (intent.zip) {
+        andClauses.push({
+            shelter: { zipCode: { startsWith: intent.zip } },
+        });
     }
 
     // Remaining text tokens — each must match somewhere (AND logic)
@@ -211,7 +250,7 @@ export async function searchAnimals(intent: SearchIntent): Promise<AnimalWithShe
         status: { in: ['LISTED', 'URGENT'] },
     };
 
-    applySearchIntent(where, intent);
+    await applySearchIntent(where, intent);
 
     const animals = await prisma.animal.findMany({
         where,
@@ -228,6 +267,109 @@ export async function searchAnimals(intent: SearchIntent): Promise<AnimalWithShe
         const bDepri = isDeprioritized(b) ? 1 : 0;
         return aDepri - bDepri;
     });
+}
+
+// ─── "Did You Mean?" Suggestions ─────────────────────────
+
+export interface SearchSuggestion {
+    label: string;
+    q: string;
+    count: number;
+}
+
+/**
+ * Generate alternative search suggestions when a query returns 0 results.
+ * Relaxes the most restrictive filter one at a time and returns alternatives.
+ */
+export async function getSuggestions(intent: SearchIntent): Promise<SearchSuggestion[]> {
+    const suggestions: SearchSuggestion[] = [];
+
+    // Fields to try relaxing, in order of "most likely to be too restrictive"
+    const relaxations: { label: string; modify: (i: SearchIntent) => SearchIntent }[] = [];
+
+    if (intent.state) {
+        relaxations.push({
+            label: `without ${intent.state}`,
+            modify: (i) => ({ ...i, state: null }),
+        });
+    }
+    if (intent.city) {
+        relaxations.push({
+            label: `without city filter`,
+            modify: (i) => ({ ...i, city: null }),
+        });
+    }
+    if (intent.breeds.length > 0) {
+        relaxations.push({
+            label: `any breed`,
+            modify: (i) => ({ ...i, breeds: [] }),
+        });
+    }
+    if (intent.colors.length > 0) {
+        relaxations.push({
+            label: `any color`,
+            modify: (i) => ({ ...i, colors: [] }),
+        });
+    }
+    if (intent.minAge !== null) {
+        relaxations.push({
+            label: `any age`,
+            modify: (i) => ({ ...i, minAge: null, maxAge: null }),
+        });
+    }
+    if (intent.sex) {
+        relaxations.push({
+            label: `any gender`,
+            modify: (i) => ({ ...i, sex: null }),
+        });
+    }
+    if (intent.size) {
+        relaxations.push({
+            label: `any size`,
+            modify: (i) => ({ ...i, size: null }),
+        });
+    }
+    if (intent.textTokens.length > 0) {
+        relaxations.push({
+            label: `without text filter`,
+            modify: (i) => ({ ...i, textTokens: [] }),
+        });
+    }
+
+    // Try each relaxation and see how many results it yields
+    for (const relax of relaxations) {
+        if (suggestions.length >= 3) break; // cap at 3 suggestions
+
+        const relaxedIntent = relax.modify({ ...intent });
+        const where: Record<string, unknown> = {
+            status: { in: ['LISTED', 'URGENT'] },
+        };
+        await applySearchIntent(where, relaxedIntent);
+
+        const count = await prisma.animal.count({ where });
+        if (count > 0) {
+            // Build a human-readable query string from the relaxed intent
+            const parts: string[] = [];
+            if (relaxedIntent.species) parts.push(relaxedIntent.species.toLowerCase());
+            if (relaxedIntent.sex) parts.push(relaxedIntent.sex.toLowerCase());
+            if (relaxedIntent.size) parts.push(relaxedIntent.size.toLowerCase());
+            for (const b of relaxedIntent.breeds) parts.push(b);
+            for (const c of relaxedIntent.colors) parts.push(c);
+            if (relaxedIntent.state) parts.push(relaxedIntent.state);
+            if (relaxedIntent.city) parts.push(relaxedIntent.city.toLowerCase());
+            if (relaxedIntent.urgency) parts.push('urgent');
+            if (relaxedIntent.minAge !== null) parts.push(`over ${relaxedIntent.minAge}`);
+            for (const t of relaxedIntent.textTokens) parts.push(t);
+
+            suggestions.push({
+                label: relax.label,
+                q: parts.join(' '),
+                count,
+            });
+        }
+    }
+
+    return suggestions;
 }
 
 /** Fetch a single animal by ID with shelter and sources. */

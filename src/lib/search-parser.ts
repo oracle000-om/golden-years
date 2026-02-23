@@ -1,14 +1,19 @@
 /**
- * NLP Search Query Parser
+ * NLP Search Query Parser v2
  *
  * Parses natural language search queries into structured intent
  * for building Prisma WHERE clauses.
  *
- * Examples:
- *   "pit bull in texas"        → { breeds: ["pit bull"], state: "TX" }
- *   "female cat over 10"       → { species: "CAT", sex: "FEMALE", minAge: 10 }
- *   "urgent german shepherd"   → { urgency: true, breeds: ["german shepherd"] }
- *   "labrodor"                 → { breeds: ["labrador"] } (typo corrected)
+ * Features:
+ *   - Species, sex, size detection
+ *   - Breed synonyms with fuzzy Levenshtein matching
+ *   - Multi-breed OR ("pit bull or labrador")
+ *   - State/city name detection
+ *   - Age range parsing ("over 10", "under 8")
+ *   - Urgency keywords
+ *   - Color/coat keywords ("black cat", "brindle")
+ *   - Breed group keywords ("herding", "sporting")
+ *   - "Near me" / zip code detection
  */
 
 // ─── Types ─────────────────────────────────────────────
@@ -21,7 +26,12 @@ export interface SearchIntent {
     maxAge: number | null;
     urgency: boolean;
     state: string | null;
+    city: string | null;
     breeds: string[];
+    breedGroups: string[];
+    colors: string[];
+    nearMe: boolean;
+    zip: string | null;
     textTokens: string[];
 }
 
@@ -55,13 +65,39 @@ const URGENCY_WORDS = new Set([
     'emergency', 'critical', 'dying', 'deadline',
 ]);
 
+// ─── Color/Coat Keywords ───────────────────────────────
+
+const COLOR_KEYWORDS = new Set([
+    'black', 'white', 'brown', 'tan', 'orange', 'grey', 'gray',
+    'red', 'brindle', 'merle', 'spotted', 'tricolor', 'tri-color',
+    'blonde', 'cream', 'fawn', 'sable', 'chocolate', 'blue',
+    'golden', 'silver', 'copper', 'rust', 'apricot', 'buff',
+    'tuxedo', 'calico', 'tabby', 'tortoiseshell', 'tortie',
+]);
+
+// Note: some of these overlap with breed terms (tabby, calico, tuxedo).
+// When they overlap, they get added to BOTH colors and breeds.
+
+// ─── Breed Group Keywords ──────────────────────────────
+
+const BREED_GROUP_MAP: Record<string, string> = {
+    sporting: 'Sporting',
+    herding: 'Herding',
+    working: 'Working',
+    hound: 'Hound',
+    toy: 'Toy',
+    'non-sporting': 'Non-Sporting',
+    nonsporting: 'Non-Sporting',
+    foundation: 'Foundation Stock Service',
+    miscellaneous: 'Miscellaneous',
+};
+
 // ─── Breed Synonyms ────────────────────────────────────
-// key = user might type this, value = search substring to match in DB breed field
 
 const BREED_SYNONYMS: [string[], string][] = [
     // Dogs — multi-word first (greedy matching)
     [['german shepherd', 'gsd', 'alsatian'], 'german shepherd'],
-    [['golden retriever', 'goldie', 'golden'], 'golden retriever'],
+    [['golden retriever', 'goldie'], 'golden retriever'],
     [['pit bull', 'pitbull', 'pittie', 'pibble', 'pit', 'apbt', 'american pit bull'], 'pit bull'],
     [['labrador', 'labrodor', 'lab'], 'labrador'],
     [['border collie'], 'border collie'],
@@ -88,16 +124,12 @@ const BREED_SYNONYMS: [string[], string][] = [
     [['malinois', 'belgian malinois', 'mal'], 'malinois'],
     [['shepherd'], 'shepherd'],
     [['terrier'], 'terrier'],
-    [['hound'], 'hound'],
     [['spaniel'], 'spaniel'],
     [['retriever'], 'retriever'],
     // Cats
     [['maine coon'], 'maine coon'],
     [['siamese'], 'siamese'],
     [['persian'], 'persian'],
-    [['tabby'], 'tabby'],
-    [['calico'], 'calico'],
-    [['tuxedo'], 'tuxedo'],
     [['bengal'], 'bengal'],
     [['ragdoll'], 'ragdoll'],
     [['sphynx', 'sphinx'], 'sphynx'],
@@ -125,19 +157,101 @@ const STATE_NAMES: Record<string, string> = {
     ontario: 'ON', quebec: 'QC', 'british columbia': 'BC', alberta: 'AB',
 };
 
-// All 2-letter state/province codes
 const STATE_CODES = new Set(Object.values(STATE_NAMES));
 
-// ─── Stop Words (ignored during text matching) ────────
+// ─── City Names (major US cities) ─────────────────────
+
+const CITY_NAMES: Record<string, string> = {
+    // Multi-word cities (checked first)
+    'los angeles': 'Los Angeles',
+    'new york city': 'New York',
+    'new york': 'New York',
+    'san francisco': 'San Francisco',
+    'san antonio': 'San Antonio',
+    'san diego': 'San Diego',
+    'san jose': 'San Jose',
+    'fort worth': 'Fort Worth',
+    'el paso': 'El Paso',
+    'las vegas': 'Las Vegas',
+    'oklahoma city': 'Oklahoma City',
+    'kansas city': 'Kansas City',
+    'salt lake city': 'Salt Lake',
+    'st louis': 'St. Louis',
+    'saint louis': 'St. Louis',
+    'st paul': 'St. Paul',
+    'baton rouge': 'Baton Rouge',
+    'virginia beach': 'Virginia Beach',
+    'long beach': 'Long Beach',
+    'little rock': 'Little Rock',
+    'north charleston': 'North Charleston',
+    // Single-word cities
+    houston: 'Houston',
+    chicago: 'Chicago',
+    phoenix: 'Phoenix',
+    philadelphia: 'Philadelphia',
+    dallas: 'Dallas',
+    austin: 'Austin',
+    jacksonville: 'Jacksonville',
+    columbus: 'Columbus',
+    charlotte: 'Charlotte',
+    indianapolis: 'Indianapolis',
+    seattle: 'Seattle',
+    denver: 'Denver',
+    nashville: 'Nashville',
+    baltimore: 'Baltimore',
+    louisville: 'Louisville',
+    milwaukee: 'Milwaukee',
+    portland: 'Portland',
+    tucson: 'Tucson',
+    fresno: 'Fresno',
+    sacramento: 'Sacramento',
+    mesa: 'Mesa',
+    atlanta: 'Atlanta',
+    omaha: 'Omaha',
+    raleigh: 'Raleigh',
+    miami: 'Miami',
+    oakland: 'Oakland',
+    minneapolis: 'Minneapolis',
+    tampa: 'Tampa',
+    arlington: 'Arlington',
+    tulsa: 'Tulsa',
+    bakersfield: 'Bakersfield',
+    aurora: 'Aurora',
+    anaheim: 'Anaheim',
+    pittsburgh: 'Pittsburgh',
+    cincinnati: 'Cincinnati',
+    stockton: 'Stockton',
+    detroit: 'Detroit',
+    memphis: 'Memphis',
+    cleveland: 'Cleveland',
+    richmond: 'Richmond',
+    orlando: 'Orlando',
+    riverside: 'Riverside',
+    durham: 'Durham',
+    dublin: 'Dublin',
+    albuquerque: 'Albuquerque',
+};
+
+// ─── "Near Me" Phrases ─────────────────────────────────
+
+const NEAR_ME_PHRASES = [
+    'near me', 'nearby', 'close to me', 'close by', 'around me',
+    'in my area', 'local', 'closest',
+];
+
+// ─── Stop Words ────────────────────────────────────────
 
 const STOP_WORDS = new Set([
     'a', 'an', 'the', 'in', 'on', 'at', 'to', 'for', 'of', 'with',
-    'and', 'or', 'but', 'is', 'are', 'was', 'were', 'be', 'been',
+    'and', 'but', 'is', 'are', 'was', 'were', 'be', 'been',
     'i', 'me', 'my', 'we', 'our', 'you', 'your', 'want', 'need',
     'find', 'show', 'search', 'looking', 'look', 'save', 'adopt',
-    'near', 'from', 'that', 'who', 'old', 'years', 'year', 'yrs',
+    'from', 'that', 'who', 'old', 'years', 'year', 'yrs',
     'yr', 'than', 'about', 'around', 'roughly',
+    'type', 'breed', 'color', 'colour', 'colored', 'coloured',
 ]);
+
+// Note: "or" and "near" are NOT stop words — they have special meaning now.
 
 // ─── Levenshtein Distance ─────────────────────────────
 
@@ -155,13 +269,65 @@ function levenshtein(a: string, b: string): number {
         for (let j = 1; j <= n; j++) {
             const cost = a[i - 1] === b[j - 1] ? 0 : 1;
             d[i][j] = Math.min(
-                d[i - 1][j] + 1,       // deletion
-                d[i][j - 1] + 1,       // insertion
-                d[i - 1][j - 1] + cost, // substitution
+                d[i - 1][j] + 1,
+                d[i][j - 1] + 1,
+                d[i - 1][j - 1] + cost,
             );
         }
     }
     return d[m][n];
+}
+
+// ─── Intent Label Helpers (for chips UI) ───────────────
+
+export function getIntentLabels(intent: SearchIntent): { emoji: string; label: string; field: string }[] {
+    const labels: { emoji: string; label: string; field: string }[] = [];
+
+    if (intent.species) {
+        labels.push({ emoji: intent.species === 'DOG' ? '🐕' : '🐈', label: intent.species === 'DOG' ? 'Dog' : 'Cat', field: 'species' });
+    }
+    if (intent.sex) {
+        labels.push({ emoji: intent.sex === 'MALE' ? '♂' : '♀', label: intent.sex === 'MALE' ? 'Male' : 'Female', field: 'sex' });
+    }
+    if (intent.size) {
+        const sizeLabel = { SMALL: 'Small', MEDIUM: 'Medium', LARGE: 'Large', XLARGE: 'X-Large' }[intent.size];
+        labels.push({ emoji: '📏', label: sizeLabel, field: 'size' });
+    }
+    if (intent.minAge !== null) {
+        labels.push({ emoji: '🎂', label: `${intent.minAge}+ yrs`, field: 'minAge' });
+    }
+    if (intent.maxAge !== null) {
+        labels.push({ emoji: '🎂', label: `Under ${intent.maxAge} yrs`, field: 'maxAge' });
+    }
+    if (intent.urgency) {
+        labels.push({ emoji: '🚨', label: 'Urgent', field: 'urgency' });
+    }
+    if (intent.state) {
+        labels.push({ emoji: '📍', label: intent.state, field: 'state' });
+    }
+    if (intent.city) {
+        labels.push({ emoji: '🏙️', label: intent.city, field: 'city' });
+    }
+    for (const breed of intent.breeds) {
+        labels.push({ emoji: '🏷️', label: breed, field: 'breed' });
+    }
+    for (const group of intent.breedGroups) {
+        labels.push({ emoji: '🏷️', label: `${group} group`, field: 'breedGroup' });
+    }
+    for (const color of intent.colors) {
+        labels.push({ emoji: '🎨', label: color, field: 'color' });
+    }
+    if (intent.nearMe) {
+        labels.push({ emoji: '📍', label: 'Near me', field: 'nearMe' });
+    }
+    if (intent.zip) {
+        labels.push({ emoji: '📮', label: intent.zip, field: 'zip' });
+    }
+    for (const token of intent.textTokens) {
+        labels.push({ emoji: '🔤', label: token, field: 'text' });
+    }
+
+    return labels;
 }
 
 // ─── Parser ────────────────────────────────────────────
@@ -175,7 +341,12 @@ export function parseSearchQuery(raw: string): SearchIntent {
         maxAge: null,
         urgency: false,
         state: null,
+        city: null,
         breeds: [],
+        breedGroups: [],
+        colors: [],
+        nearMe: false,
+        zip: null,
         textTokens: [],
     };
 
@@ -184,8 +355,23 @@ export function parseSearchQuery(raw: string): SearchIntent {
     // Normalize: lowercase, collapse whitespace, remove punctuation except hyphens
     let text = raw.toLowerCase().replace(/[^\w\s-]/g, '').replace(/\s+/g, ' ').trim();
 
-    // ── 1. Extract age patterns (before tokenization) ──────────
-    // "over 10", "10+", "older than 10", "above 10"
+    // ── 0. Extract zip codes (5-digit) ─────────────────────
+    const zipMatch = text.match(/\b(\d{5})\b/);
+    if (zipMatch) {
+        intent.zip = zipMatch[1];
+        text = text.replace(zipMatch[0], ' ').trim();
+    }
+
+    // ── 0.5. Detect "near me" phrases ──────────────────────
+    for (const phrase of NEAR_ME_PHRASES) {
+        if (text.includes(phrase)) {
+            intent.nearMe = true;
+            text = text.replace(phrase, ' ').trim();
+            break;
+        }
+    }
+
+    // ── 1. Extract age patterns ────────────────────────────
     const minAgePatterns = [
         /\b(?:over|older\s+than|above|more\s+than|at\s+least)\s+(\d{1,2})\b/,
         /\b(\d{1,2})\s*\+\b/,
@@ -198,7 +384,6 @@ export function parseSearchQuery(raw: string): SearchIntent {
         }
     }
 
-    // "under 8", "younger than 8", "below 8", "less than 8"
     const maxAgePatterns = [
         /\b(?:under|younger\s+than|below|less\s+than|at\s+most)\s+(\d{1,2})\b/,
     ];
@@ -210,7 +395,7 @@ export function parseSearchQuery(raw: string): SearchIntent {
         }
     }
 
-    // ── 2. Extract multi-word state names ──────────────────────
+    // ── 2. Multi-word state names ──────────────────────────
     for (const [name, code] of Object.entries(STATE_NAMES)) {
         if (name.includes(' ')) {
             const idx = text.indexOf(name);
@@ -222,7 +407,19 @@ export function parseSearchQuery(raw: string): SearchIntent {
         }
     }
 
-    // ── 3. Extract multi-word breed synonyms (greedy) ──────────
+    // ── 2.5. Multi-word city names ─────────────────────────
+    for (const [name, canonical] of Object.entries(CITY_NAMES)) {
+        if (name.includes(' ')) {
+            const idx = text.indexOf(name);
+            if (idx !== -1) {
+                intent.city = canonical;
+                text = text.replace(name, ' ').trim();
+                break;
+            }
+        }
+    }
+
+    // ── 3. Multi-word breed synonyms (greedy) ──────────────
     for (const [aliases, canonical] of BREED_SYNONYMS) {
         for (const alias of aliases) {
             if (alias.includes(' ')) {
@@ -237,13 +434,51 @@ export function parseSearchQuery(raw: string): SearchIntent {
         }
     }
 
-    // ── 4. Tokenize remaining text ─────────────────────────────
+    // ── 3.5. Multi-breed OR: detect "X or Y" in text ───────
+    // Handles patterns like "pit bull or labrador" where one or both
+    // may already have been consumed as multi-word breeds.
+    // At this point, if multi-word breeds were consumed, remaining
+    // text might be "or labrador" or just "or Y".
+    // We scan pre-tokenization to catch remaining breed-or-breed patterns.
+    const orPattern = /\bor\s+(\S+)/g;
+    let orMatch;
+    while ((orMatch = orPattern.exec(text)) !== null) {
+        const rightToken = orMatch[1];
+        const rightBreed = findBreedMatch(rightToken);
+        if (rightBreed && intent.breeds.length > 0) {
+            // "or" follows a previously matched breed — add the right side too
+            if (!intent.breeds.includes(rightBreed)) {
+                intent.breeds.push(rightBreed);
+            }
+            text = text.replace(orMatch[0], ' ').trim();
+        }
+    }
+
+    // ── 4. Tokenize remaining text ─────────────────────────
     const tokens = text.split(/\s+/).filter(Boolean);
     const consumed = new Set<number>();
 
-    // ── 5. Single-word extraction passes ───────────────────────
+    // ── 4.5. Multi-breed OR: detect "X or Y" patterns ──────
+    for (let i = 0; i < tokens.length - 2; i++) {
+        if (tokens[i + 1] === 'or') {
+            const left = tokens[i];
+            const right = tokens[i + 2];
+            const leftBreed = findBreedMatch(left);
+            const rightBreed = findBreedMatch(right);
+            if (leftBreed && rightBreed) {
+                if (!intent.breeds.includes(leftBreed)) intent.breeds.push(leftBreed);
+                if (!intent.breeds.includes(rightBreed)) intent.breeds.push(rightBreed);
+                consumed.add(i);
+                consumed.add(i + 1);
+                consumed.add(i + 2);
+            }
+        }
+    }
+
+    // ── 5. Single-word extraction ──────────────────────────
 
     for (let i = 0; i < tokens.length; i++) {
+        if (consumed.has(i)) continue;
         const t = tokens[i];
 
         // Species
@@ -274,18 +509,40 @@ export function parseSearchQuery(raw: string): SearchIntent {
             continue;
         }
 
-        // State: 2-letter code
-        if (!intent.state && t.length === 2 && STATE_CODES.has(t.toUpperCase())) {
+        // State: 2-letter code (but NOT "or" — that's the logical operator)
+        if (!intent.state && t.length === 2 && t !== 'or' && STATE_CODES.has(t.toUpperCase())) {
             intent.state = t.toUpperCase();
             consumed.add(i);
             continue;
         }
 
-        // State: single-word full name (e.g. "texas", "california")
+        // State: single-word full name
         if (!intent.state && STATE_NAMES[t]) {
             intent.state = STATE_NAMES[t];
             consumed.add(i);
             continue;
+        }
+
+        // City: single-word
+        if (!intent.city && CITY_NAMES[t]) {
+            intent.city = CITY_NAMES[t];
+            consumed.add(i);
+            continue;
+        }
+
+        // Breed group
+        if (BREED_GROUP_MAP[t] && !intent.breedGroups.includes(BREED_GROUP_MAP[t])) {
+            intent.breedGroups.push(BREED_GROUP_MAP[t]);
+            consumed.add(i);
+            continue;
+        }
+
+        // Color keywords — check before breed synonyms since some overlap
+        if (COLOR_KEYWORDS.has(t)) {
+            if (!intent.colors.includes(t)) {
+                intent.colors.push(t);
+            }
+            // Don't consume — let it also try breed match below (for "tabby", "calico", etc.)
         }
 
         // Single-word breed synonym (exact)
@@ -305,40 +562,64 @@ export function parseSearchQuery(raw: string): SearchIntent {
         }
         if (breedMatched) continue;
 
-        // Fuzzy breed match for tokens >= 4 chars (typo tolerance)
+        // If it was a color keyword, consume it now even if not a breed
+        if (COLOR_KEYWORDS.has(t)) {
+            consumed.add(i);
+            continue;
+        }
+
+        // Fuzzy breed match for tokens >= 4 chars
         if (t.length >= 4) {
-            let bestMatch: string | null = null;
-            let bestDist = Infinity;
-            for (const [aliases, canonical] of BREED_SYNONYMS) {
-                for (const alias of aliases) {
-                    if (alias.includes(' ')) continue; // only single-word
-                    const dist = levenshtein(t, alias);
-                    // Allow distance ≤ 2 for words 4+ chars, ≤ 1 for 4 chars
-                    const maxDist = t.length <= 4 ? 1 : 2;
-                    if (dist <= maxDist && dist < bestDist) {
-                        bestDist = dist;
-                        bestMatch = canonical;
-                    }
-                }
-            }
-            if (bestMatch && !intent.breeds.includes(bestMatch)) {
-                intent.breeds.push(bestMatch);
+            const fuzzyMatch = findFuzzyBreedMatch(t);
+            if (fuzzyMatch && !intent.breeds.includes(fuzzyMatch)) {
+                intent.breeds.push(fuzzyMatch);
                 consumed.add(i);
                 continue;
             }
         }
     }
 
-    // ── 6. Collect remaining tokens (not stop words) ───────────
+    // ── 6. Collect remaining tokens ────────────────────────
     for (let i = 0; i < tokens.length; i++) {
         if (!consumed.has(i)) {
             const t = tokens[i];
-            // Skip stop words and bare numbers (already handled by age patterns)
-            if (!STOP_WORDS.has(t) && !/^\d+$/.test(t)) {
+            if (!STOP_WORDS.has(t) && !/^\d+$/.test(t) && t !== 'or') {
                 intent.textTokens.push(t);
             }
         }
     }
 
     return intent;
+}
+
+// ─── Helpers ───────────────────────────────────────────
+
+function findBreedMatch(token: string): string | null {
+    for (const [aliases, canonical] of BREED_SYNONYMS) {
+        for (const alias of aliases) {
+            if (!alias.includes(' ') && alias === token) {
+                return canonical;
+            }
+        }
+    }
+    // Also try fuzzy
+    return findFuzzyBreedMatch(token);
+}
+
+function findFuzzyBreedMatch(token: string): string | null {
+    if (token.length < 4) return null;
+    let bestMatch: string | null = null;
+    let bestDist = Infinity;
+    for (const [aliases, canonical] of BREED_SYNONYMS) {
+        for (const alias of aliases) {
+            if (alias.includes(' ')) continue;
+            const dist = levenshtein(token, alias);
+            const maxDist = token.length <= 4 ? 1 : 2;
+            if (dist <= maxDist && dist < bestDist) {
+                bestDist = dist;
+                bestMatch = canonical;
+            }
+        }
+    }
+    return bestMatch;
 }

@@ -1,7 +1,8 @@
 'use client';
 
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import { parseSearchQuery, getIntentLabels } from '@/lib/search-parser';
 
 export function SearchBar() {
     const router = useRouter();
@@ -14,6 +15,13 @@ export function SearchBar() {
     const urlQ = searchParams.get('q') || '';
     useEffect(() => {
         setQuery(urlQ);
+    }, [urlQ]);
+
+    // Parse intent for chips display (client-side, no DB needed)
+    const intentLabels = useMemo(() => {
+        if (!urlQ.trim()) return [];
+        const intent = parseSearchQuery(urlQ);
+        return getIntentLabels(intent);
     }, [urlQ]);
 
     const submitQuery = useCallback(
@@ -45,7 +53,6 @@ export function SearchBar() {
     const handleSubmit = useCallback(
         (e: React.FormEvent) => {
             e.preventDefault();
-            // Cancel any pending debounce and submit immediately
             if (debounceRef.current) clearTimeout(debounceRef.current);
             submitQuery(query);
         },
@@ -80,6 +87,30 @@ export function SearchBar() {
         inputRef.current?.focus();
     }, [submitQuery]);
 
+    const handleNearMe = useCallback(() => {
+        if (!navigator.geolocation) return;
+        navigator.geolocation.getCurrentPosition(
+            async (pos) => {
+                // Reverse geocode to zip using a free API
+                try {
+                    const res = await fetch(
+                        `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${pos.coords.latitude}&longitude=${pos.coords.longitude}&localityLanguage=en`
+                    );
+                    const data = await res.json();
+                    const zip = data.postcode;
+                    if (zip) {
+                        const params = new URLSearchParams(searchParams.toString());
+                        params.set('zip', zip);
+                        router.push(`/?${params.toString()}`);
+                    }
+                } catch {
+                    // Silently fail — geolocation is optional
+                }
+            },
+            () => { /* denied — do nothing */ }
+        );
+    }, [router, searchParams]);
+
     // Cleanup debounce on unmount
     useEffect(() => {
         return () => {
@@ -88,26 +119,39 @@ export function SearchBar() {
     }, []);
 
     return (
-        <form className="search-bar" onSubmit={handleSubmit}>
-            <input
-                ref={inputRef}
-                className="search-bar__input"
-                type="text"
-                placeholder="Describe the senior you want to save"
-                value={query}
-                onChange={(e) => handleChange(e.target.value)}
-                aria-label="Search animals"
-            />
-            <div className="search-bar__actions">
-                {query && (
-                    <button type="button" className="search-bar__clear" onClick={handleClear} aria-label="Clear search">
-                        ✕
+        <div className="search-wrapper">
+            <form className="search-bar" onSubmit={handleSubmit}>
+                <input
+                    ref={inputRef}
+                    className="search-bar__input"
+                    type="text"
+                    placeholder="Describe the senior you want to save"
+                    value={query}
+                    onChange={(e) => handleChange(e.target.value)}
+                    aria-label="Search animals"
+                />
+                <div className="search-bar__actions">
+                    {query && (
+                        <button type="button" className="search-bar__clear" onClick={handleClear} aria-label="Clear search">
+                            ✕
+                        </button>
+                    )}
+                    <button type="button" className="search-bar__voice" onClick={handleVoice} aria-label="Voice search">
+                        🎙
                     </button>
-                )}
-                <button type="button" className="search-bar__voice" onClick={handleVoice} aria-label="Voice search">
-                    🎙
-                </button>
-            </div>
-        </form>
+                </div>
+            </form>
+
+            {intentLabels.length > 0 && (
+                <div className="search-chips" aria-label="Active search filters">
+                    {intentLabels.map((chip, idx) => (
+                        <span key={`${chip.field}-${idx}`} className="search-chip">
+                            <span className="search-chip__emoji">{chip.emoji}</span>
+                            {chip.label}
+                        </span>
+                    ))}
+                </div>
+            )}
+        </div>
     );
 }

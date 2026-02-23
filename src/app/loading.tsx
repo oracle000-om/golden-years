@@ -3,7 +3,7 @@ export default function Loading() {
         <div className="listings-page">
             <div className="container">
                 <div className="listings-header">
-                    <span className="page-badge">📡 Live List</span>
+                    <span className="page-badge">📡 LIST</span>
                 </div>
 
                 <p className="listings-header__description">

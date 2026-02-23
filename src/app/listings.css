@@ -492,11 +492,15 @@
 .animal-card__shelter {
   font-size: 0.7rem;
   color: var(--color-text-dim);
+  margin-bottom: 2px;
+  line-height: 1.4;
+}
+
+.animal-card__shelter-location {
+  font-size: 0.7rem;
+  color: var(--color-text-dim);
   margin-bottom: var(--space-md);
   line-height: 1.4;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .animal-card__shelter-phone {

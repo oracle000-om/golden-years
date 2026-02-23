@@ -4,6 +4,7 @@
  */
 import { prisma } from './db';
 import type { AnimalWithShelter, AnimalWithShelterAndSources, ShelterWithAnimals } from './types';
+import { parseSearchQuery, type SearchIntent } from './search-parser';
 
 // ─── Filters ─────────────────────────────────────────────
 
@@ -88,14 +89,8 @@ export async function getFilteredAnimals(filters: AnimalFilters): Promise<Animal
     }
 
     if (filters.q && filters.q.trim()) {
-        const q = filters.q.trim();
-        where.OR = [
-            { name: { contains: q, mode: 'insensitive' } },
-            { breed: { contains: q, mode: 'insensitive' } },
-            { shelter: { name: { contains: q, mode: 'insensitive' } } },
-            { shelter: { county: { contains: q, mode: 'insensitive' } } },
-            { shelter: { state: { contains: q, mode: 'insensitive' } } },
-        ];
+        const intent = parseSearchQuery(filters.q);
+        applySearchIntent(where, intent);
     }
 
     const animals = await prisma.animal.findMany({
@@ -117,6 +112,118 @@ export async function getFilteredAnimals(filters: AnimalFilters): Promise<Animal
         if (aEuth !== bEuth) return aEuth - bEuth;
 
         // Then deprioritized animals go to the bottom
+        const aDepri = isDeprioritized(a) ? 1 : 0;
+        const bDepri = isDeprioritized(b) ? 1 : 0;
+        return aDepri - bDepri;
+    });
+}
+
+// ─── NLP Search Intent → Prisma WHERE ────────────────────
+
+/** Apply parsed NLP search intent to a Prisma WHERE clause. */
+function applySearchIntent(
+    where: Record<string, unknown>,
+    intent: SearchIntent,
+): void {
+    const andClauses: Record<string, unknown>[] = [];
+
+    // Species
+    if (intent.species && !where.species) {
+        andClauses.push({ species: intent.species });
+    }
+
+    // Sex
+    if (intent.sex) {
+        andClauses.push({ sex: intent.sex });
+    }
+
+    // Size
+    if (intent.size) {
+        andClauses.push({ size: intent.size });
+    }
+
+    // Age: minAge (e.g. "over 10")
+    if (intent.minAge !== null) {
+        andClauses.push({
+            OR: [
+                { ageKnownYears: { gte: intent.minAge } },
+                { ageEstimatedLow: { gte: intent.minAge } },
+            ],
+        });
+    }
+
+    // Age: maxAge (e.g. "under 8")
+    if (intent.maxAge !== null) {
+        andClauses.push({
+            OR: [
+                { ageKnownYears: { lte: intent.maxAge } },
+                { ageEstimatedHigh: { lte: intent.maxAge } },
+            ],
+        });
+    }
+
+    // Urgency
+    if (intent.urgency) {
+        andClauses.push({
+            OR: [
+                { euthScheduledAt: { not: null } },
+                { status: 'URGENT' },
+            ],
+        });
+    }
+
+    // State (from NLP, only if not already filtered via dropdown)
+    if (intent.state && !where.shelter) {
+        andClauses.push({
+            shelter: { state: { equals: intent.state, mode: 'insensitive' } },
+        });
+    }
+
+    // Breed matches
+    if (intent.breeds.length > 0) {
+        const breedOr = intent.breeds.map((b) => ({
+            breed: { contains: b, mode: 'insensitive' as const },
+        }));
+        andClauses.push({ OR: breedOr });
+    }
+
+    // Remaining text tokens — each must match somewhere (AND logic)
+    for (const token of intent.textTokens) {
+        andClauses.push({
+            OR: [
+                { name: { contains: token, mode: 'insensitive' } },
+                { breed: { contains: token, mode: 'insensitive' } },
+                { shelter: { name: { contains: token, mode: 'insensitive' } } },
+                { shelter: { county: { contains: token, mode: 'insensitive' } } },
+            ],
+        });
+    }
+
+    // Merge into WHERE
+    if (andClauses.length > 0) {
+        where.AND = [...(where.AND as Record<string, unknown>[] || []), ...andClauses];
+    }
+}
+
+/** Search animals using NLP-parsed intent (used by /api/search). */
+export async function searchAnimals(intent: SearchIntent): Promise<AnimalWithShelter[]> {
+    const where: Record<string, unknown> = {
+        status: { in: ['LISTED', 'URGENT'] },
+    };
+
+    applySearchIntent(where, intent);
+
+    const animals = await prisma.animal.findMany({
+        where,
+        include: { shelter: true },
+        orderBy: [{ createdAt: 'desc' }],
+    }) as AnimalWithShelter[];
+
+    return animals.sort((a, b) => {
+        const aEuth = a.euthScheduledAt ? new Date(a.euthScheduledAt).getTime() : Infinity;
+        const bEuth = b.euthScheduledAt ? new Date(b.euthScheduledAt).getTime() : Infinity;
+        if (aEuth !== bEuth) return aEuth - bEuth;
+
         const aDepri = isDeprioritized(a) ? 1 : 0;
         const bDepri = isDeprioritized(b) ? 1 : 0;
         return aDepri - bDepri;
@@ -169,9 +276,14 @@ export async function getShelterForMetadata(id: string) {
     });
 }
 
-/** Fetch all distinct states that have shelters (normalized to uppercase, deduplicated). */
+/** Fetch distinct states that have shelters with active (LISTED/URGENT) animals. */
 export async function getDistinctStates(): Promise<string[]> {
     const shelters = await prisma.shelter.findMany({
+        where: {
+            animals: {
+                some: { status: { in: ['LISTED', 'URGENT'] } },
+            },
+        },
         select: { state: true },
     });
     const unique = [...new Set(shelters.map((s) => s.state.toUpperCase()))]

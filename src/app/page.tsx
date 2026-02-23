@@ -78,7 +78,7 @@ export default async function Home({
     <div className="listings-page">
       <div className="container">
         <div className="listings-header">
-          <span className="page-badge">📡 Live List ({animals.length})</span>
+          <span className="page-badge">📡 LIST ({animals.length})</span>
         </div>
 
         <p className="listings-header__description">

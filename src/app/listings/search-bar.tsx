@@ -1,34 +1,62 @@
 'use client';
 
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 
 export function SearchBar() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const [query, setQuery] = useState(searchParams.get('q') || '');
     const inputRef = useRef<HTMLInputElement>(null);
+    const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    const handleSubmit = useCallback(
-        (e: React.FormEvent) => {
-            e.preventDefault();
+    // Sync query state when URL changes externally (e.g. filter reset)
+    const urlQ = searchParams.get('q') || '';
+    useEffect(() => {
+        setQuery(urlQ);
+    }, [urlQ]);
+
+    const submitQuery = useCallback(
+        (q: string) => {
             const params = new URLSearchParams(searchParams.toString());
-            if (query.trim()) {
-                params.set('q', query.trim());
+            if (q.trim()) {
+                params.set('q', q.trim());
             } else {
                 params.delete('q');
             }
             router.push(`/?${params.toString()}`);
         },
-        [router, searchParams, query],
+        [router, searchParams],
+    );
+
+    const handleChange = useCallback(
+        (value: string) => {
+            setQuery(value);
+
+            // Debounce: auto-submit after 400ms of inactivity
+            if (debounceRef.current) clearTimeout(debounceRef.current);
+            debounceRef.current = setTimeout(() => {
+                submitQuery(value);
+            }, 400);
+        },
+        [submitQuery],
+    );
+
+    const handleSubmit = useCallback(
+        (e: React.FormEvent) => {
+            e.preventDefault();
+            // Cancel any pending debounce and submit immediately
+            if (debounceRef.current) clearTimeout(debounceRef.current);
+            submitQuery(query);
+        },
+        [submitQuery, query],
     );
 
     const handleClear = useCallback(() => {
         setQuery('');
-        const params = new URLSearchParams(searchParams.toString());
-        params.delete('q');
-        router.push(`/?${params.toString()}`);
-    }, [router, searchParams]);
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        submitQuery('');
+    }, [submitQuery]);
 
     const handleVoice = useCallback(() => {
         const SpeechRecognition = (window as unknown as Record<string, unknown>).SpeechRecognition ||
@@ -45,15 +73,19 @@ export function SearchBar() {
         recognition.onresult = (event: any) => {
             const transcript = event.results[0][0].transcript;
             setQuery(transcript);
-            // Auto-submit after voice input
-            const params = new URLSearchParams(searchParams.toString());
-            params.set('q', transcript.trim());
-            router.push(`/?${params.toString()}`);
+            submitQuery(transcript);
         };
 
         recognition.start();
         inputRef.current?.focus();
-    }, [router, searchParams]);
+    }, [submitQuery]);
+
+    // Cleanup debounce on unmount
+    useEffect(() => {
+        return () => {
+            if (debounceRef.current) clearTimeout(debounceRef.current);
+        };
+    }, []);
 
     return (
         <form className="search-bar" onSubmit={handleSubmit}>
@@ -63,7 +95,7 @@ export function SearchBar() {
                 type="text"
                 placeholder="Describe the senior you want to save"
                 value={query}
-                onChange={(e) => setQuery(e.target.value)}
+                onChange={(e) => handleChange(e.target.value)}
                 aria-label="Search animals"
             />
             <div className="search-bar__actions">

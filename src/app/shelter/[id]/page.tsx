@@ -6,7 +6,7 @@ import { getShelterById, getShelterForMetadata } from '@/lib/queries';
 import { formatDeathMarker, hoursUntil, getUrgencyLevel, getSaveRate, formatAge, getPerCapitaIntake, getYoYTrend, getTransferRate } from '@/lib/utils';
 import type { ShelterWithAnimals, Animal } from '@/lib/types';
 
-export const revalidate = 60;
+export const revalidate = 300;
 
 export async function generateMetadata({
     params,
@@ -182,6 +182,68 @@ export default async function ShelterDetailPage({
                             </div>
                         )}
 
+                        {/* Intake Bar Graph — always 2 bars */}
+                        {hasData && (() => {
+                            const hasPrior = shelter.priorYearIntake !== null && shelter.priorYearIntake > 0;
+                            const priorIntake = shelter.priorYearIntake ?? 0;
+                            const maxIntake = Math.max(shelter.totalIntakeAnnual, priorIntake, 1);
+                            const priorSaveRate = hasPrior
+                                ? Math.round(((priorIntake - (shelter.priorYearEuthanized ?? 0)) / priorIntake) * 1000) / 10
+                                : null;
+                            const yoyDelta = (saveRate !== null && priorSaveRate !== null)
+                                ? Math.round((saveRate - priorSaveRate) * 10) / 10
+                                : null;
+
+                            return (
+                                <div className="shelter-data-card__intake-bars">
+                                    <div className="shelter-data-card__intake-header">
+                                        <span className="shelter-data-card__intake-title">Annual Intake</span>
+                                        {yoyDelta !== null && (
+                                            <span className={`shelter-data-card__yoy ${yoyDelta >= 0 ? 'up' : 'down'}`}>
+                                                {yoyDelta >= 0 ? '↑' : '↓'} {Math.abs(yoyDelta)}% save rate
+                                            </span>
+                                        )}
+                                    </div>
+                                    <div className="shelter-data-card__intake-graph">
+                                        {/* Prior year bar */}
+                                        <div className="shelter-data-card__intake-col">
+                                            <div className="shelter-data-card__intake-track">
+                                                {hasPrior ? (
+                                                    <div
+                                                        className="shelter-data-card__intake-fill prior"
+                                                        style={{ height: `${(priorIntake / maxIntake) * 100}%` }}
+                                                    />
+                                                ) : (
+                                                    <div className="shelter-data-card__intake-fill unknown" />
+                                                )}
+                                            </div>
+                                            <span className="shelter-data-card__intake-count">
+                                                {hasPrior ? priorIntake.toLocaleString() : '—'}
+                                            </span>
+                                            <span className="shelter-data-card__intake-year">
+                                                {shelter.priorDataYear ?? (shelter.dataYear ? shelter.dataYear - 1 : '?')}
+                                            </span>
+                                        </div>
+                                        {/* Current year bar */}
+                                        <div className="shelter-data-card__intake-col">
+                                            <div className="shelter-data-card__intake-track">
+                                                <div
+                                                    className="shelter-data-card__intake-fill current"
+                                                    style={{ height: `${(shelter.totalIntakeAnnual / maxIntake) * 100}%` }}
+                                                />
+                                            </div>
+                                            <span className="shelter-data-card__intake-count">
+                                                {shelter.totalIntakeAnnual.toLocaleString()}
+                                            </span>
+                                            <span className="shelter-data-card__intake-year">
+                                                {shelter.dataYear ?? 'Current'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })()}
+
                         {/* Secondary Metrics */}
                         {(perCapita !== null || yoyTrend || transferRate !== null) && (
                             <div className="shelter-data-card__metrics">
@@ -307,7 +369,10 @@ export default async function ShelterDetailPage({
                                                 {animal.euthScheduledAt ? 'Scheduled' : 'Status'}
                                             </span>
                                             <span className={`animal-card__death-marker-time ${animal.euthScheduledAt ? urgency : 'standard'}`}>
-                                                {animal.euthScheduledAt ? formatDeathMarker(animal.euthScheduledAt) : 'In Shelter'}
+                                                {animal.euthScheduledAt ? formatDeathMarker(animal.euthScheduledAt)
+                                                    : (shelter as any).shelterType === 'RESCUE' ? 'In Rescue'
+                                                        : (shelter as any).shelterType === 'FOSTER_BASED' ? 'In Foster'
+                                                            : 'In Shelter'}
                                             </span>
                                         </div>
                                     </div>

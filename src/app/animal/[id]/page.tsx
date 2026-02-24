@@ -2,10 +2,11 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
-import { getAnimalById, getAnimalForMetadata } from '@/lib/queries';
-import { formatDeathMarker, hoursUntil, getUrgencyLevel, formatAge, formatShelterStats, formatIntakeReason, formatYearsRemaining, getAgeDiscrepancy, getGoldenYearsConfidence, computeHealthScore, getSaveRate } from '@/lib/utils';
+import { getAnimalById, getAnimalForMetadata, getAnimalSnapshots, getBreedCommonConditions, getShelterInsights } from '@/lib/queries';
+import { formatDeathMarker, hoursUntil, getUrgencyLevel, formatAge, formatShelterStats, formatIntakeReason, formatYearsRemaining, getAgeDiscrepancy, getGoldenYearsConfidence, computeHealthScore, getSaveRate, getBestAge } from '@/lib/utils';
 import { CopyLinkButton } from '@/components/copy-link-button';
 import { PhotoGallery } from '@/components/photo-gallery';
+import { ShelterStatsCharts } from '@/components/shelter-stats-charts';
 import type { AnimalWithShelterAndSources, Source } from '@/lib/types';
 
 export const revalidate = 60;
@@ -105,6 +106,7 @@ export default async function AnimalDetailPage({
     const urgency = getUrgencyLevel(hours);
     const shelterStatsLine = formatShelterStats(animal.shelter.totalIntakeAnnual, animal.shelter.totalEuthanizedAnnual, animal.shelter.dataYear);
     const saveRate = getSaveRate(animal.shelter.totalIntakeAnnual, animal.shelter.totalEuthanizedAnnual);
+    const shelterInsights = await getShelterInsights(animal.shelterId);
     const ageDisplay = formatAge(
         animal.ageKnownYears,
         animal.ageEstimatedLow,
@@ -146,8 +148,32 @@ export default async function AnimalDetailPage({
         : 'Pending';
     const shelterBreed = animal.breed || '—';
     const gyBreed = animal.detectedBreeds?.length > 0
-        ? animal.detectedBreeds.join(' / ')
+        ? animal.detectedBreeds.slice(0, 3).join(' / ')
         : 'Pending';
+    const sizeLabels: Record<string, string> = { SMALL: 'Small', MEDIUM: 'Medium', LARGE: 'Large', XLARGE: 'Extra Large' };
+    const sizeDisplay = (() => {
+        if (animal.size) return { text: sizeLabels[animal.size], inferred: false };
+        // Infer from detected breeds when size is missing
+        const breedSizes: Record<string, string> = {
+            'chihuahua': 'Small', 'yorkshire': 'Small', 'pomeranian': 'Small', 'maltese': 'Small',
+            'shih tzu': 'Small', 'dachshund': 'Small', 'miniature': 'Small', 'toy': 'Small',
+            'beagle': 'Medium', 'cocker spaniel': 'Medium', 'corgi': 'Medium', 'bulldog': 'Medium',
+            'australian shepherd': 'Medium', 'border collie': 'Medium', 'springer': 'Medium',
+            'labrador': 'Large', 'golden retriever': 'Large', 'german shepherd': 'Large',
+            'rottweiler': 'Large', 'boxer': 'Large', 'husky': 'Large', 'doberman': 'Large',
+            'pit bull': 'Large', 'american staffordshire': 'Large', 'belgian': 'Large', 'collie': 'Large',
+            'great dane': 'Extra Large', 'mastiff': 'Extra Large', 'saint bernard': 'Extra Large',
+            'newfoundland': 'Extra Large', 'great pyrenees': 'Extra Large', 'bernese': 'Extra Large',
+            'irish wolfhound': 'Extra Large', 'cane corso': 'Extra Large',
+        };
+        const breeds = [...(animal.detectedBreeds || []), animal.breed || ''].map(b => b.toLowerCase());
+        for (const breed of breeds) {
+            for (const [key, size] of Object.entries(breedSizes)) {
+                if (breed.includes(key)) return { text: `Likely ${size.toLowerCase()}`, inferred: true };
+            }
+        }
+        return null;
+    })();
 
     return (
         <div className="animal-detail">
@@ -212,14 +238,18 @@ export default async function AnimalDetailPage({
                     <div className="animal-detail__info">
                         <h1 className={`animal-detail__name ${!animal.name ? 'unnamed' : ''}`}>
                             {animal.name || 'Unnamed'}
+                            <CopyLinkButton />
                         </h1>
                         <p className="animal-detail__gender-species">
                             {animal.sex ? animal.sex.charAt(0) + animal.sex.slice(1).toLowerCase() : 'Unknown'} · {animal.species.charAt(0) + animal.species.slice(1).toLowerCase()}
                         </p>
                         <Link href={`/shelter/${animal.shelter.id}`} className="animal-detail__shelter-link">
                             {animal.shelter.name}
-                            {animal.shelter.phone && <span className="animal-detail__shelter-phone"> · {animal.shelter.phone}</span>}
                         </Link>
+                        <p className="animal-detail__location-phone">
+                            {animal.shelter.county} County, {animal.shelter.state}
+                            {animal.shelter.phone && <span className="animal-detail__inline-phone"> · 📞 <a href={`tel:${animal.shelter.phone.replace(/\D/g, '')}`}>{animal.shelter.phone}</a></span>}
+                        </p>
 
                         <div className="animal-detail__detail-grid">
                             <div className="animal-detail__detail-row">
@@ -232,7 +262,7 @@ export default async function AnimalDetailPage({
                                     <span className={`animal-detail__detail-value ${gyAge !== 'Pending' ? 'cv-estimated' : ''}`}>{gyAge}</span>
                                     <span className="gy-tooltip__popup">
                                         <span className="gy-tooltip__label">Confidence</span>
-                                        <span className="gy-tooltip__pct">{confidence.label} · {confidence.percent}%</span>
+                                        <span className="gy-tooltip__pct">{confidence.label}</span>
                                     </span>
                                 </span>
                             </div>
@@ -243,7 +273,19 @@ export default async function AnimalDetailPage({
                             {animal.species !== 'CAT' && (
                                 <div className="animal-detail__detail-row">
                                     <span className="animal-detail__detail-label">Golden Years breed</span>
-                                    <span className={`animal-detail__detail-value ${gyBreed !== 'Pending' ? 'cv-estimated' : ''}`}>{gyBreed}</span>
+                                    <span className="gy-tooltip">
+                                        <span className={`animal-detail__detail-value ${gyBreed !== 'Pending' ? 'cv-estimated' : ''}`}>{gyBreed}</span>
+                                        <span className="gy-tooltip__popup">
+                                            <span className="gy-tooltip__label">Confidence</span>
+                                            <span className="gy-tooltip__pct">{animal.breedConfidence === 'HIGH' ? 'High' : animal.breedConfidence === 'MEDIUM' ? 'Moderate' : animal.breedConfidence === 'LOW' ? 'Low' : 'Pending'}</span>
+                                        </span>
+                                    </span>
+                                </div>
+                            )}
+                            {sizeDisplay && (
+                                <div className="animal-detail__detail-row">
+                                    <span className="animal-detail__detail-label">Size</span>
+                                    <span className={`animal-detail__detail-value ${sizeDisplay.inferred ? 'cv-estimated' : ''}`}>{sizeDisplay.text}</span>
                                 </div>
                             )}
                             <div className="animal-detail__detail-row">
@@ -271,16 +313,14 @@ export default async function AnimalDetailPage({
                             </div>
                         )}
 
-                        <div className="animal-detail__actions">
-                            <CopyLinkButton />
-                        </div>
+
 
                     </div>
                 </div>
 
                 {/* --- Consolidated Report Card --- */}
                 <div className="animal-detail__report">
-                    <h2 className="animal-detail__report-title">Report</h2>
+                    <h2 className="animal-detail__report-title">Report Card</h2>
 
                     {hours !== null && hours === 0 && (
                         <div className="animal-detail__report-section animal-detail__report-section--warning">
@@ -296,7 +336,9 @@ export default async function AnimalDetailPage({
                         <div className="animal-detail__report-section">
                             <h3>Time Left</h3>
                             <p>
-                                {animal.name || 'This animal'} could live <strong>{yearsRemaining}</strong> more.
+                                {yearsRemaining === 'near end of life'
+                                    ? <>{animal.name || 'This animal'} is estimated to be <strong>near end of life</strong>.{' '}</>
+                                    : <>{animal.name || 'This animal'} could live <strong>{yearsRemaining}</strong> more.{' '}</>}
                             </p>
                             {animal.euthScheduledAt && (
                                 <p className="animal-detail__report-contrast">
@@ -306,7 +348,7 @@ export default async function AnimalDetailPage({
                             {animal.lifeExpectancyLow !== null && animal.lifeExpectancyHigh !== null && (
                                 <p className="animal-detail__report-detail">
                                     Typical lifespan: {animal.lifeExpectancyLow}–{animal.lifeExpectancyHigh} years
-                                    {animal.detectedBreeds?.length > 0 && ` · Breed: ${animal.detectedBreeds.join(' / ')}`}
+                                    {animal.detectedBreeds?.length > 0 && ` · Breed: ${animal.detectedBreeds.slice(0, 3).join(' / ')}`}
                                 </p>
                             )}
                         </div>
@@ -319,8 +361,14 @@ export default async function AnimalDetailPage({
                                 <p>
                                     Computer vision estimates {animal.ageEstimatedLow}–{animal.ageEstimatedHigh} years
                                     ({animal.ageConfidence === 'HIGH' ? 'high' : animal.ageConfidence === 'MEDIUM' ? 'moderate' : 'low'} confidence).
-                                    {animal.ageIndicators?.length > 0 && ` Based on: ${animal.ageIndicators.join(', ')}.`}
                                 </p>
+                            )}
+                            {animal.ageIndicators?.length > 0 && (
+                                <div className="animal-detail__report-tags">
+                                    {animal.ageIndicators.map((ind: string, i: number) => (
+                                        <span key={i} className="animal-detail__report-tag">{ind}</span>
+                                    ))}
+                                </div>
                             )}
                             {ageDiscrepancy && (
                                 <p className="animal-detail__report-detail">
@@ -339,13 +387,15 @@ export default async function AnimalDetailPage({
 
                     {animal.notes && (
                         <div className="animal-detail__report-section">
-                            <h3>Notes</h3>
+                            <h3>Notes from listing</h3>
                             <p>{animal.notes}</p>
                         </div>
                     )}
 
                     {/* --- Health Assessment --- */}
-                    {(() => {
+                    {await (async () => {
+                        const bestAge = getBestAge(animal.ageKnownYears, animal.ageEstimatedLow, animal.ageEstimatedHigh, animal.ageSource);
+                        const breedConditions = await getBreedCommonConditions(animal.detectedBreeds || []);
                         const health = computeHealthScore(
                             animal.bodyConditionScore,
                             animal.coatCondition,
@@ -353,34 +403,77 @@ export default async function AnimalDetailPage({
                             animal.stressLevel,
                             animal.fearIndicators,
                             animal.estimatedCareLevel,
+                            {
+                                notes: animal.notes,
+                                healthNotes: animal.healthNotes,
+                                ageYears: bestAge?.age ?? null,
+                                breedCommonConditions: breedConditions,
+                            },
                         );
                         if (!health) return null;
+                        const { physical, medical, comfort } = health.subScores;
                         return (
                             <div className="animal-detail__report-section">
                                 <h3>Health Assessment</h3>
-                                <div className="animal-detail__health-score">
-                                    <div className="animal-detail__health-score-bar">
-                                        <div
-                                            className={`animal-detail__health-score-fill ${health.score >= 85 ? 'excellent' : health.score >= 70 ? 'good' : health.score >= 50 ? 'fair' : 'concerning'}`}
-                                            style={{ width: `${health.score}%` }}
-                                        />
+                                <div className="animal-detail__sub-scores">
+                                    <div className="animal-detail__sub-score">
+                                        <div className="animal-detail__sub-score-header">
+                                            <span className="animal-detail__sub-score-label">Physical</span>
+                                            <span className="animal-detail__sub-score-value">{physical.score}/{physical.max} · {physical.label}</span>
+                                        </div>
+                                        <div className="animal-detail__sub-score-bar">
+                                            <div
+                                                className={`animal-detail__sub-score-fill ${physical.score / physical.max >= 0.85 ? 'excellent' : physical.score / physical.max >= 0.6 ? 'good' : physical.score / physical.max >= 0.4 ? 'fair' : 'concerning'}`}
+                                                style={{ width: `${(physical.score / physical.max) * 100}%` }}
+                                            />
+                                        </div>
+                                        {physical.factors.length > 0 && (
+                                            <ul className="animal-detail__sub-score-factors">
+                                                {physical.factors.map((f, i) => <li key={i}>{f}</li>)}
+                                            </ul>
+                                        )}
                                     </div>
-                                    <span className="animal-detail__health-score-value">
-                                        {health.score}/100 · {health.label}
-                                    </span>
+                                    <div className="animal-detail__sub-score">
+                                        <div className="animal-detail__sub-score-header">
+                                            <span className="animal-detail__sub-score-label">Medical</span>
+                                            <span className="animal-detail__sub-score-value">{medical.score}/{medical.max} · {medical.label}</span>
+                                        </div>
+                                        <div className="animal-detail__sub-score-bar">
+                                            <div
+                                                className={`animal-detail__sub-score-fill ${medical.score / medical.max >= 0.85 ? 'excellent' : medical.score / medical.max >= 0.6 ? 'good' : medical.score / medical.max >= 0.4 ? 'fair' : 'concerning'}`}
+                                                style={{ width: `${(medical.score / medical.max) * 100}%` }}
+                                            />
+                                        </div>
+                                        {medical.factors.length > 0 && (
+                                            <ul className="animal-detail__sub-score-factors">
+                                                {medical.factors.map((f, i) => <li key={i}>{f}</li>)}
+                                            </ul>
+                                        )}
+                                    </div>
+                                    <div className="animal-detail__sub-score">
+                                        <div className="animal-detail__sub-score-header">
+                                            <span className="animal-detail__sub-score-label">Comfort</span>
+                                            <span className="animal-detail__sub-score-value">{comfort.score}/{comfort.max} · {comfort.label}</span>
+                                        </div>
+                                        <div className="animal-detail__sub-score-bar">
+                                            <div
+                                                className={`animal-detail__sub-score-fill ${comfort.score / comfort.max >= 0.85 ? 'excellent' : comfort.score / comfort.max >= 0.6 ? 'good' : comfort.score / comfort.max >= 0.4 ? 'fair' : 'concerning'}`}
+                                                style={{ width: `${(comfort.score / comfort.max) * 100}%` }}
+                                            />
+                                        </div>
+                                        {comfort.factors.length > 0 && (
+                                            <ul className="animal-detail__sub-score-factors">
+                                                {comfort.factors.map((f, i) => <li key={i}>{f}</li>)}
+                                            </ul>
+                                        )}
+
+                                    </div>
                                 </div>
-                                <ul className="animal-detail__health-factors">
-                                    {health.factors.map((f, i) => (
-                                        <li key={i}>{f}</li>
-                                    ))}
-                                </ul>
-                                {animal.visibleConditions.length > 0 && (
-                                    <div className="animal-detail__report-tags">
-                                        {animal.visibleConditions.map((c, i) => (
-                                            <span key={i} className="animal-detail__report-tag">{c}</span>
-                                        ))}
-                                    </div>
-                                )}
+                                <div className="animal-detail__health-overall">
+                                    <span className="animal-detail__health-overall-label">Overall</span>
+                                    <span className="animal-detail__health-overall-value">{health.score}/100 · {health.label}</span>
+                                </div>
+
                                 <p className="animal-detail__report-disclaimer">
                                     Assessed via AI analysis of the animal&apos;s photo and adoption listing. This is not a veterinary diagnosis.
                                 </p>
@@ -403,33 +496,29 @@ export default async function AnimalDetailPage({
                             {animal.shelter.zipCode && ` ${animal.shelter.zipCode}`}
                         </p>
                         <p className="animal-detail__shelter-phone-line">
-                            📞 {animal.shelter.phone || 'Phone not available'}
+                            📞 <a href={`tel:${(animal.shelter.phone || '').replace(/\D/g, '')}`}>{animal.shelter.phone || 'Phone not available'}</a>
                         </p>
                     </div>
-                    {shelterStatsLine && (
+                    {(saveRate !== null || shelterInsights.length > 0) && (
                         <div className="animal-detail__shelter-stats">
-                            <p>{shelterStatsLine}</p>
-                        </div>
-                    )}
-                    {saveRate !== null && (
-                        <div className="animal-detail__shelter-stats">
-                            <div className="animal-card__shelter-stats-header">
-                                <span className="gy-tooltip">
-                                    <span className="animal-card__shelter-stats-label">Live release rate</span>
-                                    <span className="gy-tooltip__popup">
-                                        <span className="gy-tooltip__label">What is this?</span>
-                                        <span className="gy-tooltip__pct">The percentage of animals that leave this shelter alive — via adoption, rescue, or transfer — rather than being euthanized. A lower rate means higher euthanasia risk.</span>
-                                    </span>
-                                </span>
-                                <span className={`animal-card__shelter-stats-pct ${saveRate >= 90 ? 'high' : saveRate >= 50 ? 'mid' : 'low'}`}>
-                                    {saveRate}%
-                                </span>
-                            </div>
-                            <div className="animal-card__shelter-stats-bar">
-                                <div
-                                    className={`animal-card__shelter-stats-fill ${saveRate >= 90 ? 'high' : saveRate >= 50 ? 'mid' : 'low'}`}
-                                    style={{ width: `${Math.min(saveRate, 100)}%` }}
-                                />
+                            <div className="animal-detail__shelter-stats-row">
+                                {saveRate !== null && (
+                                    <ShelterStatsCharts
+                                        intake={animal.shelter.totalIntakeAnnual}
+                                        euthanized={animal.shelter.totalEuthanizedAnnual}
+                                        dataYear={animal.shelter.dataYear}
+                                    />
+                                )}
+                                {shelterInsights.length > 0 && (
+                                    <div className="animal-detail__noteworthy">
+                                        <h3 className="animal-detail__noteworthy-title">Noteworthy</h3>
+                                        <ul className="animal-detail__noteworthy-list">
+                                            {shelterInsights.map((insight, i) => (
+                                                <li key={i}>{insight}</li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     )}
@@ -437,6 +526,8 @@ export default async function AnimalDetailPage({
                         {(() => {
                             const adoptUrl = animal.shelter.websiteUrl
                                 || (animal.sources.length > 0 ? animal.sources[0].sourceUrl : null);
+                            const isRescue = animal.shelter.shelterType === 'RESCUE' || animal.shelter.shelterType === 'FOSTER_BASED';
+                            const ctaLabel = isRescue ? 'Go to rescue website →' : 'Go to shelter website →';
                             return adoptUrl ? (
                                 <a
                                     href={adoptUrl}
@@ -444,7 +535,7 @@ export default async function AnimalDetailPage({
                                     rel="noopener noreferrer"
                                     className="animal-detail__adopt-btn"
                                 >
-                                    View on Shelter Site →
+                                    {ctaLabel}
                                 </a>
                             ) : animal.shelter.phone ? (
                                 <p className="animal-detail__shelter-fallback">Contact shelter by phone to inquire about adoption</p>
@@ -453,11 +544,94 @@ export default async function AnimalDetailPage({
                     </div>
                 </div>
 
+                {/* --- Delta Since Intake --- */}
+                {await (async () => {
+                    const snapshots = await getAnimalSnapshots(animal.id);
+                    if (snapshots.length < 2) return null;
+
+                    const oldest = snapshots[snapshots.length - 1];
+                    const newest = snapshots[0];
+
+                    const changes: { label: string; from: string; to: string; direction: 'improved' | 'declined' | 'stable' }[] = [];
+
+                    // BCS change
+                    if (oldest.bodyConditionScore !== null && newest.bodyConditionScore !== null && oldest.bodyConditionScore !== newest.bodyConditionScore) {
+                        const diff = newest.bodyConditionScore - oldest.bodyConditionScore;
+                        // BCS closer to 4-5 = improvement
+                        const oldDist = Math.min(Math.abs(oldest.bodyConditionScore - 4), Math.abs(oldest.bodyConditionScore - 5));
+                        const newDist = Math.min(Math.abs(newest.bodyConditionScore - 4), Math.abs(newest.bodyConditionScore - 5));
+                        changes.push({
+                            label: 'Body condition',
+                            from: `${oldest.bodyConditionScore}/9`,
+                            to: `${newest.bodyConditionScore}/9`,
+                            direction: newDist < oldDist ? 'improved' : newDist > oldDist ? 'declined' : diff > 0 ? 'improved' : 'declined',
+                        });
+                    }
+
+                    // Coat change
+                    if (oldest.coatCondition && newest.coatCondition && oldest.coatCondition !== newest.coatCondition) {
+                        const coatRank: Record<string, number> = { poor: 0, fair: 1, good: 2 };
+                        changes.push({
+                            label: 'Coat condition',
+                            from: oldest.coatCondition,
+                            to: newest.coatCondition,
+                            direction: (coatRank[newest.coatCondition] ?? 0) > (coatRank[oldest.coatCondition] ?? 0) ? 'improved' : 'declined',
+                        });
+                    }
+
+                    // Stress change
+                    if (oldest.stressLevel && newest.stressLevel && oldest.stressLevel !== newest.stressLevel) {
+                        const stressRank: Record<string, number> = { low: 2, moderate: 1, high: 0 };
+                        changes.push({
+                            label: 'Stress level',
+                            from: oldest.stressLevel,
+                            to: newest.stressLevel,
+                            direction: (stressRank[newest.stressLevel] ?? 0) > (stressRank[oldest.stressLevel] ?? 0) ? 'improved' : 'declined',
+                        });
+                    }
+
+                    // Status change
+                    if (oldest.status !== newest.status) {
+                        changes.push({
+                            label: 'Status',
+                            from: oldest.status.charAt(0) + oldest.status.slice(1).toLowerCase(),
+                            to: newest.status.charAt(0) + newest.status.slice(1).toLowerCase(),
+                            direction: newest.status === 'URGENT' ? 'declined' : oldest.status === 'URGENT' ? 'improved' : 'stable',
+                        });
+                    }
+
+                    if (changes.length === 0) return null;
+
+                    const daysDiff = Math.round((new Date(newest.scrapedAt).getTime() - new Date(oldest.scrapedAt).getTime()) / (1000 * 60 * 60 * 24));
+
+                    return (
+                        <div className="animal-detail__delta">
+                            <h2 className="animal-detail__delta-title">Changes Since Intake</h2>
+                            <p className="animal-detail__delta-intro">
+                                Since entering the shelter{daysDiff > 0 ? ` (${daysDiff} day${daysDiff !== 1 ? 's' : ''} ago)` : ''}, {animal.name || 'this animal'} has experienced:
+                            </p>
+                            <div className="animal-detail__delta-list">
+                                {changes.map((c, i) => (
+                                    <div key={i} className={`animal-detail__delta-item animal-detail__delta-item--${c.direction}`}>
+                                        <span className="animal-detail__delta-label">{c.label}</span>
+                                        <span className="animal-detail__delta-change">
+                                            {c.from} → {c.to}
+                                            <span className="animal-detail__delta-badge">
+                                                {c.direction === 'improved' ? '↑ Improved' : c.direction === 'declined' ? '↓ Declined' : '— Changed'}
+                                            </span>
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    );
+                })()}
+
                 <p className="animal-detail__updated">
                     Last updated {new Date(animal.updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                 </p>
             </div>
-        </div>
+        </div >
     );
 }
 

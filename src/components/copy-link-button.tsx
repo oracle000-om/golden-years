@@ -21,8 +21,8 @@ export function CopyLinkButton() {
     };
 
     return (
-        <button className="copy-link-btn" onClick={handleCopy} aria-label="Copy link">
-            {copied ? '✓ Copied' : '🔗 Copy Link'}
+        <button className="copy-link-btn" onClick={handleCopy} aria-label="Copy link" title="Copy link">
+            {copied ? '✓' : '🔗'}
         </button>
     );
 }

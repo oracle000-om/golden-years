@@ -21,7 +21,7 @@
 import 'dotenv/config';
 import { createPrismaClient } from './lib/prisma';
 import { scrapeSocrataListings, LISTING_CONFIGS } from './adapters/socrata-listings';
-import { createAgeEstimationProvider, lookupLifeExpectancy, type AgeEstimationProvider } from './cv';
+import { createAgeEstimationProvider, lookupLifeExpectancy, computeAssessmentDiff, type AgeEstimationProvider } from './cv';
 import { findDuplicate, computePhotoHash } from './dedup';
 import { sanitizeText } from './lib/sanitize-text';
 import type { ScrapedAnimal } from './types';
@@ -129,6 +129,9 @@ async function main() {
                 cvEstimate = await cvProvider.estimateAge(animal.photoUrl, undefined, {
                     shelterSize: animal.size,
                     shelterSpecies: animal.species,
+                    shelterAge: animal.ageKnownYears,
+                    shelterBreed: animal.breed,
+                    shelterNotes: animal.notes,
                 });
                 if (cvEstimate) cvProcessed++;
             } catch {
@@ -188,6 +191,7 @@ async function main() {
                     photoQuality: cvEstimate.photoQuality ?? null,
                     likelyCareNeeds: cvEstimate.likelyCareNeeds ?? [],
                     estimatedCareLevel: cvEstimate.estimatedCareLevel ?? null,
+                    dataConflicts: cvEstimate.dataConflicts ?? [],
                 });
             } else if (!hasExistingCv) {
                 data.ageSource = animal.ageSource || 'SHELTER_REPORTED';

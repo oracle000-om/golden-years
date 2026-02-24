@@ -232,7 +232,7 @@ async function fetchShelterLuvAnimals(config: ShelterLuvConfig): Promise<Scraped
 
 export interface ShelterLuvScrapeResult {
     animals: ScrapedAnimal[];
-    shelters: Map<string, { name: string; city: string; state: string }>;
+    shelters: Map<string, { name: string; city: string; state: string; orgId: string }>;
 }
 
 export async function scrapeShelterLuv(opts?: {
@@ -249,13 +249,14 @@ export async function scrapeShelterLuv(opts?: {
     }
 
     const allAnimals: ScrapedAnimal[] = [];
-    const shelterMap = new Map<string, { name: string; city: string; state: string }>();
+    const shelterMap = new Map<string, { name: string; city: string; state: string; orgId: string }>();
 
     for (const config of filtered) {
         shelterMap.set(`shelterluv-${config.id}`, {
             name: config.shelterName,
             city: config.city,
             state: config.state,
+            orgId: config.orgId,
         });
 
         try {

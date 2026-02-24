@@ -2,19 +2,20 @@
  * CV Animal Assessment — Gemini Provider
  *
  * Gemini 2.5 Flash implementation of AssessmentProvider.
- * Uses @google/genai SDK.
+ * Uses @google/genai SDK with structured output (responseSchema).
  *
  * Pipeline:
  *   1. Download photo from URL
  *   2. Photo quality pre-check via sharp (reject corrupt/tiny/blank images)
  *   3. Resize to 512×512 for health/behavioral signal detection
- *   4. Send to Gemini with structured prompt
- *   5. Parse JSON response into AnimalAssessment
+ *   4. Send to Gemini with structured prompt + JSON schema enforcement
+ *   5. Parse + validate JSON response into AnimalAssessment
  *
- * Cost: ~$0.05–$0.20/month at expected volumes.
+ * v3: Structured output via responseSchema, cross-validation context,
+ *     dataConflicts field, few-shot examples in prompt.
  */
 
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI, Type } from '@google/genai';
 import sharp from 'sharp';
 import { ANIMAL_ASSESSMENT_PROMPT } from './prompts';
 import type { AnimalAssessment, AssessmentProvider, AgeEstimationProvider, AssessmentContext } from './types';
@@ -22,6 +23,42 @@ import type { AnimalAssessment, AssessmentProvider, AgeEstimationProvider, Asses
 const MODEL = 'gemini-2.5-flash';
 const TARGET_SIZE = 512;  // v2: increased from 256 for better health/behavioral detection
 const MIN_DIMENSION = 50;
+
+/**
+ * JSON Schema for structured output — matches AnimalAssessment type.
+ * Gemini will enforce this schema and return clean JSON.
+ */
+const ASSESSMENT_SCHEMA = {
+    type: Type.OBJECT,
+    properties: {
+        species: { type: Type.STRING, enum: ['DOG', 'CAT', 'OTHER'] },
+        estimatedAgeLow: { type: Type.NUMBER },
+        estimatedAgeHigh: { type: Type.NUMBER },
+        isSenior: { type: Type.BOOLEAN },
+        confidence: { type: Type.STRING, enum: ['HIGH', 'MEDIUM', 'LOW', 'NONE'] },
+        indicators: { type: Type.ARRAY, items: { type: Type.STRING } },
+        detectedBreeds: { type: Type.ARRAY, items: { type: Type.STRING } },
+        breedConfidence: { type: Type.STRING, enum: ['HIGH', 'MEDIUM', 'LOW', 'NONE'] },
+        bodyConditionScore: { type: Type.NUMBER, nullable: true },
+        coatCondition: { type: Type.STRING, enum: ['good', 'fair', 'poor'], nullable: true },
+        visibleConditions: { type: Type.ARRAY, items: { type: Type.STRING } },
+        healthNotes: { type: Type.STRING, nullable: true },
+        aggressionRisk: { type: Type.NUMBER },
+        fearIndicators: { type: Type.ARRAY, items: { type: Type.STRING } },
+        stressLevel: { type: Type.STRING, enum: ['low', 'moderate', 'high'], nullable: true },
+        behaviorNotes: { type: Type.STRING, nullable: true },
+        photoQuality: { type: Type.STRING, enum: ['good', 'acceptable', 'poor'] },
+        likelyCareNeeds: { type: Type.ARRAY, items: { type: Type.STRING } },
+        estimatedCareLevel: { type: Type.STRING, enum: ['low', 'moderate', 'high'] },
+        dataConflicts: { type: Type.ARRAY, items: { type: Type.STRING } },
+    },
+    required: [
+        'species', 'estimatedAgeLow', 'estimatedAgeHigh', 'isSenior',
+        'confidence', 'indicators', 'detectedBreeds', 'breedConfidence',
+        'aggressionRisk', 'photoQuality', 'likelyCareNeeds',
+        'estimatedCareLevel', 'dataConflicts',
+    ],
+};
 
 /**
  * Download an image from a URL and return as Buffer.
@@ -60,7 +97,7 @@ async function preprocessImage(imageBuffer: Buffer): Promise<{ buffer: Buffer; m
 
         // Resize to target size for cost optimization
         const resized = await sharp(imageBuffer)
-            .resize(TARGET_SIZE, TARGET_SIZE, { fit: 'cover' })
+            .resize(TARGET_SIZE, TARGET_SIZE, { fit: 'inside' })
             .jpeg({ quality: 80 })
             .toBuffer();
 
@@ -92,21 +129,18 @@ const VALID_INDICATORS = new Set([
 ]);
 
 /**
- * Parse Gemini's text response into an AnimalAssessment.
- * Returns null if the response can't be parsed.
+ * Validate and normalize a parsed Gemini response into an AnimalAssessment.
+ * With structured output, we get clean JSON — this is a safety net for
+ * range clamping, canonical indicator filtering, and default values.
  */
-function parseResponse(text: string): AnimalAssessment | null {
+function validateResponse(parsed: Record<string, unknown>): AnimalAssessment | null {
     try {
-        // Strip any markdown code fences Gemini might add
-        const cleaned = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-        const parsed = JSON.parse(cleaned);
-
         // Validate required fields (v1 core)
         if (
             typeof parsed.estimatedAgeLow !== 'number' ||
             typeof parsed.estimatedAgeHigh !== 'number' ||
             typeof parsed.isSenior !== 'boolean' ||
-            !['HIGH', 'MEDIUM', 'LOW', 'NONE'].includes(parsed.confidence)
+            !['HIGH', 'MEDIUM', 'LOW', 'NONE'].includes(parsed.confidence as string)
         ) {
             return null;
         }
@@ -122,23 +156,23 @@ function parseResponse(text: string): AnimalAssessment | null {
 
         return {
             // ── v1 fields ──
-            species: ['DOG', 'CAT', 'OTHER'].includes(parsed.species) ? parsed.species : 'OTHER',
-            estimatedAgeLow: parsed.estimatedAgeLow,
-            estimatedAgeHigh: parsed.estimatedAgeHigh,
-            isSenior: parsed.isSenior,
-            confidence: parsed.confidence,
+            species: ['DOG', 'CAT', 'OTHER'].includes(parsed.species as string) ? parsed.species as 'DOG' | 'CAT' | 'OTHER' : 'OTHER',
+            estimatedAgeLow: parsed.estimatedAgeLow as number,
+            estimatedAgeHigh: parsed.estimatedAgeHigh as number,
+            isSenior: parsed.isSenior as boolean,
+            confidence: parsed.confidence as 'HIGH' | 'MEDIUM' | 'LOW',
             indicators,
             detectedBreeds: Array.isArray(parsed.detectedBreeds) ? parsed.detectedBreeds : [],
-            breedConfidence: ['HIGH', 'MEDIUM', 'LOW', 'NONE'].includes(parsed.breedConfidence)
-                ? parsed.breedConfidence
+            breedConfidence: ['HIGH', 'MEDIUM', 'LOW', 'NONE'].includes(parsed.breedConfidence as string)
+                ? parsed.breedConfidence as 'HIGH' | 'MEDIUM' | 'LOW' | 'NONE'
                 : 'NONE',
 
             // ── v2: health ──
             bodyConditionScore: typeof parsed.bodyConditionScore === 'number'
                 ? Math.min(9, Math.max(1, Math.round(parsed.bodyConditionScore)))
                 : null,
-            coatCondition: ['good', 'fair', 'poor'].includes(parsed.coatCondition)
-                ? parsed.coatCondition
+            coatCondition: ['good', 'fair', 'poor'].includes(parsed.coatCondition as string)
+                ? parsed.coatCondition as 'good' | 'fair' | 'poor'
                 : null,
             visibleConditions: Array.isArray(parsed.visibleConditions) ? parsed.visibleConditions : [],
             healthNotes: typeof parsed.healthNotes === 'string' ? parsed.healthNotes : null,
@@ -148,21 +182,24 @@ function parseResponse(text: string): AnimalAssessment | null {
                 ? Math.min(5, Math.max(1, Math.round(parsed.aggressionRisk)))
                 : 1,
             fearIndicators: Array.isArray(parsed.fearIndicators) ? parsed.fearIndicators : [],
-            stressLevel: ['low', 'moderate', 'high'].includes(parsed.stressLevel)
-                ? parsed.stressLevel
+            stressLevel: ['low', 'moderate', 'high'].includes(parsed.stressLevel as string)
+                ? parsed.stressLevel as 'low' | 'moderate' | 'high'
                 : null,
             behaviorNotes: typeof parsed.behaviorNotes === 'string' ? parsed.behaviorNotes : null,
 
             // ── v2: photo quality ──
-            photoQuality: ['good', 'acceptable', 'poor'].includes(parsed.photoQuality)
-                ? parsed.photoQuality
+            photoQuality: ['good', 'acceptable', 'poor'].includes(parsed.photoQuality as string)
+                ? parsed.photoQuality as 'good' | 'acceptable' | 'poor'
                 : 'acceptable',
 
             // ── v2: care needs ──
             likelyCareNeeds: Array.isArray(parsed.likelyCareNeeds) ? parsed.likelyCareNeeds : [],
-            estimatedCareLevel: ['low', 'moderate', 'high'].includes(parsed.estimatedCareLevel)
-                ? parsed.estimatedCareLevel
+            estimatedCareLevel: ['low', 'moderate', 'high'].includes(parsed.estimatedCareLevel as string)
+                ? parsed.estimatedCareLevel as 'low' | 'moderate' | 'high'
                 : 'moderate',
+
+            // ── v3: cross-validation ──
+            dataConflicts: Array.isArray(parsed.dataConflicts) ? parsed.dataConflicts : [],
         };
     } catch {
         return null;
@@ -226,7 +263,20 @@ export function createGeminiProvider(apiKey: string): AgeEstimationProvider {
             contextLines.push(`You are provided with ${allProcessed.length} photos of the SAME animal. Synthesize your assessment across ALL photos for maximum accuracy. Different angles help with breed identification (side profiles), body condition scoring (full body), and health assessment (close-ups). Use the combination of all views.`);
         }
         if (context?.shelterSize) {
-            contextLines.push(`IMPORTANT CONTEXT: This animal is listed as ${context.shelterSize} by the shelter. Since all animals on this platform are seniors (full-grown adults), the shelter-reported size is a reliable indicator. Factor this into your breed identification — for example, a SMALL dog should not be identified as a Great Dane or Mastiff.`);
+            contextLines.push(`SHELTER-REPORTED SIZE: ${context.shelterSize}. Since all animals on this platform are seniors (full-grown adults), the shelter-reported size is a reliable indicator. Factor this into your breed identification.`);
+        }
+        if (context?.shelterAge != null) {
+            contextLines.push(`SHELTER-REPORTED AGE: ${context.shelterAge} years. Compare this to your visual assessment and flag any significant discrepancy (3+ years) in dataConflicts.`);
+        }
+        if (context?.shelterBreed) {
+            contextLines.push(`SHELTER-REPORTED BREED: ${context.shelterBreed}. Compare this to your visual breed detection and flag any implausible mismatch in dataConflicts.`);
+        }
+        if (context?.shelterNotes) {
+            // Truncate very long notes to avoid token waste
+            const truncated = context.shelterNotes.length > 500
+                ? context.shelterNotes.substring(0, 500) + '...'
+                : context.shelterNotes;
+            contextLines.push(`SHELTER NOTES: "${truncated}". Cross-reference any health or behavioral claims with what you observe in the photo.`);
         }
 
         const promptText = contextLines.length > 0
@@ -235,11 +285,15 @@ export function createGeminiProvider(apiKey: string): AgeEstimationProvider {
 
         parts.push({ text: promptText });
 
-        // Step 5: Send to Gemini
+        // Step 5: Send to Gemini with structured output
         try {
             const response = await genai.models.generateContent({
                 model: MODEL,
                 contents: [{ role: 'user', parts }],
+                config: {
+                    responseMimeType: 'application/json',
+                    responseSchema: ASSESSMENT_SCHEMA,
+                },
             });
 
             const text = response.text;
@@ -248,15 +302,29 @@ export function createGeminiProvider(apiKey: string): AgeEstimationProvider {
                 return null;
             }
 
-            // Step 6: Parse response
-            const estimate = parseResponse(text);
+            // Step 6: Parse and validate response
+            // With structured output, JSON.parse should always succeed,
+            // but we keep validateResponse as a safety net for range clamping
+            let parsed: Record<string, unknown>;
+            try {
+                parsed = JSON.parse(text);
+            } catch {
+                // Fallback: try stripping any residual markdown fences
+                const cleaned = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+                parsed = JSON.parse(cleaned);
+            }
+
+            const estimate = validateResponse(parsed);
             if (!estimate) {
-                console.log('      ⚠ Could not parse Gemini response');
+                console.log('      ⚠ Could not validate Gemini response');
                 return null;
             }
 
             if (isMultiPhoto) {
                 console.log(`      📸 Multi-photo assessment (${allProcessed.length} images)`);
+            }
+            if (estimate.dataConflicts.length > 0) {
+                console.log(`      ⚠ Data conflicts: ${estimate.dataConflicts.join(' | ')}`);
             }
 
             return estimate;
@@ -271,3 +339,4 @@ export function createGeminiProvider(apiKey: string): AgeEstimationProvider {
         estimateAge: assess,  // backward compat
     };
 }
+

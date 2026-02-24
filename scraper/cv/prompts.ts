@@ -89,6 +89,15 @@ Based on the breed(s), estimated age, and any visible conditions, list:
 - Likely veterinary care needs for a senior of this breed (e.g., "dental cleaning", "joint supplements", "thyroid screening", "cardiac monitoring", "eye exam for cataracts")
 - Estimated overall care level: low (healthy senior, routine care), moderate (some age-related conditions needing management), high (multiple conditions or breed-specific health risks)
 
+## 7. DATA CROSS-VALIDATION
+
+If shelter-provided context is included (age, breed, size, notes), compare it to your findings:
+- If the shelter-reported age CONFLICTS with your visual assessment by 3+ years, flag it (e.g., "Shelter reports 2yr but muzzle greying and cataracts suggest 9-12yr")
+- If the shelter-reported breed seems IMPLAUSIBLE given the photo (wrong size category, completely different morphology), flag it (e.g., "Listed as Chihuahua but appears to be a medium-sized Beagle mix")
+- If shelter notes mention conditions you cannot see (or vice versa), note the discrepancy
+- If there are NO conflicts, return an empty dataConflicts array
+- Be conservative — only flag genuine discrepancies, not minor differences
+
 IMPORTANT RULES:
 1. If the photo is too blurry, too dark, not of an animal, or you cannot see the animal clearly enough to assess, return confidence as "NONE".
 2. Be conservative with age ranges — always use exactly a 3-year range (e.g., 7–10, not 7–12 or 8–9).
@@ -120,14 +129,89 @@ Return this exact JSON structure:
   "behaviorNotes": "<string or null>",
   "photoQuality": "good" or "acceptable" or "poor",
   "likelyCareNeeds": ["need1", "need2", ...],
-  "estimatedCareLevel": "low" or "moderate" or "high"
+  "estimatedCareLevel": "low" or "moderate" or "high",
+  "dataConflicts": ["conflict1", "conflict2", ...]
 }
 
 Rules for confidence levels:
 - HIGH: Multiple clear indicators visible, good photo quality, distinctive features
 - MEDIUM: Some indicators visible, acceptable photo quality
 - LOW: Few indicators, poor photo quality, or ambiguous signs
-- NONE: Cannot assess — bad photo, not an animal, or completely obscured`;
+- NONE: Cannot assess — bad photo, not an animal, or completely obscured
+
+## EXAMPLES
+
+Example 1 — Clear senior dog, good photo:
+{
+  "species": "DOG",
+  "estimatedAgeLow": 9,
+  "estimatedAgeHigh": 12,
+  "isSenior": true,
+  "confidence": "HIGH",
+  "indicators": ["muzzle greying", "cataracts", "mature face"],
+  "detectedBreeds": ["Golden Retriever"],
+  "breedConfidence": "HIGH",
+  "bodyConditionScore": 5,
+  "coatCondition": "good",
+  "visibleConditions": ["cataracts"],
+  "healthNotes": "Bilateral cataracts visible, otherwise healthy appearance",
+  "aggressionRisk": 1,
+  "fearIndicators": [],
+  "stressLevel": "low",
+  "behaviorNotes": "Relaxed posture, soft eyes, tail at neutral position",
+  "photoQuality": "good",
+  "likelyCareNeeds": ["eye exam for cataracts", "joint supplements", "cardiac monitoring"],
+  "estimatedCareLevel": "moderate",
+  "dataConflicts": []
+}
+
+Example 2 — Ambiguous cat, acceptable photo:
+{
+  "species": "CAT",
+  "estimatedAgeLow": 7,
+  "estimatedAgeHigh": 10,
+  "isSenior": true,
+  "confidence": "MEDIUM",
+  "indicators": ["mature face", "coat thinning"],
+  "detectedBreeds": ["Domestic Shorthair"],
+  "breedConfidence": "MEDIUM",
+  "bodyConditionScore": 6,
+  "coatCondition": "fair",
+  "visibleConditions": [],
+  "healthNotes": "Slight coat thinning on flanks, may indicate age or stress",
+  "aggressionRisk": 1,
+  "fearIndicators": ["ears pinned flat back", "cowering / crouching low"],
+  "stressLevel": "moderate",
+  "behaviorNotes": "Cat is crouched in back of kennel, ears flat — typical shelter stress, not aggression",
+  "photoQuality": "acceptable",
+  "likelyCareNeeds": ["dental cleaning", "thyroid screening"],
+  "estimatedCareLevel": "moderate",
+  "dataConflicts": ["Shelter reports 3yr but coat thinning and facial maturity suggest 7-10yr"]
+}
+
+Example 3 — Poor photo, low confidence:
+{
+  "species": "DOG",
+  "estimatedAgeLow": 8,
+  "estimatedAgeHigh": 11,
+  "isSenior": true,
+  "confidence": "LOW",
+  "indicators": ["muzzle greying"],
+  "detectedBreeds": ["Terrier", "Schnauzer"],
+  "breedConfidence": "LOW",
+  "bodyConditionScore": null,
+  "coatCondition": null,
+  "visibleConditions": [],
+  "healthNotes": null,
+  "aggressionRisk": 1,
+  "fearIndicators": [],
+  "stressLevel": null,
+  "behaviorNotes": "Photo too dark to assess behavioral signals",
+  "photoQuality": "poor",
+  "likelyCareNeeds": ["dental cleaning"],
+  "estimatedCareLevel": "moderate",
+  "dataConflicts": []
+}`;
 
 /** @deprecated Use ANIMAL_ASSESSMENT_PROMPT instead */
 export const AGE_ESTIMATION_PROMPT = ANIMAL_ASSESSMENT_PROMPT;

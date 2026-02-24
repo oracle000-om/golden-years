@@ -89,6 +89,9 @@ model Animal {
   likelyCareNeeds       String[]    @default([]) @map("likely_care_needs")
   estimatedCareLevel    String?     @map("estimated_care_level")
 
+  // ── v3: Cross-validation ──
+  dataConflicts         String[]    @default([]) @map("data_conflicts")
+
   intakeReason          IntakeReason @default(UNKNOWN) @map("intake_reason")
   intakeReasonDetail    String?     @map("intake_reason_detail")
   notes                 String?

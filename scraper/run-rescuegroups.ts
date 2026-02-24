@@ -15,7 +15,7 @@
 import 'dotenv/config';
 import { createPrismaClient } from './lib/prisma';
 import { scrapeRescueGroups } from './adapters/rescuegroups';
-import { createAgeEstimationProvider, lookupLifeExpectancy, type AgeEstimationProvider } from './cv';
+import { createAgeEstimationProvider, lookupLifeExpectancy, computeAssessmentDiff, type AgeEstimationProvider } from './cv';
 import { findDuplicate, computePhotoHashFromBuffer, hammingDistance, PHASH_THRESHOLD } from './dedup';
 import { sanitizeText } from './lib/sanitize-text';
 import type { ScrapedAnimal } from './types';
@@ -232,6 +232,9 @@ async function main() {
                     cvEstimate = await cvProvider.estimateAge(animal.photoUrl, animal.photoUrls, {
                         shelterSize: animal.size,
                         shelterSpecies: animal.species,
+                        shelterAge: animal.ageKnownYears,
+                        shelterBreed: animal.breed,
+                        shelterNotes: animal.notes,
                     });
                     if (cvEstimate) cvProcessed++;
                 } catch {
@@ -295,6 +298,7 @@ async function main() {
                     photoQuality: cvEstimate.photoQuality ?? null,
                     likelyCareNeeds: cvEstimate.likelyCareNeeds ?? [],
                     estimatedCareLevel: cvEstimate.estimatedCareLevel ?? null,
+                    dataConflicts: cvEstimate.dataConflicts ?? [],
                 });
             } else if (!hasExistingCv) {
                 // No CV and no existing data — set defaults
@@ -326,7 +330,14 @@ async function main() {
                 if (photoHash) existingHashes.set(animalId, photoHash);
             }
 
-            // Create temporal snapshot
+            // Create temporal snapshot with diff logging
+            const cvDiff = (cvEstimate && existing)
+                ? computeAssessmentDiff(existing, cvEstimate)
+                : null;
+            if (cvDiff?.hasChanges) {
+                console.log(`      📊 CV diff: ${cvDiff.summary}`);
+            }
+
             await (prisma as any).animalSnapshot.create({
                 data: {
                     animalId,
@@ -341,7 +352,9 @@ async function main() {
                     aggressionRisk: cvEstimate?.aggressionRisk ?? null,
                     stressLevel: cvEstimate?.stressLevel ?? null,
                     photoQuality: cvEstimate?.photoQuality ?? null,
-                    rawAssessment: cvEstimate ? JSON.parse(JSON.stringify(cvEstimate)) : null,
+                    rawAssessment: cvEstimate
+                        ? JSON.parse(JSON.stringify({ assessment: cvEstimate, diff: cvDiff }))
+                        : null,
                 },
             });
         } catch (err) {

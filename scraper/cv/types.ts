@@ -61,6 +61,10 @@ export interface AnimalAssessment {
     likelyCareNeeds: string[];
     /** Estimated overall care level for adopter planning */
     estimatedCareLevel: 'low' | 'moderate' | 'high';
+
+    // ── Cross-validation (v3) ──
+    /** Discrepancies between CV findings and shelter-reported data */
+    dataConflicts: string[];
 }
 
 /** Backward compatibility alias */
@@ -76,6 +80,12 @@ export interface AssessmentContext {
     shelterSize?: string | null;
     /** Shelter-reported species */
     shelterSpecies?: string | null;
+    /** Shelter-reported age in years */
+    shelterAge?: number | null;
+    /** Shelter-reported breed string */
+    shelterBreed?: string | null;
+    /** Listing notes / description from shelter */
+    shelterNotes?: string | null;
 }
 
 /**

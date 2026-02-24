@@ -14,7 +14,7 @@
 import 'dotenv/config';
 import { createPrismaClient } from './lib/prisma';
 import { scrapeAdoptaPet } from './adapters/adoptapet';
-import { createAgeEstimationProvider, lookupLifeExpectancy, type AgeEstimationProvider } from './cv';
+import { createAgeEstimationProvider, lookupLifeExpectancy, computeAssessmentDiff, type AgeEstimationProvider } from './cv';
 import { findDuplicate, computePhotoHashFromBuffer, hammingDistance, PHASH_THRESHOLD } from './dedup';
 import { sanitizeText } from './lib/sanitize-text';
 import type { ScrapedAnimal } from './types';
@@ -158,7 +158,7 @@ async function main() {
 
             if (hasExistingCv && photoUnchanged) { cvSkipped++; }
             else if (cvProvider && animal.photoUrl) {
-                try { cvEstimate = await cvProvider.estimateAge(animal.photoUrl, animal.photoUrls, { shelterSize: animal.size, shelterSpecies: animal.species }); if (cvEstimate) cvProcessed++; } catch { /* skip */ }
+                try { cvEstimate = await cvProvider.estimateAge(animal.photoUrl, animal.photoUrls, { shelterSize: animal.size, shelterSpecies: animal.species, shelterAge: animal.ageKnownYears, shelterBreed: animal.breed, shelterNotes: animal.notes }); if (cvEstimate) cvProcessed++; } catch { /* skip */ }
             }
 
             if (cvEstimate && cvEstimate.confidence === 'NONE') { skippedNonPhoto++; return; }
@@ -196,6 +196,7 @@ async function main() {
                     photoQuality: cvEstimate.photoQuality ?? null,
                     likelyCareNeeds: cvEstimate.likelyCareNeeds ?? [],
                     estimatedCareLevel: cvEstimate.estimatedCareLevel ?? null,
+                    dataConflicts: cvEstimate.dataConflicts ?? [],
                 });
             } else if (!hasExistingCv) {
                 data.ageSource = animal.ageSource || 'SHELTER_REPORTED';
@@ -220,6 +221,13 @@ async function main() {
                 if (photoHash) existingHashes.set(animalId, photoHash);
             }
 
+            const cvDiff = (cvEstimate && existing)
+                ? computeAssessmentDiff(existing, cvEstimate)
+                : null;
+            if (cvDiff?.hasChanges) {
+                console.log(`      📊 CV diff: ${cvDiff.summary}`);
+            }
+
             await (prisma as any).animalSnapshot.create({
                 data: {
                     animalId, listingSource: `adoptapet:${shelterId}`,
@@ -230,7 +238,9 @@ async function main() {
                     aggressionRisk: cvEstimate?.aggressionRisk ?? null,
                     stressLevel: cvEstimate?.stressLevel ?? null,
                     photoQuality: cvEstimate?.photoQuality ?? null,
-                    rawAssessment: cvEstimate ? JSON.parse(JSON.stringify(cvEstimate)) : null,
+                    rawAssessment: cvEstimate
+                        ? JSON.parse(JSON.stringify({ assessment: cvEstimate, diff: cvDiff }))
+                        : null,
                 }
             });
         } catch (err) { errors++; console.error(`   ❌ ${animal.intakeId}: ${(err as Error).message?.substring(0, 100)}`); }

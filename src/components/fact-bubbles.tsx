@@ -65,7 +65,6 @@ const DOG_FACTS = [
 ];
 
 type MascotState = 'idle' | 'hover' | 'active';
-type MobileMascotState = 'idle' | 'active';
 
 const DOG_IMAGES: Record<MascotState, string> = {
     idle: '/mascots/dog-idle.png',
@@ -77,16 +76,6 @@ const CAT_IMAGES: Record<MascotState, string> = {
     idle: '/mascots/cat-idle.png',
     hover: '/mascots/cat-hover.png',
     active: '/mascots/cat-meow.png',
-};
-
-const DOG_MOBILE_IMAGES: Record<MobileMascotState, string> = {
-    idle: '/mascots/dog-face-smile.png',
-    active: '/mascots/dog-face-bark.png',
-};
-
-const CAT_MOBILE_IMAGES: Record<MobileMascotState, string> = {
-    idle: '/mascots/cat-face-smile.png',
-    active: '/mascots/cat-face-meow.png',
 };
 
 function useIsMobile(breakpoint = 768) {
@@ -125,14 +114,12 @@ export function FactBubbles() {
 
     // Preload all images
     useEffect(() => {
-        const srcs = isMobile
-            ? [...Object.values(DOG_MOBILE_IMAGES), ...Object.values(CAT_MOBILE_IMAGES)]
-            : [...Object.values(DOG_IMAGES), ...Object.values(CAT_IMAGES)];
+        const srcs = [...Object.values(DOG_IMAGES), ...Object.values(CAT_IMAGES)];
         srcs.forEach((src) => {
             const img = new Image();
             img.src = src;
         });
-    }, [isMobile]);
+    }, []);
 
     const spawnFact = useCallback((side: 'left' | 'right', facts: string[], indexRef: React.MutableRefObject<number>, emoji: string) => {
         const text = facts[indexRef.current];
@@ -179,12 +166,13 @@ export function FactBubbles() {
         }, 2000);
     }, [spawnFact, isMobile]);
 
+    // Mobile: resting = hover (eyes open, alert), active = bark/meow
     const dogImgSrc = isMobile
-        ? DOG_MOBILE_IMAGES[dogState === 'hover' ? 'idle' : dogState as MobileMascotState]
+        ? DOG_IMAGES[dogState === 'idle' ? 'hover' : dogState]
         : DOG_IMAGES[dogState];
 
     const catImgSrc = isMobile
-        ? CAT_MOBILE_IMAGES[catState === 'hover' ? 'idle' : catState as MobileMascotState]
+        ? CAT_IMAGES[catState === 'idle' ? 'hover' : catState]
         : CAT_IMAGES[catState];
 
     return (
@@ -195,7 +183,10 @@ export function FactBubbles() {
                     <div
                         key={fact.id}
                         className="fact-float"
-                        style={{ left: `${fact.left}%` }}
+                        style={{ left: `${fact.left}%`, cursor: 'pointer', pointerEvents: 'auto' }}
+                        onClick={() => {
+                            setFloatingFacts((prev) => prev.filter((f) => f.id !== fact.id));
+                        }}
                     >
                         {fact.emoji} {fact.text}
                     </div>

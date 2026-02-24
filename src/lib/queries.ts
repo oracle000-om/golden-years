@@ -7,6 +7,13 @@ import type { AnimalWithShelter, AnimalWithShelterAndSources, ShelterWithAnimals
 import { parseSearchQuery, type SearchIntent } from './search-parser';
 import { geocodeZip, haversineDistance } from './geocode';
 
+// ─── Data quality guards ─────────────────────────────────
+/** Names that indicate junk / placeholder records from shelter systems. */
+const PLACEHOLDER_NAMES = [
+    'Other / Not Listed', 'Not Listed', 'Unknown', 'N/A', 'NA',
+    'None', 'TBD', 'No Name', 'Test', 'TEST', 'Unnamed',
+];
+
 // ─── Filters ─────────────────────────────────────────────
 
 export type SortMode = 'urgency' | 'newest' | 'distance' | 'age';
@@ -60,51 +67,52 @@ function seniorThreshold(species: string, size: string | null): number {
 }
 
 /**
- * Determine if an animal should be excluded — BOTH the shelter-reported age
- * AND our CV age estimate confirm the animal is NOT a senior.
+ * Determine if an animal should be excluded — EITHER the shelter-reported age
+ * OR our CV age estimate indicates the animal is NOT a senior.
+ * CV analyzes the actual photo, so it's authoritative on its own.
  */
 function shouldExclude(animal: AnimalWithShelter): boolean {
     const threshold = seniorThreshold(animal.species, animal.size);
-    const shelterBelow = animal.ageKnownYears !== null && animal.ageKnownYears < threshold;
-    const cvBelow = animal.ageEstimatedHigh !== null && animal.ageEstimatedHigh < threshold;
-    // Exclude only when both sources agree
-    if (shelterBelow && cvBelow) return true;
+    if (animal.ageKnownYears !== null && animal.ageKnownYears < threshold) return true;
+    if (animal.ageEstimatedHigh !== null && animal.ageEstimatedHigh < threshold) return true;
     return false;
 }
 
 /**
- * Determine if an animal is "deprioritized" — our CV age estimate
- * says the animal is likely NOT a senior, but we can't confirm exclusion.
- */
-function isDeprioritized(animal: AnimalWithShelter): boolean {
-    const threshold = seniorThreshold(animal.species, animal.size);
-    if (animal.ageEstimatedHigh !== null && animal.ageEstimatedHigh < threshold) {
-        return true;
-    }
-    return false;
-}
-
-/**
- * Build a NOT clause that excludes animals confirmed non-senior by
- * BOTH shelter-reported age AND CV estimate. Pushes filtering to the
- * database so we don't need post-query filtering in memory.
+ * Build a NOT clause that excludes animals where EITHER the shelter-reported
+ * age OR the CV estimate says the animal is below the senior threshold.
+ * CV analyzes the actual photo and should be trusted on its own.
  */
 function buildSeniorExclusionClause(): Record<string, unknown> {
     return {
         NOT: {
             OR: [
-                // Cats: both sources say < 10
-                { AND: [{ species: 'CAT' }, { ageKnownYears: { lt: 10, not: null } }, { ageEstimatedHigh: { lt: 10, not: null } }] },
-                // Dog XLARGE: both < 5
-                { AND: [{ species: 'DOG' }, { size: 'XLARGE' }, { ageKnownYears: { lt: 5, not: null } }, { ageEstimatedHigh: { lt: 5, not: null } }] },
-                // Dog LARGE: both < 6
-                { AND: [{ species: 'DOG' }, { size: 'LARGE' }, { ageKnownYears: { lt: 6, not: null } }, { ageEstimatedHigh: { lt: 6, not: null } }] },
-                // Dog MEDIUM: both < 7
-                { AND: [{ species: 'DOG' }, { size: 'MEDIUM' }, { ageKnownYears: { lt: 7, not: null } }, { ageEstimatedHigh: { lt: 7, not: null } }] },
-                // Dog SMALL: both < 9
-                { AND: [{ species: 'DOG' }, { size: 'SMALL' }, { ageKnownYears: { lt: 9, not: null } }, { ageEstimatedHigh: { lt: 9, not: null } }] },
-                // Dog unknown size: both < 7 (default threshold)
-                { AND: [{ species: 'DOG' }, { size: null }, { ageKnownYears: { lt: 7, not: null } }, { ageEstimatedHigh: { lt: 7, not: null } }] },
+                // --- CV estimate says not senior (any species/size) ---
+                // Cats: CV high < 10
+                { AND: [{ species: 'CAT' }, { ageEstimatedHigh: { lt: 10, not: null } }] },
+                // Dog XLARGE: CV high < 5
+                { AND: [{ species: 'DOG' }, { size: 'XLARGE' }, { ageEstimatedHigh: { lt: 5, not: null } }] },
+                // Dog LARGE: CV high < 6
+                { AND: [{ species: 'DOG' }, { size: 'LARGE' }, { ageEstimatedHigh: { lt: 6, not: null } }] },
+                // Dog MEDIUM: CV high < 7
+                { AND: [{ species: 'DOG' }, { size: 'MEDIUM' }, { ageEstimatedHigh: { lt: 7, not: null } }] },
+                // Dog SMALL: CV high < 9
+                { AND: [{ species: 'DOG' }, { size: 'SMALL' }, { ageEstimatedHigh: { lt: 9, not: null } }] },
+                // Dog unknown size: CV high < 7
+                { AND: [{ species: 'DOG' }, { size: null }, { ageEstimatedHigh: { lt: 7, not: null } }] },
+                // --- Shelter-reported age says not senior (no CV data) ---
+                // Cats: shelter < 10, no CV
+                { AND: [{ species: 'CAT' }, { ageKnownYears: { lt: 10, not: null } }, { ageEstimatedHigh: null }] },
+                // Dog XLARGE: shelter < 5, no CV
+                { AND: [{ species: 'DOG' }, { size: 'XLARGE' }, { ageKnownYears: { lt: 5, not: null } }, { ageEstimatedHigh: null }] },
+                // Dog LARGE: shelter < 6, no CV
+                { AND: [{ species: 'DOG' }, { size: 'LARGE' }, { ageKnownYears: { lt: 6, not: null } }, { ageEstimatedHigh: null }] },
+                // Dog MEDIUM: shelter < 7, no CV
+                { AND: [{ species: 'DOG' }, { size: 'MEDIUM' }, { ageKnownYears: { lt: 7, not: null } }, { ageEstimatedHigh: null }] },
+                // Dog SMALL: shelter < 9, no CV
+                { AND: [{ species: 'DOG' }, { size: 'SMALL' }, { ageKnownYears: { lt: 9, not: null } }, { ageEstimatedHigh: null }] },
+                // Dog unknown size: shelter < 7, no CV
+                { AND: [{ species: 'DOG' }, { size: null }, { ageKnownYears: { lt: 7, not: null } }, { ageEstimatedHigh: null }] },
             ],
         },
     };
@@ -114,6 +122,9 @@ function buildSeniorExclusionClause(): Record<string, unknown> {
 export async function getFilteredAnimals(filters: AnimalFilters): Promise<PaginatedResult> {
     const where: Record<string, unknown> = {
         status: { in: ['AVAILABLE', 'URGENT'] },
+        species: { in: ['DOG', 'CAT'] },
+        photoUrl: { not: null },
+        name: { notIn: PLACEHOLDER_NAMES },
         // #6: exclude animals confirmed non-senior by both sources
         ...buildSeniorExclusionClause(),
     };
@@ -418,6 +429,9 @@ async function applySearchIntent(
 export async function searchAnimals(intent: SearchIntent): Promise<AnimalWithShelter[]> {
     const where: Record<string, unknown> = {
         status: { in: ['AVAILABLE', 'URGENT'] },
+        species: { in: ['DOG', 'CAT'] },
+        photoUrl: { not: null },
+        name: { notIn: PLACEHOLDER_NAMES },
         // Exclude confirmed non-seniors at DB level
         ...buildSeniorExclusionClause(),
     };
@@ -436,11 +450,7 @@ export async function searchAnimals(intent: SearchIntent): Promise<AnimalWithShe
     return animals.sort((a, b) => {
         const aEuth = a.euthScheduledAt ? new Date(a.euthScheduledAt).getTime() : Infinity;
         const bEuth = b.euthScheduledAt ? new Date(b.euthScheduledAt).getTime() : Infinity;
-        if (aEuth !== bEuth) return aEuth - bEuth;
-
-        const aDepri = isDeprioritized(a) ? 1 : 0;
-        const bDepri = isDeprioritized(b) ? 1 : 0;
-        return aDepri - bDepri;
+        return aEuth - bEuth;
     });
 }
 
@@ -559,107 +569,71 @@ export async function getAnimalById(id: string): Promise<AnimalWithShelterAndSou
 }
 
 /**
- * Compute 3-5 noteworthy natural-language insights about a shelter's animals.
+ * Compute evergreen insights about a shelter based on annual stats.
+ * Avoids current-inventory data that changes daily — those insights
+ * belong on a dedicated shelter page with proper time-framing.
  */
 export async function getShelterInsights(shelterId: string): Promise<string[]> {
-    const animals = await prisma.animal.findMany({
-        where: { shelterId, status: { in: ['AVAILABLE', 'URGENT', 'RESCUE_PULL'] } },
+    const shelter = await prisma.shelter.findUnique({
+        where: { id: shelterId },
         select: {
-            species: true,
-            breed: true,
-            size: true,
-            sex: true,
-            ageKnownYears: true,
-            ageEstimatedLow: true,
-            ageEstimatedHigh: true,
-            intakeReason: true,
+            shelterType: true,
+            totalIntakeAnnual: true,
+            totalEuthanizedAnnual: true,
+            dataYear: true,
+            priorYearIntake: true,
+            priorYearEuthanized: true,
+            priorDataYear: true,
         },
     });
 
-    if (animals.length < 3) return []; // not enough data
+    if (!shelter) return [];
 
     const insights: string[] = [];
-    const total = animals.length;
 
-    // 1. Species breakdown
-    const dogs = animals.filter(a => a.species === 'DOG').length;
-    const cats = animals.filter(a => a.species === 'CAT').length;
-    if (dogs > 0 && cats > 0) {
-        const dogPct = Math.round((dogs / total) * 100);
-        const catPct = Math.round((cats / total) * 100);
-        if (dogPct >= 70) insights.push(`${dogPct}% of seniors here are dogs`);
-        else if (catPct >= 70) insights.push(`${catPct}% of seniors here are cats`);
-        else insights.push(`Mixed population: ${dogPct}% dogs, ${catPct}% cats`);
-    } else if (dogs > 0) {
-        insights.push(`All ${total} seniors here are dogs`);
-    } else if (cats > 0) {
-        insights.push(`All ${total} seniors here are cats`);
-    }
-
-    // 2. Top breed (if clear leader)
-    const breedCounts = new Map<string, number>();
-    for (const a of animals) {
-        if (a.breed) {
-            const normalized = a.breed.toLowerCase().replace(/mix$/i, '').trim();
-            breedCounts.set(normalized, (breedCounts.get(normalized) || 0) + 1);
-        }
-    }
-    const sortedBreeds = [...breedCounts.entries()].sort((a, b) => b[1] - a[1]);
-    if (sortedBreeds.length > 0) {
-        const [topBreed, topCount] = sortedBreeds[0];
-        const pct = Math.round((topCount / total) * 100);
-        if (pct >= 10 && topCount >= 2) {
-            const display = topBreed.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-            insights.push(`${display} mixes make up ${pct}% of intake`);
+    // ── 1. Save rate ──
+    if (shelter.totalIntakeAnnual > 0 && shelter.totalEuthanizedAnnual > 0) {
+        const saveRate = Math.round(
+            ((shelter.totalIntakeAnnual - shelter.totalEuthanizedAnnual) / shelter.totalIntakeAnnual) * 100
+        );
+        const yearLabel = shelter.dataYear ? ` in ${shelter.dataYear}` : '';
+        if (saveRate >= 90) {
+            insights.push(`This shelter has a ${saveRate}% save rate${yearLabel}`);
+        } else if (saveRate < 70) {
+            insights.push(`Save rate${yearLabel} is ${saveRate}% — higher-risk for seniors`);
         }
     }
 
-    // 3. Size distribution skew
-    const sizes = animals.filter(a => a.size !== null);
-    if (sizes.length >= 3) {
-        const large = sizes.filter(a => a.size === 'LARGE' || a.size === 'XLARGE').length;
-        const small = sizes.filter(a => a.size === 'SMALL').length;
-        const largePct = Math.round((large / sizes.length) * 100);
-        const smallPct = Math.round((small / sizes.length) * 100);
-        if (largePct >= 50) insights.push(`${largePct}% are large or extra-large animals`);
-        else if (smallPct >= 50) insights.push(`${smallPct}% are small-breed animals`);
-    }
-
-    // 4. Intake reason pattern
-    const surrenders = animals.filter(a => a.intakeReason === 'OWNER_SURRENDER').length;
-    const strays = animals.filter(a => a.intakeReason === 'STRAY').length;
-    if (surrenders >= 3) {
-        const pct = Math.round((surrenders / total) * 100);
-        if (pct >= 25) insights.push(`${pct}% were surrendered by their owners`);
-    }
-    if (strays >= 3) {
-        const pct = Math.round((strays / total) * 100);
-        if (pct >= 25) insights.push(`${pct}% came in as strays`);
-    }
-
-    // 5. Age clustering
-    const ages = animals
-        .map(a => a.ageKnownYears ?? (a.ageEstimatedLow !== null && a.ageEstimatedHigh !== null
-            ? Math.round((a.ageEstimatedLow + a.ageEstimatedHigh) / 2) : null))
-        .filter((a): a is number => a !== null);
-    if (ages.length >= 3) {
-        const avg = Math.round(ages.reduce((s, a) => s + a, 0) / ages.length);
-        const over12 = ages.filter(a => a >= 12).length;
-        const over12Pct = Math.round((over12 / ages.length) * 100);
-        if (over12Pct >= 30) {
-            insights.push(`${over12Pct}% are 12 years or older`);
-        } else {
-            insights.push(`Average age of seniors is ${avg} years`);
+    // ── 2. Year-over-year intake trend ──
+    if (shelter.priorYearIntake && shelter.priorYearIntake > 0 && shelter.totalIntakeAnnual > 0) {
+        const delta = shelter.totalIntakeAnnual - shelter.priorYearIntake;
+        const pctChange = Math.round((delta / shelter.priorYearIntake) * 100);
+        if (Math.abs(pctChange) >= 10) {
+            const direction = pctChange > 0 ? 'up' : 'down';
+            const fromYear = shelter.priorDataYear ?? '?';
+            const toYear = shelter.dataYear ?? '?';
+            insights.push(`Intake ${direction} ${Math.abs(pctChange)}% from ${fromYear} to ${toYear}`);
         }
     }
 
-    // 6. Gender skew
-    const males = animals.filter(a => a.sex === 'MALE').length;
-    const females = animals.filter(a => a.sex === 'FEMALE').length;
-    if (males + females >= 5) {
-        const malePct = Math.round((males / (males + females)) * 100);
-        if (malePct >= 65) insights.push(`${malePct}% of seniors are male`);
-        else if (malePct <= 35) insights.push(`${100 - malePct}% of seniors are female`);
+    // ── 3. Euthanasia trend ──
+    if (shelter.priorYearEuthanized && shelter.priorYearEuthanized > 0 && shelter.totalEuthanizedAnnual > 0) {
+        const delta = shelter.totalEuthanizedAnnual - shelter.priorYearEuthanized;
+        const pctChange = Math.round((delta / shelter.priorYearEuthanized) * 100);
+        if (pctChange <= -15) {
+            insights.push(`Euthanasia down ${Math.abs(pctChange)}% year-over-year — positive trend`);
+        } else if (pctChange >= 15) {
+            insights.push(`Euthanasia up ${pctChange}% year-over-year — concerning trend`);
+        }
+    }
+
+    // ── 4. Shelter type context ──
+    if (insights.length < 3) {
+        if (shelter.shelterType === 'RESCUE') {
+            insights.push('This is a rescue — animals here were pulled from other shelters');
+        } else if (shelter.shelterType === 'FOSTER_BASED') {
+            insights.push('Foster-based rescue — these seniors are living in homes, not kennels');
+        }
     }
 
     return insights.slice(0, 5);
@@ -714,6 +688,93 @@ export async function getDistinctStates(): Promise<string[]> {
         .filter((s) => /^[A-Z]{2}$/.test(s))
         .sort();
     return unique;
+}
+
+// ─── Wall of Fame (No-Kill Shelters) ─────────────────────
+
+export interface NoKillShelter {
+    id: string;
+    name: string;
+    state: string;
+    county: string;
+    websiteUrl: string | null;
+    saveRate: number;       // 0–100
+    yearsRunning: number;   // consecutive no-kill years (≥ 1)
+    dataYear: number | null;
+}
+
+/**
+ * Fetch shelters that have achieved "no-kill" status (≥ 90% save rate)
+ * based on their most recent annual data. Uses prior-year data to
+ * determine how many consecutive years they've held the status.
+ * Also returns the % of data-bearing shelters that qualify.
+ */
+export async function getNoKillShelters(): Promise<{
+    shelters: NoKillShelter[];
+    noKillPercent: number;
+    totalWithData: number;
+}> {
+    const allShelters = await prisma.shelter.findMany({
+        where: {
+            totalIntakeAnnual: { gt: 0 },
+        },
+        select: {
+            id: true,
+            name: true,
+            state: true,
+            county: true,
+            websiteUrl: true,
+            totalIntakeAnnual: true,
+            totalEuthanizedAnnual: true,
+            dataYear: true,
+            priorYearIntake: true,
+            priorYearEuthanized: true,
+            priorDataYear: true,
+        },
+        orderBy: { name: 'asc' },
+    });
+
+    const noKill: NoKillShelter[] = [];
+
+    for (const s of allShelters) {
+        const euthRate = s.totalEuthanizedAnnual / s.totalIntakeAnnual;
+        if (euthRate >= 0.10) continue; // not no-kill
+
+        const saveRate = Math.round((1 - euthRate) * 100);
+
+        // Determine consecutive years
+        let yearsRunning = 1;
+        if (
+            s.priorYearIntake && s.priorYearIntake > 0 &&
+            s.priorYearEuthanized !== null && s.priorYearEuthanized !== undefined
+        ) {
+            const priorRate = s.priorYearEuthanized / s.priorYearIntake;
+            if (priorRate < 0.10) {
+                yearsRunning = 2; // at least 2 consecutive years
+            }
+        }
+
+        noKill.push({
+            id: s.id,
+            name: s.name,
+            state: s.state,
+            county: s.county,
+            websiteUrl: s.websiteUrl,
+            saveRate,
+            yearsRunning,
+            dataYear: s.dataYear,
+        });
+    }
+
+    // Sort by save rate (highest first), then alphabetically
+    noKill.sort((a, b) => b.saveRate - a.saveRate || a.name.localeCompare(b.name));
+
+    const totalWithData = allShelters.length;
+    const noKillPercent = totalWithData > 0
+        ? Math.round((noKill.length / totalWithData) * 100)
+        : 0;
+
+    return { shelters: noKill, noKillPercent, totalWithData };
 }
 
 // ─── Poll Queries ────────────────────────────────────────

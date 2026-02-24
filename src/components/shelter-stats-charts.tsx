@@ -62,10 +62,7 @@ export function ShelterStatsCharts({
                 </svg>
                 <div className="shelter-charts__donut-legend">
                     <span className="shelter-charts__legend-item shelter-charts__legend-item--saved">
-                        {saved.toLocaleString()} saved
-                    </span>
-                    <span className="shelter-charts__legend-item shelter-charts__legend-item--euth">
-                        {euthanized.toLocaleString()} euthanized
+                        Live release rate
                     </span>
                 </div>
             </div>

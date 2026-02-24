@@ -13,7 +13,12 @@ import type { AgeEstimationProvider } from './types';
 
 export { estimateAgeFromText } from './text-fallback';
 export { lookupLifeExpectancy } from './breed-lifespan';
+export { computeAssessmentDiff } from './cv-diff';
+export { enrichWithBreedProfile } from './breed-enrichment';
+export { extractKeyFrames, isFFmpegAvailable } from './video-frames';
 export type { AnimalAssessment, AgeEstimate, Confidence, AgeEstimationProvider, AssessmentProvider, AssessmentContext } from './types';
+export type { AssessmentDiff, AssessmentDiffEntry } from './cv-diff';
+export type { BreedEnrichment } from './breed-enrichment';
 // Keep old AgeConfidence name working for existing consumers
 export type { Confidence as AgeConfidence } from './types';
 export type { LifeExpectancy } from './breed-lifespan';

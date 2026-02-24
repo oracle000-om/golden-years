@@ -1,4 +1,75 @@
 /**
+ * Clean text for display — decodes HTML entities, fixes mojibake, strips tags.
+ * Use at render time for text already stored in the database.
+ *
+ * Order matters: HTML entities (&#226;) must be decoded BEFORE mojibake
+ * repair, because the garbled â character is often stored as &#226;.
+ */
+export function cleanDisplayText(text: string | null): string | null {
+    if (!text) return null;
+    let s = text;
+
+    // ── Step 1: Decode HTML entities (must come before mojibake repair) ──
+    // Named entities
+    const entities: Record<string, string> = {
+        '&nbsp;': ' ', '&amp;': '&', '&lt;': '<', '&gt;': '>',
+        '&quot;': '"', '&apos;': "'", '&mdash;': '\u2014', '&ndash;': '\u2013',
+        '&hellip;': '...', '&bull;': '\u2022', '&ldquo;': '"', '&rdquo;': '"',
+        '&lsquo;': "'", '&rsquo;': "'",
+    };
+    s = s.replace(/&[a-zA-Z]+;/g, (e) => entities[e.toLowerCase()] ?? e);
+    // Numeric entities: &#226; &#8364; etc.
+    s = s.replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(parseInt(n, 10)));
+    s = s.replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCodePoint(parseInt(hex, 16)));
+
+    // ── Step 2: Fix mojibake (UTF-8 bytes misinterpreted as single-byte) ──
+    const mojibake: [string, string][] = [
+        // ISO-8859-1 variant (raw bytes as code points)
+        ['\u00e2\u0080\u0099', "'"],   // ' right single quote
+        ['\u00e2\u0080\u0098', "'"],   // ' left single quote
+        ['\u00e2\u0080\u009c', '"'],   // " left double quote
+        ['\u00e2\u0080\u009d', '"'],   // " right double quote
+        ['\u00e2\u0080\u0093', '-'],   // – en dash
+        ['\u00e2\u0080\u0094', '-'],   // — em dash
+        ['\u00e2\u0080\u00a6', '...'], // … ellipsis
+        ['\u00e2\u0080\u00a2', '\u2022'], // • bullet
+        ['\u00e2\u0084\u00a2', '\u2122'], // ™
+        ['\u00c2\u00b0', '\u00b0'],    // °
+        ['\u00c2\u00a0', ' '],         // non-breaking space
+        ['\u00e2\u009c\u00a8', '\u2728'], // ✨
+        // Windows-1252 variant (bytes 0x80-0x9F → Win-1252 Unicode chars)
+        ['\u00e2\u20ac\u2122', "'"],   // â€™ → '
+        ['\u00e2\u20ac\u02dc', "'"],   // â€˜ → '
+        ['\u00e2\u20ac\u0153', '"'],   // â€œ → "
+        ['\u00e2\u20ac\u009d', '"'],   // â€ → "
+        ['\u00e2\u20ac\u201c', '-'],   // â€" → –
+        ['\u00e2\u20ac\u201d', '-'],   // â€" → —
+        ['\u00e2\u20ac\u00a6', '...'], // â€¦ → …
+        ['\u00e2\u20ac\u00a2', '\u2022'], // â€¢ → •
+        ['\u00e2\u0153\u00a8', '\u2728'], // âœ¨ → ✨
+        // ASCII quote variant (0x94/0x93 decoded as plain " U+0022)
+        ['\u00e2\u20ac"', '-'],            // â€" → em/en dash (with plain ASCII quote)
+    ];
+    for (const [from, to] of mojibake) {
+        s = s.split(from).join(to);
+    }
+
+    // ── Step 3: Normalize remaining smart punctuation to ASCII ──
+    s = s.replace(/[\u2018\u2019\u201a\u201b]/g, "'");
+    s = s.replace(/[\u201c\u201d\u201e\u201f]/g, '"');
+    s = s.replace(/\u2013|\u2014/g, '-');
+    s = s.replace(/\u2026/g, '...');
+
+    // ── Step 4: Strip HTML tags ──
+    s = s.replace(/<\s*(br|\/p|\/div|\/li)\s*\/?>/gi, '\n');
+    s = s.replace(/<[^>]+>/g, '');
+
+    // ── Step 5: Collapse whitespace ──
+    s = s.replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+    return s || null;
+}
+
+/**
  * Format a date as a human-readable time-of-death marker
  * e.g., "Feb 20, 2026 at 8:00 AM"
  */
@@ -53,7 +124,7 @@ export function getSaveRate(totalIntake: number, totalEuthanized: number): numbe
 
 /**
  * Format a one-line shelter stats summary.
- * e.g., "2024: 10,384 intake · 80.8% saved"
+ * e.g., "80.8% live release rate"
  */
 export function formatShelterStats(
     totalIntake: number,
@@ -62,8 +133,7 @@ export function formatShelterStats(
 ): string | null {
     const saveRate = getSaveRate(totalIntake, totalEuthanized);
     if (saveRate === null) return null;
-    const yearPrefix = dataYear ? `${dataYear}: ` : '';
-    return `${yearPrefix}${totalIntake.toLocaleString()} intake · ${saveRate}% saved`;
+    return `${saveRate}% live release rate`;
 }
 
 /**
@@ -358,7 +428,7 @@ export function formatScheduledDate(date: Date | string | null): string {
 
 /**
  * Format an intake date as a readable string (date only, no time).
- * e.g., "Monday 2/20"
+ * e.g., "Monday 2/20/2025"
  */
 export function formatIntakeDate(date: Date | string | null): string | null {
     if (!date) return null;
@@ -366,7 +436,8 @@ export function formatIntakeDate(date: Date | string | null): string | null {
     const dayName = d.toLocaleDateString('en-US', { weekday: 'long' });
     const month = d.getMonth() + 1;
     const day = d.getDate();
-    return `${dayName} ${month}/${day}`;
+    const year = d.getFullYear();
+    return `${dayName} ${month}/${day}/${year}`;
 }
 
 /**

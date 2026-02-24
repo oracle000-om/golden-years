@@ -62,6 +62,8 @@ export default function RootLayout({
             <p>Golden Years Club &copy; 2026</p>
             <p className="footer__links">
               <Link href="/about">About</Link>
+              <span className="footer__sep">·</span>
+              <Link href="/best-of-breed">Best of Breed</Link>
             </p>
           </div>
         </footer>

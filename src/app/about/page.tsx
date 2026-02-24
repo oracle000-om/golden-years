@@ -11,6 +11,12 @@ export const metadata: Metadata = {
 export default function AboutPage() {
     return (
         <section className="about-minimal">
+            <div className="container" style={{ textAlign: 'center', marginBottom: 'var(--space-2xl)' }}>
+                <span className="page-badge">📖 About</span>
+                <p style={{ fontSize: 'var(--font-size-2xl)', color: 'var(--color-text)', lineHeight: 1.5, maxWidth: 680, margin: 'var(--space-lg) auto 0', fontWeight: 300 }}>
+                    In 2025, 607,000 animals were euthanized at shelters in the United States. That averages out to roughly 1,660 dogs and cats per day. Without collective action, that number is unlikely to change.
+                </p>
+            </div>
             <div className="container about-minimal__content">
                 {/* Row 1: image left, text right */}
                 <div className="about-minimal__image about-minimal__image--left">
@@ -25,17 +31,14 @@ export default function AboutPage() {
                 </div>
                 <div className="about-minimal__text">
                     <p className="about-minimal__story">
-                        More than half a million animals are euthanized at shelters every year in the United States. That averages out to roughly 1,600 dogs and cats per day. Without collective action and a systemic shift in how we treat animals in this country, that number is unlikely to go down.
+                        Here&apos;s Henry. When we adopted him from <a href="https://www.austinpetsalive.org" target="_blank" rel="noopener noreferrer" style={{ fontWeight: 600, textDecoration: 'none', color: 'var(--color-gold)' }}>Austin Pets Alive!</a>, they approximated his age to be 7 years old. It was a believable age. An <a href="https://embarkvet.com" target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', color: 'inherit' }}>Embark</a> test revealed he was closer to 10 years old and his heartworm was more progressed than we knew, in part due to a genetic condition that had been previously unknown. We adopted him thinking we had at most 3 years with him. In the end, we only had 10 months together. It made us realize how close he had been to passing without a loving home.
                     </p>
                 </div>
 
                 {/* Row 2: text left, image right */}
                 <div className="about-minimal__text about-minimal__text--row2">
                     <p className="about-minimal__story">
-                        When we adopted Henry, the shelter thought he was 7. He was closer to 10, and his heartworm was more progressed than we knew. In the end, we only had 10 months with him. It made us realize how close he was to passing without a loving home.
-                    </p>
-                    <p className="about-minimal__story">
-                        Seniors are special. Golden Years Club is dedicated to giving at-risk senior dogs and cats a final chance at living out their best golden years.
+                        Seniors are special. Even as they approach the rainbow bridge, they deserve a respectful passing, with an indulgent feast, whispers of praise, and gentle pets from those they love. Golden Years Club is dedicated to giving at-risk senior dogs and cats a final chance at living out their best golden years, with a family of their own to wait for at the rainbow bridge 🌈.
                     </p>
                 </div>
                 <div className="about-minimal__image about-minimal__image--right">

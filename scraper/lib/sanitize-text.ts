@@ -54,6 +54,23 @@ export function sanitizeText(text: string | null | undefined): string | null {
 
     let result = text;
 
+    // Step 0a: Strip HTML tags (convert <br>, <p>, <div> to newlines first)
+    result = result.replace(/<\s*(br|\/p|\/div|\/li)\s*\/?>/gi, '\n');
+    result = result.replace(/<[^>]+>/g, '');
+
+    // Step 0b: Decode HTML entities
+    const ENTITY_MAP: Record<string, string> = {
+        '&nbsp;': ' ', '&amp;': '&', '&lt;': '<', '&gt;': '>',
+        '&quot;': '"', '&apos;': "'", '&#39;': "'", '&mdash;': '—',
+        '&ndash;': '–', '&hellip;': '…', '&bull;': '•', '&copy;': '©',
+        '&reg;': '®', '&trade;': '™', '&laquo;': '«', '&raquo;': '»',
+        '\u0026ldquo;': '\u201C', '\u0026rdquo;': '\u201D', '\u0026lsquo;': '\u2018', '\u0026rsquo;': '\u2019',
+    };
+    result = result.replace(/&[a-zA-Z]+;/g, (entity) => ENTITY_MAP[entity.toLowerCase()] ?? entity);
+    // Decode numeric entities: &#123; and &#x1F;
+    result = result.replace(/&#(\d+);/g, (_, n) => String.fromCharCode(parseInt(n, 10)));
+    result = result.replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
+
     // Step 1: Fix mojibake patterns
     for (const [pattern, replacement] of MOJIBAKE_MAP) {
         if (typeof pattern === 'string') {

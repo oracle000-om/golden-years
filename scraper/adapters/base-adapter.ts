@@ -167,7 +167,14 @@ export function validateAnimal(animal: Partial<ScrapedAnimal>): ValidationResult
     // Required fields
     if (!animal.intakeId) errors.push('Missing intakeId');
     if (!animal.species) errors.push('Missing species');
+    if (animal.species === 'OTHER') errors.push('Unsupported species (only DOG and CAT)');
     if (!animal.photoUrl) errors.push('Missing photoUrl');
+
+    // Reject placeholder / junk names
+    const JUNK_NAMES = ['other / not listed', 'not listed', 'unknown', 'n/a', 'na', 'none', 'tbd', 'no name', 'test', 'unnamed'];
+    if (animal.name && JUNK_NAMES.includes(animal.name.toLowerCase().trim())) {
+        errors.push(`Placeholder name: "${animal.name}"`);
+    }
 
     // Warnings for missing but non-critical fields
     if (!animal.name) warnings.push('Missing name');

@@ -3,8 +3,9 @@ import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { getAnimalById, getAnimalForMetadata, getAnimalSnapshots, getBreedCommonConditions, getShelterInsights } from '@/lib/queries';
-import { formatDeathMarker, hoursUntil, getUrgencyLevel, formatAge, formatShelterStats, formatIntakeReason, formatYearsRemaining, getAgeDiscrepancy, getGoldenYearsConfidence, computeHealthScore, getSaveRate, getBestAge } from '@/lib/utils';
+import { formatDeathMarker, hoursUntil, getUrgencyLevel, formatAge, formatShelterStats, formatIntakeReason, formatYearsRemaining, getAgeDiscrepancy, getGoldenYearsConfidence, computeHealthScore, getSaveRate, getBestAge, cleanDisplayText } from '@/lib/utils';
 import { CopyLinkButton } from '@/components/copy-link-button';
+import { BackButton } from '@/components/back-button';
 import { PhotoGallery } from '@/components/photo-gallery';
 import { ShelterStatsCharts } from '@/components/shelter-stats-charts';
 import type { AnimalWithShelterAndSources, Source } from '@/lib/types';
@@ -79,9 +80,7 @@ export default async function AnimalDetailPage({
         return (
             <div className="animal-detail">
                 <div className="container">
-                    <Link href="/" className="animal-detail__back">
-                        ← Back to the list
-                    </Link>
+                    <BackButton />
                     <div className="error-state">
                         <div className="error-state__icon">⚠️</div>
                         <h2 className="error-state__title">Unable to load animal details</h2>
@@ -178,9 +177,7 @@ export default async function AnimalDetailPage({
     return (
         <div className="animal-detail">
             <div className="container">
-                <Link href="/" className="animal-detail__back">
-                    ← Back to the list
-                </Link>
+                <BackButton />
 
                 {/* --- Status Banners --- */}
                 {animal.status === 'ADOPTED' && (
@@ -385,10 +382,10 @@ export default async function AnimalDetailPage({
                         </div>
                     )}
 
-                    {animal.notes && (
+                    {cleanDisplayText(animal.notes) && (
                         <div className="animal-detail__report-section">
                             <h3>Notes from listing</h3>
-                            <p>{animal.notes}</p>
+                            <p>{cleanDisplayText(animal.notes)}</p>
                         </div>
                     )}
 
@@ -480,6 +477,88 @@ export default async function AnimalDetailPage({
                             </div>
                         );
                     })()}
+                    {/* --- Changes Since Intake (Trend Delta) --- */}
+                    {await (async () => {
+                        const snapshots = await getAnimalSnapshots(animal.id);
+                        if (snapshots.length < 2) return null;
+
+                        const oldest = snapshots[snapshots.length - 1];
+                        const newest = snapshots[0];
+
+                        const changes: { label: string; from: string; to: string; direction: 'improved' | 'declined' | 'stable' }[] = [];
+
+                        // BCS change
+                        if (oldest.bodyConditionScore !== null && newest.bodyConditionScore !== null && oldest.bodyConditionScore !== newest.bodyConditionScore) {
+                            const diff = newest.bodyConditionScore - oldest.bodyConditionScore;
+                            // BCS closer to 4-5 = improvement
+                            const oldDist = Math.min(Math.abs(oldest.bodyConditionScore - 4), Math.abs(oldest.bodyConditionScore - 5));
+                            const newDist = Math.min(Math.abs(newest.bodyConditionScore - 4), Math.abs(newest.bodyConditionScore - 5));
+                            changes.push({
+                                label: 'Body Condition Score (BCS)',
+                                from: `${oldest.bodyConditionScore}/9`,
+                                to: `${newest.bodyConditionScore}/9`,
+                                direction: newDist < oldDist ? 'improved' : newDist > oldDist ? 'declined' : diff > 0 ? 'improved' : 'declined',
+                            });
+                        }
+
+                        // Coat change
+                        if (oldest.coatCondition && newest.coatCondition && oldest.coatCondition !== newest.coatCondition) {
+                            const coatRank: Record<string, number> = { poor: 0, fair: 1, good: 2 };
+                            changes.push({
+                                label: 'Coat condition',
+                                from: oldest.coatCondition,
+                                to: newest.coatCondition,
+                                direction: (coatRank[newest.coatCondition] ?? 0) > (coatRank[oldest.coatCondition] ?? 0) ? 'improved' : 'declined',
+                            });
+                        }
+
+                        // Stress change
+                        if (oldest.stressLevel && newest.stressLevel && oldest.stressLevel !== newest.stressLevel) {
+                            const stressRank: Record<string, number> = { low: 2, moderate: 1, high: 0 };
+                            changes.push({
+                                label: 'Stress level',
+                                from: oldest.stressLevel,
+                                to: newest.stressLevel,
+                                direction: (stressRank[newest.stressLevel] ?? 0) > (stressRank[oldest.stressLevel] ?? 0) ? 'improved' : 'declined',
+                            });
+                        }
+
+                        // Status change
+                        if (oldest.status !== newest.status) {
+                            changes.push({
+                                label: 'Status',
+                                from: oldest.status.charAt(0) + oldest.status.slice(1).toLowerCase(),
+                                to: newest.status.charAt(0) + newest.status.slice(1).toLowerCase(),
+                                direction: newest.status === 'URGENT' ? 'declined' : oldest.status === 'URGENT' ? 'improved' : 'stable',
+                            });
+                        }
+
+                        if (changes.length === 0) return null;
+
+                        const daysDiff = Math.round((new Date(newest.scrapedAt).getTime() - new Date(oldest.scrapedAt).getTime()) / (1000 * 60 * 60 * 24));
+
+                        return (
+                            <div className="animal-detail__report-section">
+                                <h3>Changes Since Intake</h3>
+                                <p className="animal-detail__delta-intro">
+                                    Since entering the shelter{daysDiff > 0 ? ` (${daysDiff} day${daysDiff !== 1 ? 's' : ''} ago)` : ''}, {animal.name || 'this animal'} has experienced:
+                                </p>
+                                <div className="animal-detail__delta-list">
+                                    {changes.map((c, i) => (
+                                        <div key={i} className={`animal-detail__delta-item animal-detail__delta-item--${c.direction}`}>
+                                            <span className="animal-detail__delta-label">{c.label}</span>
+                                            <span className="animal-detail__delta-change">
+                                                {c.from} → {c.to}
+                                                <span className="animal-detail__delta-badge">
+                                                    {c.direction === 'improved' ? '↑ Improved' : c.direction === 'declined' ? '↓ Declined' : '— Changed'}
+                                                </span>
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        );
+                    })()}
                 </div>
 
                 {/* --- Shelter Card --- */}
@@ -495,9 +574,13 @@ export default async function AnimalDetailPage({
                             {animal.shelter.county} County, {animal.shelter.state}
                             {animal.shelter.zipCode && ` ${animal.shelter.zipCode}`}
                         </p>
-                        <p className="animal-detail__shelter-phone-line">
-                            📞 <a href={`tel:${(animal.shelter.phone || '').replace(/\D/g, '')}`}>{animal.shelter.phone || 'Phone not available'}</a>
-                        </p>
+                        {animal.shelter.phone ? (
+                            <p className="animal-detail__shelter-phone-line">
+                                📞 <a href={`tel:${animal.shelter.phone.replace(/\D/g, '')}`}>{animal.shelter.phone}</a>
+                            </p>
+                        ) : (
+                            <p className="animal-detail__shelter-phone-line">📞 Phone not available</p>
+                        )}
                     </div>
                     {(saveRate !== null || shelterInsights.length > 0) && (
                         <div className="animal-detail__shelter-stats">
@@ -539,93 +622,14 @@ export default async function AnimalDetailPage({
                                 </a>
                             ) : animal.shelter.phone ? (
                                 <p className="animal-detail__shelter-fallback">Contact shelter by phone to inquire about adoption</p>
-                            ) : null;
+                            ) : (
+                                <p className="animal-detail__shelter-fallback">
+                                    Search for &ldquo;{animal.shelter.name}&rdquo; online to find their contact information and adoption process
+                                </p>
+                            );
                         })()}
                     </div>
                 </div>
-
-                {/* --- Delta Since Intake --- */}
-                {await (async () => {
-                    const snapshots = await getAnimalSnapshots(animal.id);
-                    if (snapshots.length < 2) return null;
-
-                    const oldest = snapshots[snapshots.length - 1];
-                    const newest = snapshots[0];
-
-                    const changes: { label: string; from: string; to: string; direction: 'improved' | 'declined' | 'stable' }[] = [];
-
-                    // BCS change
-                    if (oldest.bodyConditionScore !== null && newest.bodyConditionScore !== null && oldest.bodyConditionScore !== newest.bodyConditionScore) {
-                        const diff = newest.bodyConditionScore - oldest.bodyConditionScore;
-                        // BCS closer to 4-5 = improvement
-                        const oldDist = Math.min(Math.abs(oldest.bodyConditionScore - 4), Math.abs(oldest.bodyConditionScore - 5));
-                        const newDist = Math.min(Math.abs(newest.bodyConditionScore - 4), Math.abs(newest.bodyConditionScore - 5));
-                        changes.push({
-                            label: 'Body condition',
-                            from: `${oldest.bodyConditionScore}/9`,
-                            to: `${newest.bodyConditionScore}/9`,
-                            direction: newDist < oldDist ? 'improved' : newDist > oldDist ? 'declined' : diff > 0 ? 'improved' : 'declined',
-                        });
-                    }
-
-                    // Coat change
-                    if (oldest.coatCondition && newest.coatCondition && oldest.coatCondition !== newest.coatCondition) {
-                        const coatRank: Record<string, number> = { poor: 0, fair: 1, good: 2 };
-                        changes.push({
-                            label: 'Coat condition',
-                            from: oldest.coatCondition,
-                            to: newest.coatCondition,
-                            direction: (coatRank[newest.coatCondition] ?? 0) > (coatRank[oldest.coatCondition] ?? 0) ? 'improved' : 'declined',
-                        });
-                    }
-
-                    // Stress change
-                    if (oldest.stressLevel && newest.stressLevel && oldest.stressLevel !== newest.stressLevel) {
-                        const stressRank: Record<string, number> = { low: 2, moderate: 1, high: 0 };
-                        changes.push({
-                            label: 'Stress level',
-                            from: oldest.stressLevel,
-                            to: newest.stressLevel,
-                            direction: (stressRank[newest.stressLevel] ?? 0) > (stressRank[oldest.stressLevel] ?? 0) ? 'improved' : 'declined',
-                        });
-                    }
-
-                    // Status change
-                    if (oldest.status !== newest.status) {
-                        changes.push({
-                            label: 'Status',
-                            from: oldest.status.charAt(0) + oldest.status.slice(1).toLowerCase(),
-                            to: newest.status.charAt(0) + newest.status.slice(1).toLowerCase(),
-                            direction: newest.status === 'URGENT' ? 'declined' : oldest.status === 'URGENT' ? 'improved' : 'stable',
-                        });
-                    }
-
-                    if (changes.length === 0) return null;
-
-                    const daysDiff = Math.round((new Date(newest.scrapedAt).getTime() - new Date(oldest.scrapedAt).getTime()) / (1000 * 60 * 60 * 24));
-
-                    return (
-                        <div className="animal-detail__delta">
-                            <h2 className="animal-detail__delta-title">Changes Since Intake</h2>
-                            <p className="animal-detail__delta-intro">
-                                Since entering the shelter{daysDiff > 0 ? ` (${daysDiff} day${daysDiff !== 1 ? 's' : ''} ago)` : ''}, {animal.name || 'this animal'} has experienced:
-                            </p>
-                            <div className="animal-detail__delta-list">
-                                {changes.map((c, i) => (
-                                    <div key={i} className={`animal-detail__delta-item animal-detail__delta-item--${c.direction}`}>
-                                        <span className="animal-detail__delta-label">{c.label}</span>
-                                        <span className="animal-detail__delta-change">
-                                            {c.from} → {c.to}
-                                            <span className="animal-detail__delta-badge">
-                                                {c.direction === 'improved' ? '↑ Improved' : c.direction === 'declined' ? '↓ Declined' : '— Changed'}
-                                            </span>
-                                        </span>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    );
-                })()}
 
                 <p className="animal-detail__updated">
                     Last updated {new Date(animal.updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}

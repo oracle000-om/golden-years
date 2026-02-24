@@ -81,6 +81,7 @@ export function estimateAgeFromText(
                     photoQuality: 'acceptable' as const,
                     likelyCareNeeds: [],
                     estimatedCareLevel: 'moderate' as const,
+                    dataConflicts: [],
                 };
             }
         }
@@ -111,6 +112,7 @@ export function estimateAgeFromText(
             photoQuality: 'acceptable' as const,
             likelyCareNeeds: [],
             estimatedCareLevel: 'moderate' as const,
+            dataConflicts: [],
         };
     }
 
@@ -136,6 +138,7 @@ export function estimateAgeFromText(
             photoQuality: 'acceptable' as const,
             likelyCareNeeds: [],
             estimatedCareLevel: 'moderate' as const,
+            dataConflicts: [],
         };
     }
 

@@ -1,0 +1,95 @@
+/**
+ * CV Re-Assessment — Admin API
+ *
+ * Queues animals for CV re-processing by clearing their age estimates.
+ * Next scraper run will pick them up automatically.
+ *
+ * POST /api/admin/cv-reassess
+ *
+ * Body: {
+ *   confidence?: 'LOW' | 'MEDIUM' | 'HIGH'  — only re-assess this confidence level
+ *   shelterId?: string                       — only re-assess this shelter
+ *   olderThanDays?: number                   — only re-assess CV older than N days
+ *   limit?: number                           — max animals to queue (default 100)
+ * }
+ */
+
+import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/db';
+
+export async function POST(request: NextRequest) {
+    try {
+        const body = await request.json().catch(() => ({})) as Record<string, unknown>;
+
+        const confidence = typeof body.confidence === 'string' ? body.confidence : undefined;
+        const shelterId = typeof body.shelterId === 'string' ? body.shelterId : undefined;
+        const olderThanDays = typeof body.olderThanDays === 'number' ? body.olderThanDays : undefined;
+        const limit = typeof body.limit === 'number' ? Math.min(body.limit, 500) : 100;
+
+        // Build filter
+        const where: Record<string, unknown> = {
+            ageSource: 'CV_ESTIMATED',
+            ageEstimatedLow: { not: null },
+        };
+
+        if (confidence) {
+            where.ageConfidence = confidence;
+        }
+
+        if (shelterId) {
+            where.shelterId = shelterId;
+        }
+
+        if (olderThanDays) {
+            const cutoff = new Date();
+            cutoff.setDate(cutoff.getDate() - olderThanDays);
+            where.updatedAt = { lt: cutoff };
+        }
+
+        // Find matching animals
+        const animals = await prisma.animal.findMany({
+            where: where as any,
+            select: { id: true, name: true, ageConfidence: true },
+            take: limit,
+            orderBy: { updatedAt: 'asc' }, // oldest CV first
+        });
+
+        if (animals.length === 0) {
+            return NextResponse.json({
+                queued: 0,
+                message: 'No animals matched the filter criteria',
+            });
+        }
+
+        // Clear age estimates so next scraper run re-processes them
+        const result = await prisma.animal.updateMany({
+            where: {
+                id: { in: animals.map(a => a.id) },
+            },
+            data: {
+                ageEstimatedLow: null,
+                ageEstimatedHigh: null,
+                ageConfidence: 'NONE',
+                ageSource: 'CV_ESTIMATED',
+            },
+        });
+
+        console.log(`🔄 CV re-assessment queued: ${result.count} animals`);
+
+        return NextResponse.json({
+            queued: result.count,
+            filter: {
+                confidence: confidence || 'any',
+                shelterId: shelterId || 'any',
+                olderThanDays: olderThanDays || 'any',
+            },
+            message: `${result.count} animals queued for re-assessment on next scraper run`,
+        });
+    } catch (error) {
+        console.error('CV re-assessment API error:', error);
+        return NextResponse.json(
+            { error: 'Failed to queue re-assessment' },
+            { status: 500 },
+        );
+    }
+}

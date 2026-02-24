@@ -67,6 +67,7 @@ async function main() {
 
     for (const shelter of shelters) {
         console.log(`🏠 ${shelter.name}`);
+        const shelterStartTime = Date.now();
 
         // Step 1: Scrape
         let animals;
@@ -266,7 +267,7 @@ async function main() {
         }
 
         // Step 6: Reconciliation — delist stale animals
-        const runStart = new Date(Date.now() - 5 * 60 * 1000); // 5 min grace period
+        const runStart = new Date(shelterStartTime);
         const delisted = await prisma.animal.updateMany({
             where: {
                 shelterId: shelter.id,

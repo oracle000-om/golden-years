@@ -2,7 +2,8 @@
  * Geocoding utilities for distance-based search.
  *
  * Uses Nominatim (OpenStreetMap) for zip → lat/lng geocoding.
- * Rate limit: 1 request/second (Nominatim policy).
+ * Rate limit: 1 request/second (Nominatim policy) — enforced via
+ * a simple per-second throttle to avoid IP-blocks.
  */
 
 // ─── Haversine Distance ────────────────────────────────
@@ -33,6 +34,21 @@ interface GeoResult {
 // In-memory cache for geocoded zips (survives request lifetime in dev)
 const zipCache = new Map<string, GeoResult | null>();
 
+// ─── Rate Limiter (1 req/sec for Nominatim policy) ─────
+
+let lastNominatimCall = 0;
+const MIN_INTERVAL_MS = 1100; // slightly over 1 sec to be safe
+
+async function throttledFetch(url: string, init: RequestInit): Promise<Response> {
+    const now = Date.now();
+    const elapsed = now - lastNominatimCall;
+    if (elapsed < MIN_INTERVAL_MS) {
+        await new Promise(resolve => setTimeout(resolve, MIN_INTERVAL_MS - elapsed));
+    }
+    lastNominatimCall = Date.now();
+    return fetch(url, init);
+}
+
 /** Geocode a US zip code to lat/lng using Nominatim. */
 export async function geocodeZip(zip: string): Promise<GeoResult | null> {
     if (!zip || zip.length !== 5) return null;
@@ -41,7 +57,7 @@ export async function geocodeZip(zip: string): Promise<GeoResult | null> {
     if (zipCache.has(zip)) return zipCache.get(zip) ?? null;
 
     try {
-        const res = await fetch(
+        const res = await throttledFetch(
             `https://nominatim.openstreetmap.org/search?postalcode=${zip}&country=US&format=json&limit=1`,
             {
                 headers: {

@@ -247,7 +247,10 @@ async function main() {
     }
 
     // Step 5: Reconciliation — delist stale animals per shelter
-    const runStart = new Date(Date.now() - 5 * 60 * 1000);
+    // Reconciliation: delist animals not seen during THIS scrape run.
+    // Uses startTime (captured before processing) so animals processed
+    // early in a long run aren't falsely delisted.
+    const runStart = new Date(startTime);
     let totalDelisted = 0;
     for (const [slId] of shelters) {
         try {

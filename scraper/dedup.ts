@@ -176,8 +176,12 @@ export async function findDuplicate(
     }
 
     // ── Tier 3: Perceptual hash match ──
+    // NOTE: This is the slow path — it queries ALL hashed animals from the DB.
+    // For performance, runner scripts (run-shelterluv, run-petango, etc.)
+    // pre-load hashes into a Map and do hamming checks in-process, passing
+    // photoHash=null here to skip this query. Only use this path for
+    // one-off dedup checks or when the caller hasn't pre-loaded hashes.
     if (photoHash) {
-        // Query animals that have a photo hash (index-backed)
         const candidates = await prisma.animal.findMany({
             where: { photoHash: { not: null } },
             select: { id: true, photoHash: true, shelterId: true, intakeId: true },

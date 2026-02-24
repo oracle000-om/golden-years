@@ -3,9 +3,19 @@
  *
  * Network-first strategy for dynamic content, cache-first for static assets.
  * No aggressive caching — shelter data changes frequently.
+ *
+ * Cache version is bumped on each deploy. The activate handler cleans up
+ * old caches, so stale page content is evicted automatically.
  */
 
-const CACHE_NAME = 'gy-v1';
+// Bump this on each deploy (or inject via build script) to bust stale caches.
+const CACHE_VERSION = '20260223';
+const CACHE_NAME = `gy-v${CACHE_VERSION}`;
+
+// Max age for cached pages (1 hour). After this, cached pages are evicted
+// on the next fetch to avoid serving very stale animal listings.
+const PAGE_CACHE_MAX_AGE_MS = 60 * 60 * 1000;
+
 const STATIC_ASSETS = [
     '/icon-192.png',
     '/icon-512.png',
@@ -57,17 +67,33 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // Pages: network-first with offline fallback
+    // Pages: network-first with TTL-aware offline fallback
     event.respondWith(
         fetch(request)
             .then((response) => {
-                // Cache successful page responses
+                // Cache successful page responses with a timestamp header
                 if (response.ok && response.status === 200) {
                     const clone = response.clone();
                     caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
                 }
                 return response;
             })
-            .catch(() => caches.match(request))
+            .catch(async () => {
+                const cached = await caches.match(request);
+                if (!cached) return cached;
+
+                // Check if cached response is too old
+                const cachedDate = cached.headers.get('date');
+                if (cachedDate) {
+                    const age = Date.now() - new Date(cachedDate).getTime();
+                    if (age > PAGE_CACHE_MAX_AGE_MS) {
+                        // Stale — delete from cache and return nothing
+                        const cache = await caches.open(CACHE_NAME);
+                        await cache.delete(request);
+                        return undefined;
+                    }
+                }
+                return cached;
+            })
     );
 });

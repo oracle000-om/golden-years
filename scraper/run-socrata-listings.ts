@@ -225,7 +225,7 @@ async function main() {
     }
 
     // Step 4: Reconciliation — delist stale animals per shelter
-    const runStart = new Date(Date.now() - 5 * 60 * 1000);
+    const runStart = new Date(startTime);
     let totalDelisted = 0;
     for (const config of configs) {
         const dbId = `socrata-${config.id}`;

@@ -247,7 +247,7 @@ async function main() {
     }
 
     // Step 5: Reconciliation — delist stale animals per shelter
-    const runStart = new Date(Date.now() - 5 * 60 * 1000);
+    const runStart = new Date(startTime);
     let totalDelisted = 0;
     for (const [aapId] of shelters) {
         try {

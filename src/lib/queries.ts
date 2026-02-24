@@ -84,10 +84,38 @@ function isDeprioritized(animal: AnimalWithShelter): boolean {
     return false;
 }
 
+/**
+ * Build a NOT clause that excludes animals confirmed non-senior by
+ * BOTH shelter-reported age AND CV estimate. Pushes filtering to the
+ * database so we don't need post-query filtering in memory.
+ */
+function buildSeniorExclusionClause(): Record<string, unknown> {
+    return {
+        NOT: {
+            OR: [
+                // Cats: both sources say < 10
+                { AND: [{ species: 'CAT' }, { ageKnownYears: { lt: 10, not: null } }, { ageEstimatedHigh: { lt: 10, not: null } }] },
+                // Dog XLARGE: both < 5
+                { AND: [{ species: 'DOG' }, { size: 'XLARGE' }, { ageKnownYears: { lt: 5, not: null } }, { ageEstimatedHigh: { lt: 5, not: null } }] },
+                // Dog LARGE: both < 6
+                { AND: [{ species: 'DOG' }, { size: 'LARGE' }, { ageKnownYears: { lt: 6, not: null } }, { ageEstimatedHigh: { lt: 6, not: null } }] },
+                // Dog MEDIUM: both < 7
+                { AND: [{ species: 'DOG' }, { size: 'MEDIUM' }, { ageKnownYears: { lt: 7, not: null } }, { ageEstimatedHigh: { lt: 7, not: null } }] },
+                // Dog SMALL: both < 9
+                { AND: [{ species: 'DOG' }, { size: 'SMALL' }, { ageKnownYears: { lt: 9, not: null } }, { ageEstimatedHigh: { lt: 9, not: null } }] },
+                // Dog unknown size: both < 7 (default threshold)
+                { AND: [{ species: 'DOG' }, { size: null }, { ageKnownYears: { lt: 7, not: null } }, { ageEstimatedHigh: { lt: 7, not: null } }] },
+            ],
+        },
+    };
+}
+
 /** Fetch filtered, sorted, paginated animal listings with distance. */
 export async function getFilteredAnimals(filters: AnimalFilters): Promise<PaginatedResult> {
     const where: Record<string, unknown> = {
         status: { in: ['AVAILABLE', 'URGENT'] },
+        // #6: exclude animals confirmed non-senior by both sources
+        ...buildSeniorExclusionClause(),
     };
 
     if (filters.species && filters.species !== 'all') {
@@ -150,79 +178,82 @@ export async function getFilteredAnimals(filters: AnimalFilters): Promise<Pagina
     }
 
     // Determine Prisma orderBy based on sort mode
-    // Distance sorting is done post-query since it requires computation
-    const orderBy: Record<string, string>[] = [];
-    if (sort === 'newest') {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const orderBy: any[] = [];
+    if (sort === 'urgency') {
+        // #1: DB-level urgency sort — euth dates first (ascending),
+        // then all others sorted by newest. Avoids full-table scan.
+        orderBy.push({ euthScheduledAt: { sort: 'asc', nulls: 'last' } });
+        orderBy.push({ createdAt: 'desc' });
+    } else if (sort === 'newest') {
         orderBy.push({ createdAt: 'desc' });
     } else if (sort === 'age') {
         // Oldest animals first (most at-risk seniors)
         orderBy.push({ ageKnownYears: 'desc' });
         orderBy.push({ createdAt: 'desc' });
     } else {
-        // 'urgency' and 'distance' both use createdAt as DB sort
-        // (urgency/distance re-sorting happens post-query)
+        // 'distance' — DB-sorted by createdAt, re-sorted post-query
         orderBy.push({ createdAt: 'desc' });
     }
 
-    // For distance sort, we need ALL results to compute distances then paginate
-    // For other sorts, we can let DB handle pagination
-    const needsPostSort = sort === 'urgency' || sort === 'distance';
+    // Distance sort needs post-query processing for distance computation.
+    // All other sorts use DB-level pagination.
+    const needsPostSort = sort === 'distance' && !!userCoords;
 
     let animals: AnimalResult[];
     let totalCount: number;
 
-    if (needsPostSort) {
-        // Fetch all, sort in JS, then paginate
-        const [allAnimals, count] = await Promise.all([
+    if (needsPostSort && userCoords) {
+        // Distance sort: apply a bounding box to narrow results,
+        // compute distances, sort, then paginate.
+        const milesPerDegreeLat = 69.0;
+        const latDelta = radius / milesPerDegreeLat;
+        const lngDelta = radius / (milesPerDegreeLat * Math.cos(userCoords.lat * Math.PI / 180));
+
+        // Add bounding-box filter on shelter coordinates
+        const distWhere = {
+            ...where,
+            shelter: {
+                is: {
+                    ...(typeof where.shelter === 'object' && where.shelter !== null
+                        ? (where.shelter as Record<string, unknown>).is || {}
+                        : {}),
+                    latitude: { gte: userCoords.lat - latDelta, lte: userCoords.lat + latDelta },
+                    longitude: { gte: userCoords.lng - lngDelta, lte: userCoords.lng + lngDelta },
+                },
+            },
+        };
+
+        const [boxAnimals, count] = await Promise.all([
             prisma.animal.findMany({
-                where,
+                where: distWhere,
                 include: { shelter: true },
                 orderBy,
             }) as Promise<AnimalWithShelter[]>,
-            prisma.animal.count({ where }),
+            prisma.animal.count({ where: distWhere }),
         ]);
 
-        // Attach distances if we have user coordinates
-        animals = allAnimals.map((a) => {
-            const result = a as AnimalResult;
-            if (userCoords && a.shelter.latitude && a.shelter.longitude) {
-                result.distance = Math.round(
-                    haversineDistance(userCoords.lat, userCoords.lng, a.shelter.latitude, a.shelter.longitude) * 10
-                ) / 10;
-            }
-            return result;
-        });
+        // Compute exact distances and filter by radius
+        animals = boxAnimals
+            .map((a) => {
+                const result = a as AnimalResult;
+                if (a.shelter.latitude && a.shelter.longitude) {
+                    result.distance = Math.round(
+                        haversineDistance(userCoords!.lat, userCoords!.lng, a.shelter.latitude, a.shelter.longitude) * 10
+                    ) / 10;
+                }
+                return result;
+            })
+            .filter((a) => a.distance === undefined || a.distance <= radius);
 
-        // Filter by radius if distance is available
-        if (userCoords && userZip) {
-            animals = animals.filter((a) => a.distance === undefined || a.distance <= radius);
-        }
+        // Sort by distance
+        animals.sort((a, b) => (a.distance ?? Infinity) - (b.distance ?? Infinity));
 
-        // Apply sort
-        if (sort === 'distance' && userCoords) {
-            animals.sort((a, b) => {
-                const aDist = a.distance ?? Infinity;
-                const bDist = b.distance ?? Infinity;
-                return aDist - bDist;
-            });
-        } else {
-            // Urgency sort
-            animals.sort((a, b) => {
-                const aEuth = a.euthScheduledAt ? new Date(a.euthScheduledAt).getTime() : Infinity;
-                const bEuth = b.euthScheduledAt ? new Date(b.euthScheduledAt).getTime() : Infinity;
-                if (aEuth !== bEuth) return aEuth - bEuth;
-
-                const aDepri = isDeprioritized(a) ? 1 : 0;
-                const bDepri = isDeprioritized(b) ? 1 : 0;
-                return aDepri - bDepri;
-            });
-        }
-
-        totalCount = animals.length; // After radius filtering
+        totalCount = animals.length;
         const start = (page - 1) * DEFAULT_PAGE_SIZE;
         animals = animals.slice(start, start + DEFAULT_PAGE_SIZE);
     } else {
-        // DB-level pagination
+        // DB-level pagination (urgency, newest, age — all DB-sortable now)
         const skip = (page - 1) * DEFAULT_PAGE_SIZE;
 
         const [dbAnimals, count] = await Promise.all([
@@ -387,17 +418,22 @@ async function applySearchIntent(
 export async function searchAnimals(intent: SearchIntent): Promise<AnimalWithShelter[]> {
     const where: Record<string, unknown> = {
         status: { in: ['AVAILABLE', 'URGENT'] },
+        // Exclude confirmed non-seniors at DB level
+        ...buildSeniorExclusionClause(),
     };
 
     await applySearchIntent(where, intent);
 
-    const animals = await prisma.animal.findMany({
+    // #2: Cap results to prevent unbounded memory usage on broad queries
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const animals = await (prisma.animal.findMany as any)({
         where,
         include: { shelter: true },
-        orderBy: [{ createdAt: 'desc' }],
+        orderBy: [{ euthScheduledAt: { sort: 'asc', nulls: 'last' } }, { createdAt: 'desc' }],
+        take: 100,
     }) as AnimalWithShelter[];
 
-    return animals.filter((a) => !shouldExclude(a)).sort((a, b) => {
+    return animals.sort((a, b) => {
         const aEuth = a.euthScheduledAt ? new Date(a.euthScheduledAt).getTime() : Infinity;
         const bEuth = b.euthScheduledAt ? new Date(b.euthScheduledAt).getTime() : Infinity;
         if (aEuth !== bEuth) return aEuth - bEuth;

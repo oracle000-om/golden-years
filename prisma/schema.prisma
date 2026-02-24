@@ -115,6 +115,9 @@ model Animal {
   @@index([photoHash])
   @@index([shelterId, status])
   @@index([status])
+  @@index([status, species])
+  @@index([status, createdAt])
+  @@index([shelterId, intakeId])
   @@map("animals")
 }
 

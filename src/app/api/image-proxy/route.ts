@@ -16,14 +16,18 @@ const ALLOWED_DOMAINS = [
     'g.petango.com',                  // Petango/PetPoint
     '24petconnect.com',
     'www.shelterluv.com',
+    'cdn.shelterluv.com',
     'cdn.rescuegroups.org',
-    'storage.googleapis.com',
     'images.petango.com',
     'www.sanantonio.gov',
     'www.sdhumane.org',
     'animalfoundation.com',
     'countypets.com',
-    // Add more as shelters are onboarded
+    'photos.adoptapet.com',
+    'daccanimalimagesprod.blob.core.windows.net',
+    'petadoption.ocpetinfo.com',
+    // Add more as shelters are onboarded — avoid shared hosting
+    // domains like storage.googleapis.com (any bucket would pass).
 ];
 
 function isAllowedUrl(url: string): boolean {

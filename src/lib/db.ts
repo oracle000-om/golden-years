@@ -42,6 +42,10 @@ function createPrismaClient(): PrismaClient {
 
   const pool = new pg.Pool({
     connectionString,
+    // Railway's proxy TLS uses self-signed certs, so we must disable
+    // verification. This is acceptable for Railway's private network but
+    // is technically a MITM surface — switch to Railway internal networking
+    // (no SSL needed) if this becomes a concern.
     ssl: needsSsl ? { rejectUnauthorized: false } : undefined,
   });
 

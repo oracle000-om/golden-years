@@ -249,7 +249,7 @@ async function main() {
     }
 
     // Step 5: Reconciliation — delist stale animals per shelter
-    const runStart = new Date(Date.now() - 5 * 60 * 1000); // 5 min grace period
+    const runStart = new Date(startTime);
     let totalDelisted = 0;
     for (const [ptId] of shelters) {
         try {

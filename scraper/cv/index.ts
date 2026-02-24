@@ -13,7 +13,7 @@ import type { AgeEstimationProvider } from './types';
 
 export { estimateAgeFromText } from './text-fallback';
 export { lookupLifeExpectancy } from './breed-lifespan';
-export type { AnimalAssessment, AgeEstimate, Confidence, AgeEstimationProvider, AssessmentProvider } from './types';
+export type { AnimalAssessment, AgeEstimate, Confidence, AgeEstimationProvider, AssessmentProvider, AssessmentContext } from './types';
 // Keep old AgeConfidence name working for existing consumers
 export type { Confidence as AgeConfidence } from './types';
 export type { LifeExpectancy } from './breed-lifespan';

@@ -9,11 +9,11 @@
  */
 
 import type { ScrapedAnimal } from '../types';
+import { isSenior, mapSize } from './base-adapter';
 
 const SEARCH_PAGE = 'https://animalcare.lacounty.gov/dacc-search/';
 const API_URL = 'https://animalcare.lacounty.gov/wp-json/wppro-acc/v1/get/animals';
 const PHOTO_BASE = 'https://daccanimalimagesprod.blob.core.windows.net/images';
-const SENIOR_AGE = 7;
 
 interface DACCAnimal {
     animalId: string;
@@ -107,8 +107,9 @@ export async function scrapeLaCounty(): Promise<ScrapedAnimal[]> {
 
             for (const raw of data) {
                 const age = raw.yearsOld ?? null;
-                const seniorAge = mapSpecies(raw.animalType) === 'CAT' ? 10 : 7;
-                if (age === null || age < seniorAge) continue;
+                const species = mapSpecies(raw.animalType);
+                const size = mapSize(raw.animalSize);
+                if (!isSenior(age, species, size)) continue;
 
                 // Photo required — skip if no images
                 const hasPhoto = (raw.imageCount ?? 0) > 0;

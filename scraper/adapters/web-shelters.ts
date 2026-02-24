@@ -6,8 +6,14 @@
  * JSON data or structured HTML patterns.
  *
  * Each shelter has a config entry with the URL patterns to try.
- * This covers: San Antonio, Dallas, Memphis, Jacksonville,
- * Fulton County, San Diego, Las Vegas, Philadelphia, Harris County.
+ * This covers: San Antonio, Dallas, Fulton County, San Diego,
+ * Las Vegas, Harris County, Miami-Dade, San Jose, Pima.
+ *
+ * Removed (now handled by dedicated adapters or non-functional):
+ *   - Memphis → ShelterLuv adapter
+ *   - Philadelphia → ShelterLuv adapter
+ *   - Jacksonville → Chameleon (no public API)
+ *   - Indianapolis → No scrapable source
  */
 import type { ScrapedAnimal } from '../types';
 import { safeFetchJSON, safeFetchText, isSenior, mapSex, mapSpecies, mapSize, parseAge } from './base-adapter';
@@ -53,22 +59,6 @@ export const WEB_SHELTER_CONFIGS: WebShelterConfig[] = [
         htmlUrl: 'https://dallasanimalservices.org/adopt',
     },
     {
-        id: 'memphis',
-        shelterName: 'Memphis Animal Services',
-        city: 'Memphis',
-        state: 'TN',
-        apiUrls: [],
-        htmlUrl: 'https://memphisanimalservices.com/adopt/',
-    },
-    {
-        id: 'jacksonville',
-        shelterName: 'Jacksonville ACPS',
-        city: 'Jacksonville',
-        state: 'FL',
-        apiUrls: [],
-        htmlUrl: 'https://www.coj.net/departments/neighborhoods/animal-care-and-protective-services/adopt-a-pet',
-    },
-    {
         id: 'fulton-county',
         shelterName: 'Fulton County Animal Services',
         city: 'Atlanta',
@@ -97,14 +87,6 @@ export const WEB_SHELTER_CONFIGS: WebShelterConfig[] = [
         htmlUrl: 'https://animalfoundation.com/adopt-a-pet/adoption-search',
     },
     {
-        id: 'philadelphia',
-        shelterName: 'ACCT Philadelphia',
-        city: 'Philadelphia',
-        state: 'PA',
-        apiUrls: [],
-        htmlUrl: 'https://www.acctphilly.org/adopt/',
-    },
-    {
         id: 'harris-county',
         shelterName: 'Harris County Animal Shelter',
         city: 'Houston',
@@ -127,14 +109,6 @@ export const WEB_SHELTER_CONFIGS: WebShelterConfig[] = [
         state: 'CA',
         apiUrls: [],
         htmlUrl: 'https://www.sanjoseca.gov/your-government/departments-offices/animal-care-services/adopt-a-pet',
-    },
-    {
-        id: 'indianapolis',
-        shelterName: 'Indianapolis Animal Care Services',
-        city: 'Indianapolis',
-        state: 'IN',
-        apiUrls: [],
-        htmlUrl: 'https://www.indy.gov/agency/animal-care-services',
     },
     {
         id: 'pima',

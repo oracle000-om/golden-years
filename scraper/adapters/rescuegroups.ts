@@ -13,6 +13,7 @@
  */
 
 import type { ScrapedAnimal } from '../types';
+import { isSenior } from './base-adapter';
 
 const API_BASE = 'https://api.rescuegroups.org/v5/public/animals/search/available';
 const PAGE_LIMIT = 100; // max per page
@@ -266,6 +267,12 @@ export async function scrapeRescueGroups(options: ScrapeOptions = {}): Promise<{
 
                     // Parse age
                     const ageYears = parseAgeFromString(attrs.ageString);
+
+                    // RescueGroups' "Senior" ageGroup uses lower thresholds
+                    // than Golden Years (e.g. 8yr cats). Apply our own gate.
+                    const resolvedSpeciesEarly: 'DOG' | 'CAT' | 'OTHER' = species === 'dogs' ? 'DOG'
+                        : species === 'cats' ? 'CAT' : 'OTHER';
+                    if (!isSenior(ageYears, resolvedSpeciesEarly, mapSize(attrs.sizeGroup))) continue;
 
                     // Get all photos
                     const allPhotos = getAllPhotoUrls(animal, includedMap);

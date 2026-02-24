@@ -13,14 +13,19 @@ export const ANIMAL_ASSESSMENT_PROMPT = `You are a veterinary assessment tool fo
 
 ## 1. AGE ASSESSMENT
 
-Analyze the photo carefully for aging indicators:
-- Muzzle greying / whitening around the face
-- Coat condition: thinning, dullness, or graying
-- Eye clarity: cataracts, cloudiness, or discharge
-- Body condition: muscle wasting, weight loss, or obesity
-- Dental wear: visible teeth condition if mouth is open
-- Overall posture: stiffness, hunching, or mobility limitations
-- Skin condition: lumps, growths, or sagging
+Analyze the photo carefully for aging indicators. Select ONLY from this exact list — do not invent new indicators:
+- "muzzle greying" — visible white/grey hair on the muzzle or face
+- "coat thinning" — patchy, dull, or thinning fur
+- "cataracts" — cloudy, hazy, or opaque eyes
+- "clear eyes" — bright, clear eyes with no cloudiness
+- "healthy coat" — glossy, full, well-maintained coat
+- "muscle wasting" — visible loss of muscle mass or body condition decline
+- "overweight" — visibly obese or overweight
+- "stiff posture" — hunched, stiff, or limited mobility evident in posture
+- "dental wear" — visible tooth wear, missing teeth, or tartar buildup
+- "skin lumps" — visible lumps, masses, or growths on the skin
+- "mature face" — overall facial structure suggests an older animal
+- "youthful appearance" — overall appearance suggests a younger animal
 
 ## 2. BREED DETECTION
 
@@ -102,7 +107,7 @@ Return this exact JSON structure:
   "estimatedAgeHigh": <number>,
   "isSenior": <boolean>,
   "confidence": "HIGH" or "MEDIUM" or "LOW" or "NONE",
-  "indicators": ["aging indicator 1", "aging indicator 2", ...],
+  "indicators": [<select from the exact list above>],
   "detectedBreeds": ["Primary Breed", "Secondary Breed"],
   "breedConfidence": "HIGH" or "MEDIUM" or "LOW" or "NONE",
   "bodyConditionScore": <number 1-9 or null>,

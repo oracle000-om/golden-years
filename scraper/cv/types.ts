@@ -67,14 +67,26 @@ export interface AnimalAssessment {
 export type AgeEstimate = AnimalAssessment;
 
 /**
+ * Optional context from the shelter listing to improve CV accuracy.
+ * Since Golden Years Club only lists seniors (full-grown animals),
+ * shelter-reported size is a reliable signal for breed identification.
+ */
+export interface AssessmentContext {
+    /** Shelter-reported size: SMALL, MEDIUM, LARGE, XLARGE */
+    shelterSize?: string | null;
+    /** Shelter-reported species */
+    shelterSpecies?: string | null;
+}
+
+/**
  * Provider interface — any vision model implements this.
  * Returns null if the image can't be assessed (bad photo, not an animal, etc.)
  */
 export interface AssessmentProvider {
-    assess(photoUrl: string, additionalPhotos?: string[]): Promise<AnimalAssessment | null>;
+    assess(photoUrl: string, additionalPhotos?: string[], context?: AssessmentContext): Promise<AnimalAssessment | null>;
 }
 
 /** Backward compatibility alias */
 export type AgeEstimationProvider = AssessmentProvider & {
-    estimateAge(photoUrl: string, additionalPhotos?: string[]): Promise<AnimalAssessment | null>;
+    estimateAge(photoUrl: string, additionalPhotos?: string[], context?: AssessmentContext): Promise<AnimalAssessment | null>;
 };

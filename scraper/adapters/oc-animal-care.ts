@@ -9,10 +9,10 @@
  */
 
 import type { ScrapedAnimal } from '../types';
+import { isSenior } from './base-adapter';
 
 const API_BASE = 'https://petadoption.ocpetinfo.com/Adopt/Service/adoptlist.php';
 const PHOTO_BASE = 'https://petadoption.ocpetinfo.com/Adopt/img/servicethumb.php';
-const SENIOR_AGE = 7;
 
 interface OCAnimal {
     animal_id: string;
@@ -57,8 +57,8 @@ export async function scrapeOcAnimalCare(): Promise<ScrapedAnimal[]> {
 
         for (const raw of animals) {
             const age = raw.years_old ?? null;
-            const seniorAge = type === 'CAT' ? 10 : 7;
-            if (age === null || age < seniorAge) continue;
+            const species: 'DOG' | 'CAT' | 'OTHER' = type === 'DOG' ? 'DOG' : 'CAT';
+            if (!isSenior(age, species)) continue;
 
             // Photo via servicethumb.php
             const photoUrl = `${PHOTO_BASE}?tab=adopt&detailid=${raw.animal_id}`;

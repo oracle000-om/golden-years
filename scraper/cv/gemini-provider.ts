@@ -17,7 +17,7 @@
 import { GoogleGenAI } from '@google/genai';
 import sharp from 'sharp';
 import { ANIMAL_ASSESSMENT_PROMPT } from './prompts';
-import type { AnimalAssessment, AssessmentProvider, AgeEstimationProvider } from './types';
+import type { AnimalAssessment, AssessmentProvider, AgeEstimationProvider, AssessmentContext } from './types';
 
 const MODEL = 'gemini-2.5-flash';
 const TARGET_SIZE = 512;  // v2: increased from 256 for better health/behavioral detection
@@ -74,6 +74,24 @@ async function preprocessImage(imageBuffer: Buffer): Promise<{ buffer: Buffer; m
 }
 
 /**
+ * Canonical age indicators — only these values are stored.
+ */
+const VALID_INDICATORS = new Set([
+    'muzzle greying',
+    'coat thinning',
+    'cataracts',
+    'clear eyes',
+    'healthy coat',
+    'muscle wasting',
+    'overweight',
+    'stiff posture',
+    'dental wear',
+    'skin lumps',
+    'mature face',
+    'youthful appearance',
+]);
+
+/**
  * Parse Gemini's text response into an AnimalAssessment.
  * Returns null if the response can't be parsed.
  */
@@ -96,6 +114,12 @@ function parseResponse(text: string): AnimalAssessment | null {
         // Reject NONE confidence — means the model couldn't assess
         if (parsed.confidence === 'NONE') return null;
 
+        // Filter indicators to canonical set only
+        const rawIndicators = Array.isArray(parsed.indicators) ? parsed.indicators : [];
+        const indicators = rawIndicators
+            .map((i: string) => (typeof i === 'string' ? i.toLowerCase().trim() : ''))
+            .filter((i: string) => VALID_INDICATORS.has(i));
+
         return {
             // ── v1 fields ──
             species: ['DOG', 'CAT', 'OTHER'].includes(parsed.species) ? parsed.species : 'OTHER',
@@ -103,7 +127,7 @@ function parseResponse(text: string): AnimalAssessment | null {
             estimatedAgeHigh: parsed.estimatedAgeHigh,
             isSenior: parsed.isSenior,
             confidence: parsed.confidence,
-            indicators: Array.isArray(parsed.indicators) ? parsed.indicators : [],
+            indicators,
             detectedBreeds: Array.isArray(parsed.detectedBreeds) ? parsed.detectedBreeds : [],
             breedConfidence: ['HIGH', 'MEDIUM', 'LOW', 'NONE'].includes(parsed.breedConfidence)
                 ? parsed.breedConfidence
@@ -154,7 +178,7 @@ export function createGeminiProvider(apiKey: string): AgeEstimationProvider {
 
     const MAX_ADDITIONAL_PHOTOS = 4; // cap at 5 total (1 primary + 4 extra)
 
-    async function assess(photoUrl: string, additionalPhotos?: string[]): Promise<AnimalAssessment | null> {
+    async function assess(photoUrl: string, additionalPhotos?: string[], context?: AssessmentContext): Promise<AnimalAssessment | null> {
         // Step 1: Download the primary image
         const imageBuffer = await downloadImage(photoUrl);
         if (!imageBuffer) {
@@ -196,9 +220,17 @@ export function createGeminiProvider(apiKey: string): AgeEstimationProvider {
             });
         }
 
-        // Use multi-image preamble when applicable
-        const promptText = isMultiPhoto
-            ? `You are provided with ${allProcessed.length} photos of the SAME animal. Synthesize your assessment across ALL photos for maximum accuracy. Different angles help with breed identification (side profiles), body condition scoring (full body), and health assessment (close-ups). Use the combination of all views.\n\n${ANIMAL_ASSESSMENT_PROMPT}`
+        // Build context preamble from shelter listing data
+        const contextLines: string[] = [];
+        if (isMultiPhoto) {
+            contextLines.push(`You are provided with ${allProcessed.length} photos of the SAME animal. Synthesize your assessment across ALL photos for maximum accuracy. Different angles help with breed identification (side profiles), body condition scoring (full body), and health assessment (close-ups). Use the combination of all views.`);
+        }
+        if (context?.shelterSize) {
+            contextLines.push(`IMPORTANT CONTEXT: This animal is listed as ${context.shelterSize} by the shelter. Since all animals on this platform are seniors (full-grown adults), the shelter-reported size is a reliable indicator. Factor this into your breed identification — for example, a SMALL dog should not be identified as a Great Dane or Mastiff.`);
+        }
+
+        const promptText = contextLines.length > 0
+            ? `${contextLines.join('\n\n')}\n\n${ANIMAL_ASSESSMENT_PROMPT}`
             : ANIMAL_ASSESSMENT_PROMPT;
 
         parts.push({ text: promptText });

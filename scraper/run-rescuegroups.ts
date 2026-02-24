@@ -13,25 +13,17 @@
  */
 
 import 'dotenv/config';
-import { PrismaClient } from '../src/generated/prisma/client';
-import { PrismaPg } from '@prisma/adapter-pg';
-import pg from 'pg';
+import { createPrismaClient } from './lib/prisma';
 import { scrapeRescueGroups } from './adapters/rescuegroups';
 import { createAgeEstimationProvider, lookupLifeExpectancy, type AgeEstimationProvider } from './cv';
 import { findDuplicate, computePhotoHashFromBuffer, hammingDistance, PHASH_THRESHOLD } from './dedup';
+import { sanitizeText } from './lib/sanitize-text';
 import type { ScrapedAnimal } from './types';
 
 /** How many animals to process in parallel */
 const CONCURRENCY = 5;
 
-async function createPrisma() {
-    const url = process.env.DATABASE_URL;
-    if (!url) throw new Error('DATABASE_URL required. Set it in .env');
-    const pool = new pg.Pool({ connectionString: url });
-    const adapter = new PrismaPg(pool);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return new (PrismaClient as any)({ adapter }) as PrismaClient;
-}
+
 
 /**
  * Download an image and return as Buffer.
@@ -86,7 +78,7 @@ async function main() {
     }
 
     // Init DB
-    const prisma = await createPrisma();
+    const prisma = await createPrismaClient();
 
     // Init CV provider
     let cvProvider: AgeEstimationProvider | null = null;
@@ -127,12 +119,13 @@ async function main() {
         try {
             await (prisma as any).shelter.upsert({
                 where: { id: dbId },
-                update: { lastScrapedAt: new Date(), state: stateNormalized },
+                update: { lastScrapedAt: new Date(), state: stateNormalized, shelterType: 'RESCUE' },
                 create: {
                     id: dbId,
                     name: s.name,
                     county: s.city,
                     state: stateNormalized,
+                    shelterType: 'RESCUE',
                     phone: s.phone,
                     websiteUrl: s.url,
                     totalIntakeAnnual: 0,
@@ -236,7 +229,10 @@ async function main() {
                 cvSkipped++;
             } else if (cvProvider && animal.photoUrl) {
                 try {
-                    cvEstimate = await cvProvider.estimateAge(animal.photoUrl, animal.photoUrls);
+                    cvEstimate = await cvProvider.estimateAge(animal.photoUrl, animal.photoUrls, {
+                        shelterSize: animal.size,
+                        shelterSpecies: animal.species,
+                    });
                     if (cvEstimate) cvProcessed++;
                 } catch {
                     // Silently skip CV errors
@@ -258,9 +254,9 @@ async function main() {
 
             // Build data — only overwrite CV fields if we have a new estimate
             const data: Record<string, any> = {
-                name: animal.name,
+                name: sanitizeText(animal.name),
                 species: animal.species,
-                breed: animal.breed,
+                breed: sanitizeText(animal.breed),
                 sex: animal.sex,
                 size: animal.size,
                 photoUrl: animal.photoUrl,
@@ -269,10 +265,10 @@ async function main() {
                 status: animal.status,
                 ageKnownYears: animal.ageKnownYears != null ? Number(animal.ageKnownYears) : null,
                 intakeReason: animal.intakeReason,
-                intakeReasonDetail: animal.intakeReasonDetail,
+                intakeReasonDetail: sanitizeText(animal.intakeReasonDetail),
                 euthScheduledAt: animal.euthScheduledAt,
                 intakeDate: animal.intakeDate,
-                notes: animal.notes,
+                notes: sanitizeText(animal.notes),
                 lastSeenAt: now,
             };
 
@@ -371,8 +367,34 @@ async function main() {
         }
     }
 
+    // Step 5: Reconciliation — delist stale animals per shelter
+    const runStart = new Date(Date.now() - 5 * 60 * 1000); // 5 min grace period
+    let totalDelisted = 0;
+    for (const [rgId] of shelters) {
+        const dbId = `rg-${rgId}`;
+        try {
+            const delisted = await (prisma as any).animal.updateMany({
+                where: {
+                    shelterId: dbId,
+                    status: { in: ['AVAILABLE', 'URGENT'] },
+                    lastSeenAt: { lt: runStart },
+                },
+                data: {
+                    status: 'DELISTED',
+                    delistedAt: new Date(),
+                },
+            });
+            if (delisted.count > 0) {
+                console.log(`   🔄 Delisted ${delisted.count} stale animals from ${dbId}`);
+                totalDelisted += delisted.count;
+            }
+        } catch (err) {
+            console.error(`   ⚠ Reconciliation failed for ${dbId}: ${(err as Error).message?.substring(0, 80)}`);
+        }
+    }
+
     console.log(`\n🏁 Done in ${((Date.now() - startTime) / 1000).toFixed(0)}s!`);
-    console.log(`   Animals: ${created} created, ${updated} updated, ${errors} errors`);
+    console.log(`   Animals: ${created} created, ${updated} updated, ${totalDelisted} delisted, ${errors} errors`);
     console.log(`   CV: ${cvProcessed} new estimates, ${cvSkipped} reused from previous run`);
     console.log(`   Cross-source dedup merges: ${dedupMerged}`);
     console.log(`   Non-photo images skipped: ${skippedNonPhoto}`);

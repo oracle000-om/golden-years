@@ -1,0 +1,438 @@
+[
+    {
+        "id": "animal-humane-nm",
+        "shelterName": "Animal Humane New Mexico",
+        "orgId": "1255",
+        "city": "Albuquerque",
+        "state": "NM"
+    },
+    {
+        "id": "dakin-ma",
+        "shelterName": "Dakin Humane Society",
+        "orgId": "3443",
+        "city": "Springfield",
+        "state": "MA"
+    },
+    {
+        "id": "tampa-bay-fl",
+        "shelterName": "Humane Society of Tampa Bay",
+        "orgId": "5937",
+        "city": "Tampa",
+        "state": "FL"
+    },
+    {
+        "id": "mckamey-tn",
+        "shelterName": "McKamey Animal Center",
+        "orgId": "7275",
+        "city": "Chattanooga",
+        "state": "TN"
+    },
+    {
+        "id": "shenandoah-valley-va",
+        "shelterName": "Shenandoah Valley Animal Services",
+        "orgId": "10432",
+        "city": "Staunton",
+        "state": "VA"
+    },
+    {
+        "id": "acct-philly",
+        "shelterName": "ACCT Philadelphia",
+        "orgId": "13458",
+        "city": "Philadelphia",
+        "state": "PA",
+        "savedQuery": "1885"
+    },
+    {
+        "id": "snake-river-id",
+        "shelterName": "Snake River Animal Shelter",
+        "orgId": "13964",
+        "city": "Idaho Falls",
+        "state": "ID"
+    },
+    {
+        "id": "memphis-animal-services",
+        "shelterName": "Memphis Animal Services",
+        "orgId": "14449",
+        "city": "Memphis",
+        "state": "TN",
+        "savedQuery": "12364"
+    },
+    {
+        "id": "slv-20",
+        "shelterName": "ShelterLuv AFRP",
+        "orgId": "20",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-33",
+        "shelterName": "ShelterLuv IFAS",
+        "orgId": "33",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-167",
+        "shelterName": "ShelterLuv MVSF",
+        "orgId": "167",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-168",
+        "shelterName": "ShelterLuv CCH",
+        "orgId": "168",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-171",
+        "shelterName": "ShelterLuv TOWN",
+        "orgId": "171",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-180",
+        "shelterName": "ShelterLuv GFAC",
+        "orgId": "180",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-183",
+        "shelterName": "ShelterLuv RPAS",
+        "orgId": "183",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-184",
+        "shelterName": "ShelterLuv RCKT",
+        "orgId": "184",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-187",
+        "shelterName": "ShelterLuv PLL",
+        "orgId": "187",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-200",
+        "shelterName": "ShelterLuv LSNC",
+        "orgId": "200",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-216",
+        "shelterName": "ShelterLuv FMNR",
+        "orgId": "216",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-238",
+        "shelterName": "ShelterLuv TVAR",
+        "orgId": "238",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-271",
+        "shelterName": "ShelterLuv PAWS",
+        "orgId": "271",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-278",
+        "shelterName": "ShelterLuv CLIL",
+        "orgId": "278",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-280",
+        "shelterName": "ShelterLuv CMHS",
+        "orgId": "280",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-1200",
+        "shelterName": "ShelterLuv ACSP",
+        "orgId": "1200",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-1211",
+        "shelterName": "ShelterLuv ACT",
+        "orgId": "1211",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-1263",
+        "shelterName": "ShelterLuv ALIA",
+        "orgId": "1263",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-2710",
+        "shelterName": "ShelterLuv CVAR",
+        "orgId": "2710",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-2715",
+        "shelterName": "ShelterLuv CARK",
+        "orgId": "2715",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-2724",
+        "shelterName": "ShelterLuv CDHS",
+        "orgId": "2724",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-2747",
+        "shelterName": "ShelterLuv LTX",
+        "orgId": "2747",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-2762",
+        "shelterName": "ShelterLuv CCIL",
+        "orgId": "2762",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-2783",
+        "shelterName": "ShelterLuv CHO",
+        "orgId": "2783",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-2819",
+        "shelterName": "ShelterLuv CHES",
+        "orgId": "2819",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-2821",
+        "shelterName": "ShelterLuv CHSD",
+        "orgId": "2821",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-2859",
+        "shelterName": "ShelterLuv ANCO",
+        "orgId": "2859",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-2940",
+        "shelterName": "ShelterLuv COEL",
+        "orgId": "2940",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-2947",
+        "shelterName": "ShelterLuv CORS",
+        "orgId": "2947",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-2972",
+        "shelterName": "ShelterLuv LGA",
+        "orgId": "2972",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-2973",
+        "shelterName": "ShelterLuv LAA",
+        "orgId": "2973",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-5429",
+        "shelterName": "ShelterLuv HPPR",
+        "orgId": "5429",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-5442",
+        "shelterName": "ShelterLuv HACC",
+        "orgId": "5442",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-5449",
+        "shelterName": "ShelterLuv OHHC",
+        "orgId": "5449",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-5451",
+        "shelterName": "ShelterLuv HCTC",
+        "orgId": "5451",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-5459",
+        "shelterName": "ShelterLuv HTAT",
+        "orgId": "5459",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-5469",
+        "shelterName": "ShelterLuv HAHS",
+        "orgId": "5469",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-5470",
+        "shelterName": "ShelterLuv HCTN",
+        "orgId": "5470",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-5477",
+        "shelterName": "ShelterLuv HFHS",
+        "orgId": "5477",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-5488",
+        "shelterName": "ShelterLuv FBG",
+        "orgId": "5488",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-5512",
+        "shelterName": "ShelterLuv HCNE",
+        "orgId": "5512",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-5566",
+        "shelterName": "ShelterLuv HMWD",
+        "orgId": "5566",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-5575",
+        "shelterName": "ShelterLuv HBCA",
+        "orgId": "5575",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-5595",
+        "shelterName": "ShelterLuv HPAC",
+        "orgId": "5595",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-5596",
+        "shelterName": "ShelterLuv HTAR",
+        "orgId": "5596",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-5618",
+        "shelterName": "ShelterLuv HNC",
+        "orgId": "5618",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-5620",
+        "shelterName": "ShelterLuv HOPE",
+        "orgId": "5620",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-5648",
+        "shelterName": "ShelterLuv HTR",
+        "orgId": "5648",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-5656",
+        "shelterName": "ShelterLuv HCKY",
+        "orgId": "5656",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-5682",
+        "shelterName": "ShelterLuv SHH",
+        "orgId": "5682",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-5690",
+        "shelterName": "ShelterLuv HOD",
+        "orgId": "5690",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-5699",
+        "shelterName": "ShelterLuv BUNY",
+        "orgId": "5699",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-5700",
+        "shelterName": "ShelterLuv BINK",
+        "orgId": "5700",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-5710",
+        "shelterName": "ShelterLuv HPA",
+        "orgId": "5710",
+        "city": "Unknown",
+        "state": "US"
+    }
+]

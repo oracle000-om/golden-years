@@ -11,7 +11,7 @@
  */
 
 import type { ScrapedAnimal } from '../types';
-import { safeFetchJSON, isSenior, mapSex, mapSpecies, mapSize, parseAge } from './base-adapter';
+import { safeFetchJSON, isSenior, mapSex, mapSpecies, mapSize, parseAge, validatePhotoUrl } from './base-adapter';
 
 // ── Config ─────────────────────────────────────────────
 
@@ -36,7 +36,12 @@ interface SocrataListingConfig {
         image?: string;
         /** Optional: record type field to filter by */
         recordType?: string;
+        /** Optional: size field */
+        size?: string;
     };
+    /** Optional: URL template for constructing photo URLs from animal ID.
+     *  Use {id} as placeholder, e.g. 'https://petharbor.com/get_image.asp?ID={id}' */
+    photoUrlTemplate?: string;
 }
 
 const LISTING_CONFIGS: SocrataListingConfig[] = [
@@ -74,6 +79,59 @@ const LISTING_CONFIGS: SocrataListingConfig[] = [
             sex: 'sex',
             age: 'age',
         },
+        photoUrlTemplate: 'https://24petconnect.com/image/DLLS/{id}',
+    },
+    {
+        id: 'austin-tx-inventory',
+        shelterName: 'Austin Animal Center',
+        city: 'Austin',
+        state: 'TX',
+        domain: 'data.austintexas.gov',
+        resourceId: '9t4d-g238',
+        adoptableFilter: "outcome_type IS NULL",
+        fields: {
+            animalId: 'animal_id',
+            name: 'name',
+            species: 'animal_type',
+            breed: 'breed',
+            sex: 'sex_upon_intake',
+            age: 'age_upon_intake',
+        },
+        photoUrlTemplate: 'https://24petconnect.com/image/ASTN/{id}',
+    },
+    {
+        id: 'sonoma-county-ca',
+        shelterName: 'Sonoma County Animal Services',
+        city: 'Santa Rosa',
+        state: 'CA',
+        domain: 'data.sonomacounty.ca.gov',
+        resourceId: '924a-vesw',
+        fields: {
+            animalId: 'animal_id',
+            name: 'name',
+            species: 'type',
+            breed: 'breed',
+            sex: 'sex',
+            age: 'age',
+        },
+        photoUrlTemplate: 'https://24petconnect.com/image/SNMA/{id}',
+    },
+    {
+        id: 'norfolk-va',
+        shelterName: 'Norfolk Animal Care & Adoption Center',
+        city: 'Norfolk',
+        state: 'VA',
+        domain: 'data.norfolk.gov',
+        resourceId: 'vfm4-5wv6',
+        fields: {
+            animalId: 'animal_id',
+            name: 'animal_name',
+            species: 'animal_type',
+            breed: 'primary_breed',
+            sex: 'sex',
+            age: 'age',
+        },
+        photoUrlTemplate: 'https://24petconnect.com/image/NRFK/{id}',
     },
 ];
 
@@ -127,9 +185,15 @@ async function fetchSocrataListings(config: SocrataListingConfig): Promise<Scrap
             }
         }
 
+        // Fallback: construct photo URL from template if available
+        if (!photoUrl && config.photoUrlTemplate) {
+            photoUrl = config.photoUrlTemplate.replace('{id}', id);
+        }
+
         const name = r[fields.name] ? String(r[fields.name]).trim() : null;
         const breed = r[fields.breed] ? String(r[fields.breed]).trim() : null;
         const sex = mapSex(r[fields.sex] ? String(r[fields.sex]) : '');
+        const size = fields.size ? mapSize(r[fields.size] ? String(r[fields.size]) : '') : null;
 
         animals.push({
             intakeId: `SOC-${config.id}-${id}`,
@@ -137,7 +201,7 @@ async function fetchSocrataListings(config: SocrataListingConfig): Promise<Scrap
             species,
             breed,
             sex,
-            size: null,
+            size,
             photoUrl,
             status: 'AVAILABLE',
             ageKnownYears: ageYears,

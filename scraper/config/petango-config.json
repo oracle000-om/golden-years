@@ -12,5 +12,61 @@
         "authkey": "hxym4cn4tnbm0ys26jo20ebskdhb1t3wyfgabvt03wqup07vcd",
         "city": "Sacramento",
         "state": "CA"
+    },
+    {
+        "id": "fairfax-petango",
+        "shelterName": "Fairfax County Animal Shelter (PetPoint)",
+        "authkey": "spv8bws1svbei2rr8u3h6cg32yx4eywg4il3e3rk8wcjghn2pg",
+        "city": "Fairfax",
+        "state": "VA"
+    },
+    {
+        "id": "animal-friends-oh-petango",
+        "shelterName": "Animal Friends Humane Society (PetPoint)",
+        "authkey": "65u0945yuj501s08n43pt849ea2s4x74jf682d91353yu5ol7t",
+        "city": "Hamilton",
+        "state": "OH"
+    },
+    {
+        "id": "barcs-baltimore-petango",
+        "shelterName": "BARCS Baltimore (PetPoint)",
+        "authkey": "5p95485kw470oqji4yeo8v83f77y591y9ll587m45p3wk477go",
+        "city": "Baltimore",
+        "state": "MD"
+    },
+    {
+        "id": "richmond-spca-petango",
+        "shelterName": "Richmond SPCA (PetPoint)",
+        "authkey": "klyls00bcacsjmrps2ju1shc57h2rl8ge4sprdpfura8ip6ubx",
+        "city": "Richmond",
+        "state": "VA"
+    },
+    {
+        "id": "brown-dog-ma-petango",
+        "shelterName": "Brown Dog Coalition (PetPoint)",
+        "authkey": "unpxxn4b6mme7s5y8r05scvm33cq64ufykd3caqxvrmg4ici5k",
+        "city": "Hopkinton",
+        "state": "MA"
+    },
+    {
+        "id": "fresno-fosters-ca-petango",
+        "shelterName": "Fresno Fosters (PetPoint)",
+        "authkey": "kkm4anuy5xrb1pi5irgdi0ta4pnvnjwfb52htblwyhlm8nvi1d",
+        "city": "Fresno",
+        "state": "CA"
+    },
+    {
+        "id": "petango-cat-shelter-1",
+        "shelterName": "PetPoint Cat Shelter 1",
+        "authkey": "6fs3mhb7jm0k3oau8x5l8a4byf4kpphcxtaosdxxdninv7dmlo",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "petango-cat-shelter-2",
+        "shelterName": "PetPoint Cat Shelter 2",
+        "authkey": "191o120xa9j1v30d5y401gs59u9djhhctdd5s4p7xed25tdl89",
+        "city": "Unknown",
+        "state": "US"
     }
 ]

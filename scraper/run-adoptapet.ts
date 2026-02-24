@@ -1,27 +1,25 @@
 /**
- * Run Petango — PetPoint Shelter Scraper
+ * Run Adopt-a-Pet — Shelter Embed Scraper
  *
- * Fetches senior animals from shelters using PetPoint/24PetConnect
- * via the Petango web service API.
+ * Scrapes senior animals from Adopt-a-Pet shelter pages via their
+ * public embed system and pet detail pages.
  *
  * Usage:
- *   npx tsx scraper/run-petango.ts              # full pull
- *   npx tsx scraper/run-petango.ts --dry-run     # preview only
- *   npx tsx scraper/run-petango.ts --no-cv       # skip CV
- *   npx tsx scraper/run-petango.ts --shelter=houston-barc  # single shelter
+ *   npx tsx scraper/run-adoptapet.ts              # full pull
+ *   npx tsx scraper/run-adoptapet.ts --dry-run     # preview only
+ *   npx tsx scraper/run-adoptapet.ts --no-cv       # skip CV
+ *   npx tsx scraper/run-adoptapet.ts --shelter=pasadena-humane  # single shelter
  */
 
 import 'dotenv/config';
 import { createPrismaClient } from './lib/prisma';
-import { scrapePetango } from './adapters/petango';
+import { scrapeAdoptaPet } from './adapters/adoptapet';
 import { createAgeEstimationProvider, lookupLifeExpectancy, type AgeEstimationProvider } from './cv';
 import { findDuplicate, computePhotoHashFromBuffer, hammingDistance, PHASH_THRESHOLD } from './dedup';
 import { sanitizeText } from './lib/sanitize-text';
 import type { ScrapedAnimal } from './types';
 
 const CONCURRENCY = 5;
-
-
 
 async function downloadImage(url: string): Promise<Buffer | null> {
     try {
@@ -44,11 +42,11 @@ async function main() {
     const noCv = process.argv.includes('--no-cv');
     const shelterArg = process.argv.find(a => a.startsWith('--shelter='))?.split('=')[1];
 
-    console.log(`🐾 Golden Years Club — Petango Sync${dryRun ? ' (DRY RUN)' : ''}${noCv ? ' (NO CV)' : ''}`);
+    console.log(`🐾 Golden Years Club — Adopt-a-Pet Sync${dryRun ? ' (DRY RUN)' : ''}${noCv ? ' (NO CV)' : ''}`);
     if (shelterArg) console.log(`   Shelter filter: ${shelterArg}`);
 
-    // Step 1: Fetch from Petango API
-    const { animals, shelters } = await scrapePetango({
+    // Step 1: Scrape from Adopt-a-Pet
+    const { animals, shelters } = await scrapeAdoptaPet({
         shelterIds: shelterArg ? [shelterArg] : undefined,
     });
 
@@ -83,21 +81,21 @@ async function main() {
 
     // Step 2: Upsert shelters
     let sheltersCreated = 0;
-    for (const [ptId, s] of shelters) {
+    for (const [aapId, s] of shelters) {
         try {
             await (prisma as any).shelter.upsert({
-                where: { id: ptId },
+                where: { id: aapId },
                 update: { lastScrapedAt: new Date(), state: s.state },
                 create: {
-                    id: ptId,
+                    id: aapId,
                     name: s.name,
                     county: s.city,
                     state: s.state,
                     totalIntakeAnnual: 0,
                     totalEuthanizedAnnual: 0,
                     dataYear: new Date().getFullYear(),
-                    dataSourceName: 'Petango/24PetConnect',
-                    dataSourceUrl: 'https://24petconnect.com',
+                    dataSourceName: 'Adopt-a-Pet',
+                    dataSourceUrl: 'https://www.adoptapet.com',
                 },
             });
             sheltersCreated++;
@@ -224,7 +222,7 @@ async function main() {
 
             await (prisma as any).animalSnapshot.create({
                 data: {
-                    animalId, listingSource: `petango:${shelterId}`,
+                    animalId, listingSource: `adoptapet:${shelterId}`,
                     status: animal.status, name: animal.name, photoUrl: animal.photoUrl,
                     notes: animal.notes, euthScheduledAt: animal.euthScheduledAt,
                     bodyConditionScore: cvEstimate?.bodyConditionScore ?? null,
@@ -249,13 +247,13 @@ async function main() {
     }
 
     // Step 5: Reconciliation — delist stale animals per shelter
-    const runStart = new Date(Date.now() - 5 * 60 * 1000); // 5 min grace period
+    const runStart = new Date(Date.now() - 5 * 60 * 1000);
     let totalDelisted = 0;
-    for (const [ptId] of shelters) {
+    for (const [aapId] of shelters) {
         try {
             const delisted = await (prisma as any).animal.updateMany({
                 where: {
-                    shelterId: ptId,
+                    shelterId: aapId,
                     status: { in: ['AVAILABLE', 'URGENT'] },
                     lastSeenAt: { lt: runStart },
                 },
@@ -265,11 +263,11 @@ async function main() {
                 },
             });
             if (delisted.count > 0) {
-                console.log(`   🔄 Delisted ${delisted.count} stale animals from ${ptId}`);
+                console.log(`   🔄 Delisted ${delisted.count} stale animals from ${aapId}`);
                 totalDelisted += delisted.count;
             }
         } catch (err) {
-            console.error(`   ⚠ Reconciliation failed for ${ptId}: ${(err as Error).message?.substring(0, 80)}`);
+            console.error(`   ⚠ Reconciliation failed for ${aapId}: ${(err as Error).message?.substring(0, 80)}`);
         }
     }
 

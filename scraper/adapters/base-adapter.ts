@@ -17,11 +17,28 @@ const DEFAULT_RETRIES = 3;
 const BACKOFF_BASE_MS = 1_000;
 const USER_AGENT = 'GoldenYearsClub/1.0 (shelter-data-aggregator)';
 
-/** Senior age threshold by species */
+/** Default senior age threshold by species (no size info available) */
 export const SENIOR_AGE: Record<string, number> = {
     DOG: 7,
     CAT: 10,
     OTHER: 7,
+};
+
+/**
+ * Size-specific senior age thresholds for dogs.
+ * Giant breeds age fastest, toy breeds slowest.
+ *
+ * Giant (Great Dane, Mastiff, St. Bernard)    → 5 years
+ * Large (Lab, GSD, Golden, Rottweiler)        → 6 years
+ * Medium (Beagle, Aussie, Border Collie)      → 7 years (default)
+ * Small (Corgi, Dachshund, Mini Poodle)       → 9 years
+ * Toy (Chihuahua, Pomeranian, Yorkie)         → 10 years
+ */
+const DOG_SENIOR_BY_SIZE: Record<string, number> = {
+    XLARGE: 5,   // giant breeds
+    LARGE: 6,
+    MEDIUM: 7,
+    SMALL: 9,
 };
 
 // ── safeFetch ──────────────────────────────────────────
@@ -113,11 +130,21 @@ export async function safeFetchText(url: string, opts: SafeFetchOptions = {}): P
 // ── isSenior ───────────────────────────────────────────
 
 /**
- * Returns true if the animal's age qualifies as senior for its species.
- * Dogs: ≥ 7 years, Cats: ≥ 10 years.
+ * Returns true if the animal's age qualifies as senior for its species and size.
+ * When size is known for dogs, uses breed-group-appropriate thresholds.
+ * Falls back to species defaults when size is unknown.
  */
-export function isSenior(ageYears: number | null | undefined, species: 'DOG' | 'CAT' | 'OTHER'): boolean {
+export function isSenior(
+    ageYears: number | null | undefined,
+    species: 'DOG' | 'CAT' | 'OTHER',
+    size?: 'SMALL' | 'MEDIUM' | 'LARGE' | 'XLARGE' | null,
+): boolean {
     if (ageYears == null) return false;
+
+    if (species === 'DOG' && size && DOG_SENIOR_BY_SIZE[size] !== undefined) {
+        return ageYears >= DOG_SENIOR_BY_SIZE[size];
+    }
+
     return ageYears >= (SENIOR_AGE[species] ?? 7);
 }
 
@@ -309,4 +336,25 @@ export function parseAge(ageString: string | null | undefined): number | null {
         return Math.floor(months / 12);
     }
     return null;
+}
+
+// ── Photo Validation ──────────────────────────────────
+
+/**
+ * Validate that a photo URL actually resolves to an image.
+ * Uses HEAD request with a short timeout to avoid blocking the pipeline.
+ * Returns true if the URL responds with 2xx and an image content-type.
+ */
+export async function validatePhotoUrl(url: string): Promise<boolean> {
+    try {
+        const response = await fetch(url, {
+            method: 'HEAD',
+            signal: AbortSignal.timeout(5_000),
+            headers: { 'User-Agent': USER_AGENT },
+        });
+        const ct = response.headers.get('content-type') || '';
+        return response.ok && ct.startsWith('image/');
+    } catch {
+        return false;
+    }
 }

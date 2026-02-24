@@ -1,0 +1,72 @@
+[
+    {
+        "id": "pasadena-humane",
+        "shelterName": "Pasadena Humane",
+        "adoptapetId": "4298",
+        "city": "Pasadena",
+        "state": "CA"
+    },
+    {
+        "id": "humane-society-broward",
+        "shelterName": "Humane Society of Broward County",
+        "adoptapetId": "4642",
+        "city": "Fort Lauderdale",
+        "state": "FL"
+    },
+    {
+        "id": "denver-dumb-friends",
+        "shelterName": "Denver Dumb Friends League",
+        "adoptapetId": "2987",
+        "city": "Denver",
+        "state": "CO"
+    },
+    {
+        "id": "san-diego-humane",
+        "shelterName": "San Diego Humane Society",
+        "adoptapetId": "4332",
+        "city": "San Diego",
+        "state": "CA"
+    },
+    {
+        "id": "atlanta-humane",
+        "shelterName": "Atlanta Humane Society",
+        "adoptapetId": "3547",
+        "city": "Atlanta",
+        "state": "GA"
+    },
+    {
+        "id": "seattle-humane",
+        "shelterName": "Seattle Humane",
+        "adoptapetId": "3143",
+        "city": "Bellevue",
+        "state": "WA"
+    },
+    {
+        "id": "aspca-nyc",
+        "shelterName": "ASPCA Adoption Center",
+        "adoptapetId": "3024",
+        "city": "New York",
+        "state": "NY"
+    },
+    {
+        "id": "houston-spca",
+        "shelterName": "Houston SPCA",
+        "adoptapetId": "3886",
+        "city": "Houston",
+        "state": "TX"
+    },
+    {
+        "id": "arizona-humane",
+        "shelterName": "Arizona Humane Society",
+        "adoptapetId": "4457",
+        "city": "Phoenix",
+        "state": "AZ"
+    },
+    {
+        "id": "oregon-humane",
+        "shelterName": "Oregon Humane Society",
+        "adoptapetId": "2795",
+        "city": "Portland",
+        "state": "OR"
+    }
+]

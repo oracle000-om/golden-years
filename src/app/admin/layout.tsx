@@ -18,6 +18,7 @@ export default function AdminLayout({
                     <Link href="/admin" className="admin-nav__link">Overview</Link>
                     <Link href="/admin/animals" className="admin-nav__link">Animals</Link>
                     <Link href="/admin/shelters" className="admin-nav__link">Shelters</Link>
+                    <Link href="/admin/chat" className="admin-nav__link">Chat</Link>
                     <Link href="/" className="admin-nav__link admin-nav__link--back">← Site</Link>
                 </div>
             </nav>

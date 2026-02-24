@@ -164,7 +164,12 @@ export async function getAdminOverview(): Promise<AdminOverview> {
         lastScrapedAt: s.lastScrapedAt,
     }));
 
-    const activeShelters = shelterLeaderboard.filter(s => s.animalCount > 0).length;
+    // Count shelters that have at least one active animal (separate query, not capped by leaderboard)
+    const activeShelterIds = await prisma.animal.groupBy({
+        by: ['shelterId'],
+        where: { status: { in: ['AVAILABLE', 'URGENT'] } },
+    });
+    const activeShelters = activeShelterIds.length;
 
     return {
         totalAnimals,

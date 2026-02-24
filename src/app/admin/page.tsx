@@ -59,7 +59,7 @@ export default async function AdminDashboard() {
                 <StatCard label="Active" value={data.activeAnimals} accent />
                 <StatCard label="Delisted" value={data.delistedAnimals} />
                 <StatCard label="Adopted" value={data.adoptedAnimals} />
-                <StatCard label="Shelters" value={data.totalShelters} sub={`${data.activeShelters} active`} />
+                <StatCard label="Sources" value={data.totalShelters} sub={`${data.activeShelters} active`} />
                 <StatCard label="CV Coverage" value={`${cvRate}%`} sub={`${data.withCvEstimate} estimated`} />
                 <StatCard label="Photo Rate" value={`${photoRate}%`} sub={`${data.withPhoto} with photos`} />
                 <StatCard label="Stale (>48h)" value={data.staleAnimals} sub="Not seen recently" />

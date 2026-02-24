@@ -67,14 +67,14 @@
   aspect-ratio: 1;
   border-radius: var(--radius-lg);
   overflow: hidden;
-  background: var(--color-surface);
+  background: #0d0c0a;
   box-shadow: var(--shadow-card);
 }
 
 .animal-detail__photo img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
 }
 
 .animal-detail__photo-placeholder {
@@ -104,7 +104,7 @@
 .photo-gallery__main img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
 }
 
 .photo-gallery__arrow {

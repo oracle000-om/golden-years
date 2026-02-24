@@ -8,10 +8,11 @@ datasource db {
 }
 
 model Shelter {
-  id                 String   @id @default(uuid())
+  id                 String      @id @default(uuid())
   name               String
   county             String
   state              String
+  shelterType        ShelterType @default(MUNICIPAL) @map("shelter_type")
   address            String?
   zipCode            String?  @map("zip_code")
   phone              String?
@@ -37,6 +38,12 @@ model Shelter {
   animals Animal[]
 
   @@map("shelters")
+}
+
+enum ShelterType {
+  MUNICIPAL
+  RESCUE
+  FOSTER_BASED
 }
 
 model Animal {

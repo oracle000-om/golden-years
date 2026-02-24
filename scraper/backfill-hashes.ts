@@ -12,25 +12,16 @@
  */
 
 import 'dotenv/config';
-import { PrismaClient } from '../src/generated/prisma/client';
-import { PrismaPg } from '@prisma/adapter-pg';
-import pg from 'pg';
+import { createPrismaClient } from './lib/prisma';
 import { computePhotoHash, hammingDistance } from './dedup';
 
 const PHASH_THRESHOLD = 5;
 
-async function createPrisma() {
-    const url = process.env.DATABASE_URL;
-    if (!url) throw new Error('DATABASE_URL required. Set it in .env');
-    const pool = new pg.Pool({ connectionString: url });
-    const adapter = new PrismaPg(pool);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return new (PrismaClient as any)({ adapter }) as PrismaClient;
-}
+
 
 async function main() {
     const shouldMerge = process.argv.includes('--merge');
-    const prisma = await createPrisma();
+    const prisma = await createPrismaClient();
 
     console.log(`🔍 Golden Years — Photo Hash Backfill & Duplicate Scan`);
     console.log(`   Mode: ${shouldMerge ? '⚠️  MERGE (will merge duplicates)' : '📋 REPORT ONLY'}\n`);

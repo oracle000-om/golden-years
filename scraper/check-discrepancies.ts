@@ -1,14 +1,9 @@
 import 'dotenv/config';
-import { PrismaClient } from '../src/generated/prisma/client';
-import { PrismaPg } from '@prisma/adapter-pg';
-import pg from 'pg';
-
-const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
-const adapter = new PrismaPg(pool);
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const prisma = new (PrismaClient as any)({ adapter });
+import { createPrismaClient } from './lib/prisma';
 
 async function main() {
+    const prisma = await createPrismaClient();
+
     // Count total animals
     const total = await prisma.animal.count();
     console.log(`Total animals in DB: ${total}`);
@@ -32,7 +27,7 @@ async function main() {
         console.log(`  ${(a.name || 'Unnamed').padEnd(16)} shelter=${a.ageKnownYears}yr  CV=${a.ageEstimatedLow}-${a.ageEstimatedHigh}yr  conf=${a.ageConfidence}  src=${a.ageSource}  sid=${a.shelterId}`);
     }
 
-    await pool.end();
+    process.exit(0);
 }
 
 main().catch(console.error);

@@ -12,19 +12,10 @@
  */
 
 import 'dotenv/config';
-import { PrismaClient } from '../src/generated/prisma/client';
-import { PrismaPg } from '@prisma/adapter-pg';
-import pg from 'pg';
+import { createPrismaClient } from './lib/prisma';
 import { fetchAllBreeds } from './adapters/breed-db';
 
-async function createPrisma() {
-    const url = process.env.DATABASE_URL;
-    if (!url) throw new Error('DATABASE_URL required. Set it in .env');
-    const pool = new pg.Pool({ connectionString: url });
-    const adapter = new PrismaPg(pool);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return new (PrismaClient as any)({ adapter }) as PrismaClient;
-}
+
 
 async function main() {
     const dryRun = process.argv.includes('--dry-run');
@@ -73,7 +64,7 @@ async function main() {
     }
 
     // ── Step 2: Upsert to DB ──
-    const prisma = await createPrisma();
+    const prisma = await createPrismaClient();
 
     let upserted = 0;
     let errors = 0;

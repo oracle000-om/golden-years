@@ -17,21 +17,14 @@
  */
 
 import 'dotenv/config';
+import { createPrismaClient } from './lib/prisma';
 import { PrismaClient } from '../src/generated/prisma/client';
-import { PrismaPg } from '@prisma/adapter-pg';
-import pg from 'pg';
 import { shelterConfigs } from './shelters';
 import { createAgeEstimationProvider, lookupLifeExpectancy, type AgeEstimationProvider } from './cv';
 import { findDuplicate, computePhotoHash } from './dedup';
+import { sanitizeText } from './lib/sanitize-text';
 
-async function createPrisma() {
-    const url = process.env.DATABASE_URL;
-    if (!url) throw new Error('DATABASE_URL required. Set it in .env');
-    const pool = new pg.Pool({ connectionString: url });
-    const adapter = new PrismaPg(pool);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return new (PrismaClient as any)({ adapter }) as PrismaClient;
-}
+
 
 async function main() {
     const dryRun = process.argv.includes('--dry-run');
@@ -61,7 +54,7 @@ async function main() {
     // Init DB
     let prisma: PrismaClient | null = null;
     if (!dryRun) {
-        prisma = await createPrisma();
+        prisma = await createPrismaClient();
     }
 
     console.log(`🐾 Golden Years Club — Scraper${dryRun ? ' (DRY RUN)' : ''}${noCv ? ' (NO CV)' : ''}`);
@@ -132,7 +125,10 @@ async function main() {
             if (cvProvider && animal.photoUrl) {
                 try {
                     console.log(`   🔬 CV: ${animal.name || animal.intakeId}...`);
-                    cvEstimate = await cvProvider.estimateAge(animal.photoUrl);
+                    cvEstimate = await cvProvider.estimateAge(animal.photoUrl, undefined, {
+                        shelterSize: animal.size,
+                        shelterSpecies: animal.species,
+                    });
                     if (cvEstimate) {
                         cvProcessed++;
                         const breeds = cvEstimate.detectedBreeds.length > 0
@@ -177,9 +173,9 @@ async function main() {
 
                 const now = new Date();
                 const data = {
-                    name: animal.name,
+                    name: sanitizeText(animal.name),
                     species: animal.species,
-                    breed: animal.breed,
+                    breed: sanitizeText(animal.breed),
                     sex: animal.sex,
                     size: animal.size,
                     photoUrl: animal.photoUrl,
@@ -211,10 +207,10 @@ async function main() {
                     likelyCareNeeds: cvEstimate?.likelyCareNeeds ?? [],
                     estimatedCareLevel: cvEstimate?.estimatedCareLevel ?? null,
                     intakeReason: animal.intakeReason,
-                    intakeReasonDetail: animal.intakeReasonDetail,
+                    intakeReasonDetail: sanitizeText(animal.intakeReasonDetail),
                     euthScheduledAt: animal.euthScheduledAt,
                     intakeDate: animal.intakeDate,
-                    notes: animal.notes,
+                    notes: sanitizeText(animal.notes),
                     // v2: temporal tracking
                     lastSeenAt: now,
                 };

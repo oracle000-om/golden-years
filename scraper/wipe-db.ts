@@ -3,15 +3,10 @@
  * Used when migrating between scraper sources.
  */
 import 'dotenv/config';
-import { PrismaClient } from '../src/generated/prisma/client';
-import { PrismaPg } from '@prisma/adapter-pg';
-import pg from 'pg';
+import { createPrismaClient } from './lib/prisma';
 
 async function main() {
-    const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
-    const adapter = new PrismaPg(pool);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const prisma = new (PrismaClient as any)({ adapter }) as PrismaClient;
+    const prisma = await createPrismaClient();
 
     const sources = await prisma.source.deleteMany({});
     console.log('Deleted sources:', sources.count);

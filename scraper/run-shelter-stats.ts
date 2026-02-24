@@ -11,19 +11,10 @@
  */
 
 import 'dotenv/config';
-import { PrismaClient } from '../src/generated/prisma/client';
-import { PrismaPg } from '@prisma/adapter-pg';
-import pg from 'pg';
+import { createPrismaClient } from './lib/prisma';
 import { SAC_SHELTER_STATS, fuzzyMatchShelterName } from './adapters/shelter-animals-count';
 
-async function createPrisma() {
-    const url = process.env.DATABASE_URL;
-    if (!url) throw new Error('DATABASE_URL required. Set it in .env');
-    const pool = new pg.Pool({ connectionString: url });
-    const adapter = new PrismaPg(pool);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return new (PrismaClient as any)({ adapter }) as PrismaClient;
-}
+
 
 async function main() {
     const dryRun = process.argv.includes('--dry-run');
@@ -31,7 +22,7 @@ async function main() {
     console.log(`📊 Golden Years Club — Shelter Animals Count Stats Enrichment${dryRun ? ' (DRY RUN)' : ''}`);
     console.log(`   Source: Shelter Animals Count (ASPCA) 2025 Annual Report\n`);
 
-    const prisma = await createPrisma();
+    const prisma = await createPrismaClient();
 
     // Fetch all existing shelters from DB
     const shelters = await (prisma as any).shelter.findMany({

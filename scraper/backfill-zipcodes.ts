@@ -4,14 +4,8 @@
  *
  * Usage: npx tsx scraper/backfill-zipcodes.ts
  */
-import { PrismaClient } from '../src/generated/prisma/client';
-import { PrismaPg } from '@prisma/adapter-pg';
-import pg from 'pg';
-
-const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
-const adapter = new PrismaPg(pool);
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const prisma = new (PrismaClient as any)({ adapter });
+import 'dotenv/config';
+import { createPrismaClient } from './lib/prisma';
 
 function extractZip(address: string | null): string | null {
     if (!address) return null;
@@ -20,6 +14,8 @@ function extractZip(address: string | null): string | null {
 }
 
 async function main() {
+    const prisma = await createPrismaClient();
+
     const shelters = await prisma.shelter.findMany({
         select: { id: true, address: true, zipCode: true },
     });
@@ -46,13 +42,10 @@ async function main() {
     }
 
     console.log(`✅ Backfill complete: ${updated} updated, ${skipped} skipped (${shelters.length} total)`);
+    process.exit(0);
 }
 
-main()
-    .catch((e) => {
-        console.error(e);
-        process.exit(1);
-    })
-    .finally(async () => {
-        await prisma.$disconnect();
-    });
+main().catch((e) => {
+    console.error(e);
+    process.exit(1);
+});

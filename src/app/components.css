@@ -502,6 +502,7 @@
   border-radius: 50%;
   overflow: hidden;
   animation: none;
+  background: var(--color-gold);
 }
 
 .mascot--mobile.mascot--left {

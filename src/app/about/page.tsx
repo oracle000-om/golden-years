@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import Image from 'next/image';
 
+export const revalidate = 3600;
+
 export const metadata: Metadata = {
     title: 'About | Golden Years Club',
     description: 'Surfacing senior animals on shelter euthanasia lists — giving them visibility, dignity, and a last chance.',
@@ -30,10 +32,10 @@ export default function AboutPage() {
                 {/* Row 2: text left, image right */}
                 <div className="about-minimal__text about-minimal__text--row2">
                     <p className="about-minimal__story">
-                        When we adopted Henry, the shelter thought he was 7. He was closer to 10, and his heartworm was more progressed than we knew. We had 10 months with him. It made me realize how close he was to passing without a loving home.
+                        When we adopted Henry, the shelter thought he was 7. He was closer to 10, and his heartworm was more progressed than we knew. In the end, we only had 10 months with him. It made us realize how close he was to passing without a loving home.
                     </p>
                     <p className="about-minimal__story">
-                        Seniors are special. Golden Years Club is dedicated to giving seniors in shelters a final chance at living out their golden years.
+                        Seniors are special. Golden Years Club is dedicated to giving at-risk senior dogs and cats a final chance at living out their best golden years.
                     </p>
                 </div>
                 <div className="about-minimal__image about-minimal__image--right">

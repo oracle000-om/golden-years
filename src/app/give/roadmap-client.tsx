@@ -14,7 +14,7 @@ const OPTIONS: { key: Choice; icon: string; label: string }[] = [
     { key: 'enhance_site', icon: '🏠', label: 'Enhance the Golden Years Club site' },
     { key: 'grants', icon: '🎁', label: 'Give grants to organizations saving seniors' },
     { key: 'vet_costs', icon: '🩺', label: 'Help adopters with senior veterinary costs' },
-    { key: 'new_programs', icon: '✨', label: 'Create new programs for Golden Years Club' },
+    { key: 'new_programs', icon: '✨', label: 'Create actual clubs' },
 ];
 
 function getOrCreateToken(): string {

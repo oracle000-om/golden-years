@@ -138,10 +138,12 @@ export function FactBubbles() {
         const text = facts[indexRef.current];
         indexRef.current = (indexRef.current + 1) % facts.length;
 
-        // On mobile, keep facts more centered so they don't get cut off
-        const left = isMobile
-            ? (side === 'left' ? 8 + Math.random() * 10 : 55 + Math.random() * 10)
-            : (side === 'left' ? 5 + Math.random() * 15 : 70 + Math.random() * 15);
+        // Bubbles always spawn BETWEEN the two mascots
+        // Desktop: mascots at ~0-12% and ~88-100%, so bubbles go 15–70%
+        // Mobile: tighter, 15–55%
+        const min = 15;
+        const max = isMobile ? 55 : 70;
+        const left = min + Math.random() * (max - min);
 
         const newFact: FloatingFact = { id: factId++, text, left, emoji };
         setFloatingFacts((prev) => [...prev, newFact]);

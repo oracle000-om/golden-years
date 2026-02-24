@@ -36,6 +36,7 @@ interface SearchParams {
   sort?: string;
   page?: string;
   radius?: string;
+  source?: string;
 }
 
 export default async function Home({
@@ -109,6 +110,7 @@ export default async function Home({
           currentZip={params.zip || ''}
           currentSort={params.sort || 'urgency'}
           currentRadius={params.radius || '100'}
+          currentSource={params.source || 'all'}
           hasLocation={hasLocation}
           states={states}
         />

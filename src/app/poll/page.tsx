@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { getActivePolls } from '@/lib/queries';
 import { PollPageClient } from './poll-client';
 
-export const dynamic = 'force-dynamic';
+export const revalidate = 60;
 
 export const metadata: Metadata = {
     title: 'Public Square — Golden Years Club',

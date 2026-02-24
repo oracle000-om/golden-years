@@ -13,6 +13,16 @@ import "./give.css";
 export const metadata: Metadata = {
   title: "Golden Years Club",
   description: "Surfacing senior animals on shelter euthanasia lists — giving them visibility, dignity, and a last chance.",
+  manifest: "/manifest.json",
+  themeColor: "#c8a55a",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Golden Years",
+  },
+  other: {
+    "mobile-web-app-capable": "yes",
+  },
 };
 
 export default function RootLayout({
@@ -22,6 +32,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        <link rel="apple-touch-icon" href="/icon-192.png" />
+      </head>
       <body>
         <header className="header">
           <div className="container">
@@ -30,7 +43,6 @@ export default function RootLayout({
             </Link>
             <nav>
               <ul className="header__nav">
-                <li><Link href="/">List</Link></li>
                 <li><Link href="/give">Give</Link></li>
                 <li><Link href="/poll">Public Square</Link></li>
               </ul>
@@ -55,6 +67,11 @@ export default function RootLayout({
         </footer>
 
         <FactBubbles />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').catch(()=>{})}`,
+          }}
+        />
       </body>
     </html>
   );

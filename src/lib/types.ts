@@ -6,6 +6,7 @@ export interface Shelter {
     name: string;
     county: string;
     state: string;
+    shelterType: 'MUNICIPAL' | 'RESCUE' | 'FOSTER_BASED';
     address: string | null;
     zipCode: string | null;
     phone: string | null;

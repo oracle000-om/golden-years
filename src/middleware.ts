@@ -2,9 +2,9 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 /**
- * Middleware — enforces password protection when SITE_PASSWORD is set.
- * Verifies the HMAC-signed gy_auth cookie on every request.
- * Uses Web Crypto API (Edge Runtime compatible).
+ * Middleware — enforces password protection when SITE_PASSWORD is set,
+ * and admin auth when ADMIN_PASSWORD is set.
+ * Verifies HMAC-signed cookies using Web Crypto API (Edge Runtime compatible).
  */
 
 async function verifyToken(token: string, secret: string): Promise<boolean> {
@@ -39,18 +39,10 @@ async function verifyToken(token: string, secret: string): Promise<boolean> {
 }
 
 export async function middleware(request: NextRequest) {
-    const sitePassword = process.env.SITE_PASSWORD;
-
-    // No password configured — allow all traffic
-    if (!sitePassword) {
-        return NextResponse.next();
-    }
-
-    // Allow static assets, API routes, and the login page itself
     const { pathname } = request.nextUrl;
+
+    // Allow static assets regardless
     if (
-        pathname.startsWith('/api/') ||
-        pathname.startsWith('/login') ||
         pathname.startsWith('/_next/') ||
         pathname.startsWith('/favicon') ||
         pathname === '/icon.svg' ||
@@ -58,6 +50,46 @@ export async function middleware(request: NextRequest) {
         pathname.endsWith('.png') ||
         pathname.endsWith('.jpg') ||
         pathname.endsWith('.webp')
+    ) {
+        return NextResponse.next();
+    }
+
+    // ─── Admin route protection ───────────────────────────────
+    if (pathname.startsWith('/admin')) {
+        const adminPassword = process.env.ADMIN_PASSWORD;
+
+        // Admin not configured — block all admin access
+        if (!adminPassword) {
+            return NextResponse.redirect(new URL('/', request.url));
+        }
+
+        // Allow admin login page and API
+        if (pathname === '/admin/login' || pathname.startsWith('/api/admin-login')) {
+            return NextResponse.next();
+        }
+
+        // Verify admin cookie
+        const adminCookie = request.cookies.get('gy_admin')?.value;
+        if (adminCookie && await verifyToken(adminCookie, adminPassword)) {
+            return NextResponse.next();
+        }
+
+        // Redirect to admin login
+        return NextResponse.redirect(new URL('/admin/login', request.url));
+    }
+
+    // ─── Site password protection ─────────────────────────────
+    const sitePassword = process.env.SITE_PASSWORD;
+
+    // No password configured — allow all traffic
+    if (!sitePassword) {
+        return NextResponse.next();
+    }
+
+    // Allow API routes and the login page itself
+    if (
+        pathname.startsWith('/api/') ||
+        pathname.startsWith('/login')
     ) {
         return NextResponse.next();
     }
@@ -77,3 +109,4 @@ export async function middleware(request: NextRequest) {
 export const config = {
     matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
 };
+

@@ -2,8 +2,42 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
+import { useState } from 'react';
 import { formatScheduledDate, formatIntakeDate, hoursUntil, getUrgencyLevel, getGoldenYearsConfidence, getSaveRate } from '@/lib/utils';
 import type { AnimalResult } from '@/lib/queries';
+
+function CopyCardLink({ animalId }: { animalId: string }) {
+    const [copied, setCopied] = useState(false);
+
+    const handleCopy = async (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const url = `${window.location.origin}/animal/${animalId}`;
+        try {
+            await navigator.clipboard.writeText(url);
+        } catch {
+            const input = document.createElement('input');
+            input.value = url;
+            document.body.appendChild(input);
+            input.select();
+            document.execCommand('copy');
+            document.body.removeChild(input);
+        }
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+    };
+
+    return (
+        <button
+            className="animal-card__copy-link"
+            onClick={handleCopy}
+            aria-label="Copy link to this animal"
+            type="button"
+        >
+            {copied ? '✓' : '🔗'}
+        </button>
+    );
+}
 
 interface AnimalGridProps {
     animals: AnimalResult[];
@@ -105,6 +139,7 @@ export function AnimalGrid({ animals, totalCount, page, totalPages }: AnimalGrid
                                         {animal.distance < 1 ? '< 1 mi' : `${Math.round(animal.distance)} mi`}
                                     </span>
                                 )}
+                                <CopyCardLink animalId={animal.id} />
                             </div>
 
                             <div className="animal-card__body">
@@ -199,12 +234,17 @@ export function AnimalGrid({ animals, totalCount, page, totalPages }: AnimalGrid
                                     ) : (
                                         <>
                                             <span className="animal-card__death-marker-label">Status</span>
-                                            <span className="animal-card__death-marker-time standard">In Shelter</span>
+                                            <span className="animal-card__death-marker-time standard">
+                                                {(animal.shelter as any).shelterType === 'RESCUE' ? 'In Rescue'
+                                                    : (animal.shelter as any).shelterType === 'FOSTER_BASED' ? 'In Foster'
+                                                        : 'In Shelter'}
+                                            </span>
                                         </>
                                     )}
                                     {daysInShelter !== null && (
                                         <div className="animal-card__days-in-shelter">
-                                            {daysInShelter === 0 ? 'Arrived today' : `${daysInShelter} day${daysInShelter !== 1 ? 's' : ''} in shelter`}
+                                            {daysInShelter === 0 ? 'Arrived today'
+                                                : `${daysInShelter} day${daysInShelter !== 1 ? 's' : ''} ${(animal.shelter as any).shelterType === 'RESCUE' ? 'in rescue' : (animal.shelter as any).shelterType === 'FOSTER_BASED' ? 'in foster' : 'in shelter'}`}
                                         </div>
                                     )}
                                 </div>

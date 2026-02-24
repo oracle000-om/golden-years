@@ -396,18 +396,58 @@ export function getBestAge(
  * the animal would lose if euthanized on the scheduled date.
  * Returns a human-readable string like "~3 years, 2 months" or null.
  */
+
+/** Health keywords scanned from listing/health notes */
+const HIGH_SEVERITY_KEYWORDS = ['heartworm', 'fiv', 'felv', 'cancer', 'tumor', 'parvo', 'distemper', 'amputation', 'kidney failure', 'liver failure'];
+const MOD_SEVERITY_KEYWORDS = ['diabetes', 'arthritis', 'blind', 'deaf', 'seizure', 'thyroid', 'kidney', 'dental', 'mange', 'ringworm', 'lyme', 'hip dysplasia', 'luxating patella', 'incontinence', 'allergies'];
+
+/** Extract medical conditions from free-text notes */
+function extractNoteConditions(notes: string | null, healthNotes: string | null): { high: string[]; moderate: string[] } {
+    const text = ((notes || '') + ' ' + (healthNotes || '')).toLowerCase();
+    if (!text.trim()) return { high: [], moderate: [] };
+
+    const high = HIGH_SEVERITY_KEYWORDS.filter(kw => text.includes(kw));
+    const moderate = MOD_SEVERITY_KEYWORDS.filter(kw => text.includes(kw));
+    return { high, moderate };
+}
+
+/** Capitalize a keyword for display */
+function formatConditionLabel(kw: string): string {
+    const special: Record<string, string> = { fiv: 'FIV', felv: 'FeLV' };
+    if (special[kw]) return special[kw];
+    return kw.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+}
+
+export interface HealthSubScore {
+    score: number;
+    max: number;
+    label: string;
+    factors: string[];
+}
+
+export interface HealthResult {
+    score: number;
+    label: string;
+    factors: string[];
+    subScores: {
+        physical: HealthSubScore;
+        medical: HealthSubScore;
+        comfort: HealthSubScore;
+    };
+    noteConditions: string[]; // merged list for tags
+}
+
 /**
- * Compute an overall health score (0–100) from CV assessment data.
- * Returns the numeric score plus a list of contributing factors.
+ * Compute an overall health score (0–100) with sub-score breakdown.
  *
- * Weighting:
- *   - Body Condition Score (40 pts): ideal BCS = 4–5 on 1–9 scale
- *   - Visible Conditions   (20 pts): deductions per detected condition
- *   - Stress & Fear        (20 pts): based on stress level + fear indicator count
- *   - Coat Condition       (10 pts): good/fair/poor
- *   - Estimated Care Level (10 pts): low/moderate/high
+ * Budget: Physical 45pts · Medical 25pts · Behavioral 30pts
  *
- * Returns null if no CV health data is available (all fields empty/null).
+ * Optional context enriches the score:
+ *   - notes/healthNotes: scanned for medical keywords
+ *   - ageYears: age-adjusted bonuses for seniors in good condition
+ *   - breedCommonConditions: reduces deductions for breed-typical conditions
+ *
+ * Returns null if no health data is available at all.
  */
 export function computeHealthScore(
     bodyConditionScore: number | null,
@@ -416,7 +456,15 @@ export function computeHealthScore(
     stressLevel: string | null,
     fearIndicators: string[],
     estimatedCareLevel: string | null,
-): { score: number; label: string; factors: string[] } | null {
+    options?: {
+        notes?: string | null;
+        healthNotes?: string | null;
+        ageYears?: number | null;
+        breedCommonConditions?: string[];
+    },
+): HealthResult | null {
+    const opts = options || {};
+
     // Need at least one signal to produce a score
     const hasAnyData = bodyConditionScore !== null
         || coatCondition !== null
@@ -426,74 +474,188 @@ export function computeHealthScore(
         || estimatedCareLevel !== null;
     if (!hasAnyData) return null;
 
-    let total = 0;
-    const factors: string[] = [];
+    const breedConditions = (opts.breedCommonConditions || []).map(c => c.toLowerCase());
 
-    // ── Body Condition Score (40 pts) ──
+    // ════════════════════════════════════════════
+    // PHYSICAL SUB-SCORE (45 pts max)
+    //   BCS: 30pts · Coat: 10pts · Age bonus: 5pts
+    // ════════════════════════════════════════════
+    let physicalPts = 0;
+    const physicalFactors: string[] = [];
+
+    // ── BCS (30 pts) ──
     if (bodyConditionScore !== null) {
-        // BCS 4-5 = ideal (40), 3 or 6 = good (32), 2 or 7 = okay (20), 1 or 8-9 = concerning (8)
-        const bcsPoints = bodyConditionScore >= 4 && bodyConditionScore <= 5 ? 40
-            : bodyConditionScore === 3 || bodyConditionScore === 6 ? 32
-                : bodyConditionScore === 2 || bodyConditionScore === 7 ? 20
-                    : 8;
-        total += bcsPoints;
-        const bcsLabel = bcsPoints >= 40 ? 'Ideal' : bcsPoints >= 32 ? 'Good' : bcsPoints >= 20 ? 'Slightly off' : 'Concerning';
-        factors.push(`Body condition: ${bcsLabel} (${bodyConditionScore}/9)`);
+        const bcsPts = bodyConditionScore >= 4 && bodyConditionScore <= 5 ? 30
+            : bodyConditionScore === 3 || bodyConditionScore === 6 ? 24
+                : bodyConditionScore === 2 || bodyConditionScore === 7 ? 15
+                    : 6;
+        physicalPts += bcsPts;
+        const bcsLabel = bcsPts >= 30 ? 'Ideal' : bcsPts >= 24 ? 'Good' : bcsPts >= 15 ? 'Slightly off' : 'Concerning';
+        physicalFactors.push(`Body condition: ${bcsLabel} (${bodyConditionScore}/9)`);
     } else {
-        total += 30; // neutral default
-        factors.push('Body condition: Not assessed');
+        physicalPts += 22; // neutral default
+        physicalFactors.push('Body condition: Not assessed');
     }
 
-    // ── Visible Conditions (20 pts) ──
-    if (visibleConditions.length === 0) {
-        total += 20;
-        factors.push('No visible health concerns detected');
-    } else {
-        const deduction = Math.min(20, visibleConditions.length * 5);
-        total += 20 - deduction;
-        factors.push(`Visible observations: ${visibleConditions.join(', ')}`);
+    // ── Coat (10 pts) ──
+    if (coatCondition === 'good') { physicalPts += 10; }
+    else if (coatCondition === 'fair') { physicalPts += 6; physicalFactors.push('Coat: Fair'); }
+    else if (coatCondition === 'poor') { physicalPts += 2; physicalFactors.push('Coat: Poor'); }
+    else { physicalPts += 7; }
+
+    // ── Age bonus (5 pts) ──
+    if (opts.ageYears !== null && opts.ageYears !== undefined) {
+        if (opts.ageYears >= 12 && bodyConditionScore !== null && bodyConditionScore >= 4 && bodyConditionScore <= 5) {
+            physicalPts += 5;
+            physicalFactors.push('Age bonus: Ideal condition at 12+ years');
+        } else if (opts.ageYears >= 10 && coatCondition === 'good') {
+            physicalPts += 3;
+            physicalFactors.push('Age bonus: Good coat at 10+ years');
+        }
     }
+
+    const physicalMax = 45;
+    const physicalClamped = Math.min(physicalMax, physicalPts);
+    const physicalLabel = physicalClamped >= 38 ? 'Excellent' : physicalClamped >= 28 ? 'Good' : physicalClamped >= 18 ? 'Fair' : 'Concerning';
+
+    // ════════════════════════════════════════════
+    // MEDICAL SUB-SCORE (25 pts max)
+    //   Visible conditions: 15pts · Note keywords: 10pts
+    // ════════════════════════════════════════════
+    let medicalPts = 25; // start full, deduct
+    const medicalFactors: string[] = [];
+
+    // ── Visible conditions (15 pts pool) ──
+    if (visibleConditions.length === 0) {
+        medicalFactors.push('No visible health concerns detected');
+    } else {
+        let visDeduction = 0;
+        for (const condition of visibleConditions) {
+            const isBreedTypical = breedConditions.some(bc => condition.toLowerCase().includes(bc) || bc.includes(condition.toLowerCase()));
+            if (isBreedTypical) {
+                visDeduction += 2; // reduced deduction for breed-typical
+                medicalFactors.push(`${condition} (common for breed)`);
+            } else {
+                visDeduction += 4;
+            }
+        }
+        medicalPts -= Math.min(15, visDeduction);
+        if (medicalFactors.length === 0) {
+            medicalFactors.push(`Visible observations: ${visibleConditions.join(', ')}`);
+        }
+    }
+
+    // ── Note keywords (10 pts pool) ──
+    const noteFindings = extractNoteConditions(opts.notes ?? null, opts.healthNotes ?? null);
+    const allNoteConditions: string[] = [];
+    if (noteFindings.high.length > 0) {
+        const deduction = Math.min(8, noteFindings.high.length * 4);
+        medicalPts -= deduction;
+        for (const kw of noteFindings.high) {
+            const label = formatConditionLabel(kw);
+            allNoteConditions.push(label);
+            medicalFactors.push(`⚠ ${label} (from listing notes)`);
+        }
+    }
+    if (noteFindings.moderate.length > 0) {
+        const deduction = Math.min(6, noteFindings.moderate.length * 2);
+        medicalPts -= deduction;
+        for (const kw of noteFindings.moderate) {
+            const label = formatConditionLabel(kw);
+            allNoteConditions.push(label);
+            medicalFactors.push(`${label} (from listing notes)`);
+        }
+    }
+    if (noteFindings.high.length === 0 && noteFindings.moderate.length === 0 && visibleConditions.length === 0) {
+        medicalFactors.push('No medical flags detected');
+    }
+
+    const medicalClamped = Math.max(0, Math.min(25, medicalPts));
+    const medicalLabel = medicalClamped >= 22 ? 'Clear' : medicalClamped >= 15 ? 'Minor flags' : medicalClamped >= 8 ? 'Moderate' : 'Significant';
+
+    // Merge all conditions for tags (CV + notes, deduped), with normalization
+    const normalizeTag = (raw: string): string => {
+        let s = raw.trim();
+        // Strip leading "possible ", "likely ", "mild ", "slight ", "appears to have "
+        s = s.replace(/^(possible|likely|mild|slight|appears to have|seems to have|evidence of|signs of)\s+/i, '');
+        // Strip trailing location qualifiers like "on left eye", "in rear leg", "on lower right leg/paw"
+        s = s.replace(/\s+(on|in|of|at|near|around)\s+(the\s+)?(left|right|upper|lower|rear|front|hind|back)[\w\s/]*$/i, '');
+        // Strip leading "mark ", "spot ", "area " if followed by location
+        s = s.replace(/^(mark|spot|area|patch|lesion)\s+(on|in|of)\s+/i, '');
+        // If still has "on/in" location at end, strip it
+        s = s.replace(/\s+(on|in)\s+[\w\s/]+$/i, '');
+        // Title case
+        s = s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+        // Cap length
+        if (s.length > 30) s = s.slice(0, 28) + '…';
+        return s;
+    };
+    const cvNormalized = visibleConditions.map(normalizeTag);
+    const cvLower = cvNormalized.map(c => c.toLowerCase());
+    const noteConditions = [
+        ...cvNormalized,
+        ...allNoteConditions.filter(nc => !cvLower.includes(nc.toLowerCase())),
+    ];
+
+    // ════════════════════════════════════════════
+    // SHELTER COMFORT SUB-SCORE (30 pts max)
+    //   Stress/fear: 20pts · Care level: 10pts
+    //   Measures the animal's current state in a shelter
+    //   environment — NOT a reflection of temperament.
+    // ════════════════════════════════════════════
+    let comfortPts = 0;
+    const comfortFactors: string[] = [];
 
     // ── Stress & Fear (20 pts) ──
     let stressPts = 15; // default moderate
     if (stressLevel === 'low') stressPts = 20;
     else if (stressLevel === 'moderate') stressPts = 14;
     else if (stressLevel === 'high') stressPts = 6;
-    // Deduct for fear indicators
     stressPts = Math.max(0, stressPts - fearIndicators.length * 3);
-    total += stressPts;
+    comfortPts += stressPts;
+
     if (stressLevel) {
-        factors.push(`Stress level: ${stressLevel}${fearIndicators.length > 0 ? ` · Fear signals: ${fearIndicators.join(', ')}` : ''}`);
+        comfortFactors.push(`Shelter stress: ${stressLevel}${fearIndicators.length > 0 ? ` · Fear signals: ${fearIndicators.join(', ')}` : ''}`);
     } else if (fearIndicators.length > 0) {
-        factors.push(`Fear signals: ${fearIndicators.join(', ')}`);
+        comfortFactors.push(`Fear signals in photo: ${fearIndicators.join(', ')}`);
     } else {
-        factors.push('Stress/fear: Not assessed');
+        comfortFactors.push('Stress: Not assessed');
     }
 
-    // ── Coat Condition (10 pts) ──
-    if (coatCondition === 'good') { total += 10; }
-    else if (coatCondition === 'fair') { total += 6; }
-    else if (coatCondition === 'poor') { total += 2; }
-    else { total += 7; } // neutral default
+    // ── Care Level (10 pts) ──
+    if (estimatedCareLevel === 'low') { comfortPts += 10; }
+    else if (estimatedCareLevel === 'moderate') { comfortPts += 6; comfortFactors.push('Estimated care: Moderate'); }
+    else if (estimatedCareLevel === 'high') { comfortPts += 2; comfortFactors.push('Estimated care: High'); }
+    else { comfortPts += 6; }
 
-    // ── Estimated Care Level (10 pts) ──
-    if (estimatedCareLevel === 'low') { total += 10; }
-    else if (estimatedCareLevel === 'moderate') { total += 6; }
-    else if (estimatedCareLevel === 'high') { total += 2; }
-    else { total += 6; } // neutral default
+    const comfortClamped = Math.min(30, comfortPts);
+    const comfortLabel = comfortClamped >= 25 ? 'Settled' : comfortClamped >= 16 ? 'Adjusting' : comfortClamped >= 8 ? 'Stressed' : 'Unsettled';
 
-    // Clamp
-    const score = Math.max(0, Math.min(100, total));
+    // ════════════════════════════════════════════
+    // TOTAL
+    // ════════════════════════════════════════════
+    const total = Math.max(0, Math.min(100, physicalClamped + medicalClamped + comfortClamped));
 
-    // Label
     let label: string;
-    if (score >= 85) label = 'Excellent';
-    else if (score >= 70) label = 'Good';
-    else if (score >= 50) label = 'Fair';
-    else if (score >= 30) label = 'Needs Attention';
+    if (total >= 85) label = 'Excellent';
+    else if (total >= 70) label = 'Good';
+    else if (total >= 50) label = 'Fair';
+    else if (total >= 30) label = 'Needs Attention';
     else label = 'Concerning';
 
-    return { score, label, factors };
+    const factors = [...physicalFactors, ...medicalFactors, ...comfortFactors];
+
+    return {
+        score: total,
+        label,
+        factors,
+        subScores: {
+            physical: { score: physicalClamped, max: physicalMax, label: physicalLabel, factors: physicalFactors },
+            medical: { score: medicalClamped, max: 25, label: medicalLabel, factors: medicalFactors },
+            comfort: { score: comfortClamped, max: 30, label: comfortLabel, factors: comfortFactors },
+        },
+        noteConditions,
+    };
 }
 
 export function formatLifeCutShort(

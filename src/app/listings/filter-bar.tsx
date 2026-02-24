@@ -10,13 +10,14 @@ interface FilterBarProps {
     currentZip: string;
     currentSort: string;
     currentRadius: string;
+    currentSource: string;
     hasLocation: boolean;
     states: string[];
 }
 
 export function FilterBar({
     currentSpecies, currentState, currentSex, currentZip,
-    currentSort, currentRadius, hasLocation, states,
+    currentSort, currentRadius, currentSource, hasLocation, states,
 }: FilterBarProps) {
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -132,6 +133,17 @@ export function FilterBar({
                 {states.map((state) => (
                     <option key={state} value={state}>{state}</option>
                 ))}
+            </select>
+
+            <select
+                className="filter-bar__select"
+                value={currentSource}
+                onChange={(e) => updateFilter('source', e.target.value)}
+                aria-label="Filter by source type"
+            >
+                <option value="all">All Sources</option>
+                <option value="municipal">Shelters</option>
+                <option value="rescue">Rescues</option>
             </select>
 
             <select

@@ -430,6 +430,39 @@
   backdrop-filter: blur(4px);
 }
 
+/* --- Copy Link Icon on Card --- */
+.animal-card__copy-link {
+  position: absolute;
+  top: var(--space-sm);
+  left: var(--space-sm);
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+  border: none;
+  border-radius: var(--radius-full);
+  color: var(--color-text);
+  font-size: 0.75rem;
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+  opacity: 0;
+  transition: opacity 0.2s ease, background 0.2s ease, transform 0.2s ease;
+  z-index: 2;
+  padding: 0;
+  line-height: 1;
+}
+
+.animal-card:hover .animal-card__copy-link {
+  opacity: 1;
+}
+
+.animal-card__copy-link:hover {
+  background: rgba(0, 0, 0, 0.8);
+  transform: scale(1.1);
+}
+
 /* --- Radius Select (smaller) --- */
 .filter-bar__select--sm {
   min-width: 80px;
@@ -1102,6 +1135,102 @@
 
 .shelter-data-card__metric-value--flat {
   color: var(--color-text-muted);
+}
+
+/* --- Intake Bar Graph --- */
+.shelter-data-card__intake-bars {
+  padding-top: var(--space-lg);
+  margin-top: var(--space-lg);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.shelter-data-card__intake-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: var(--space-sm);
+}
+
+.shelter-data-card__intake-title {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.shelter-data-card__yoy {
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.shelter-data-card__yoy.up {
+  color: #4ade80;
+}
+
+.shelter-data-card__yoy.down {
+  color: #f87171;
+}
+
+.shelter-data-card__intake-graph {
+  display: flex;
+  gap: var(--space-md);
+  align-items: flex-end;
+  height: 100px;
+}
+
+.shelter-data-card__intake-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+}
+
+.shelter-data-card__intake-track {
+  width: 100%;
+  height: 70px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: flex-end;
+  overflow: hidden;
+}
+
+.shelter-data-card__intake-fill {
+  width: 100%;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  transition: height 0.6s ease;
+}
+
+.shelter-data-card__intake-fill.current {
+  background: linear-gradient(180deg, rgba(255, 192, 75, 0.6), rgba(255, 192, 75, 0.25));
+}
+
+.shelter-data-card__intake-fill.prior {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.06));
+}
+
+.shelter-data-card__intake-fill.unknown {
+  height: 100%;
+  background: repeating-linear-gradient(-45deg,
+      transparent,
+      transparent 3px,
+      rgba(255, 255, 255, 0.04) 3px,
+      rgba(255, 255, 255, 0.04) 6px);
+}
+
+.shelter-data-card__intake-count {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.shelter-data-card__intake-year {
+  font-size: 0.6875rem;
+  color: var(--color-text-dim);
+  font-weight: 500;
 }
 
 /* --- Responsive — Listings --- */

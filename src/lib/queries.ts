@@ -21,6 +21,7 @@ export interface AnimalFilters {
     sort?: string;
     page?: string;
     radius?: string;
+    source?: string;
 }
 
 export interface AnimalResult extends AnimalWithShelter {
@@ -41,11 +42,42 @@ const DEFAULT_RADIUS = 100; // miles
 // ─── Animal Queries ──────────────────────────────────────
 
 /**
+ * Size-aware senior age thresholds for dogs (mirrors scraper/base-adapter).
+ */
+const DOG_SENIOR_BY_SIZE: Record<string, number> = {
+    XLARGE: 5,   // giant breeds
+    LARGE: 6,
+    MEDIUM: 7,
+    SMALL: 9,
+};
+
+function seniorThreshold(species: string, size: string | null): number {
+    if (species === 'CAT') return 10;
+    if (species === 'DOG' && size && DOG_SENIOR_BY_SIZE[size] !== undefined) {
+        return DOG_SENIOR_BY_SIZE[size];
+    }
+    return 7; // default for dogs w/o size, OTHER
+}
+
+/**
+ * Determine if an animal should be excluded — BOTH the shelter-reported age
+ * AND our CV age estimate confirm the animal is NOT a senior.
+ */
+function shouldExclude(animal: AnimalWithShelter): boolean {
+    const threshold = seniorThreshold(animal.species, animal.size);
+    const shelterBelow = animal.ageKnownYears !== null && animal.ageKnownYears < threshold;
+    const cvBelow = animal.ageEstimatedHigh !== null && animal.ageEstimatedHigh < threshold;
+    // Exclude only when both sources agree
+    if (shelterBelow && cvBelow) return true;
+    return false;
+}
+
+/**
  * Determine if an animal is "deprioritized" — our CV age estimate
- * says the animal is likely NOT a senior.
+ * says the animal is likely NOT a senior, but we can't confirm exclusion.
  */
 function isDeprioritized(animal: AnimalWithShelter): boolean {
-    const threshold = animal.species === 'CAT' ? 10 : 7;
+    const threshold = seniorThreshold(animal.species, animal.size);
     if (animal.ageEstimatedHigh !== null && animal.ageEstimatedHigh < threshold) {
         return true;
     }
@@ -66,11 +98,19 @@ export async function getFilteredAnimals(filters: AnimalFilters): Promise<Pagina
         where.sex = filters.sex.toUpperCase();
     }
 
+    // Build shelter relation filter conditions
+    const shelterWhere: Record<string, unknown> = {};
+
     if (filters.state && filters.state !== 'all') {
-        where.shelter = {
-            ...(where.shelter as Record<string, unknown> || {}),
-            state: { equals: filters.state, mode: 'insensitive' },
-        };
+        shelterWhere.state = { equals: filters.state, mode: 'insensitive' };
+    }
+
+    if (filters.source && filters.source !== 'all') {
+        shelterWhere.shelterType = filters.source.toUpperCase();
+    }
+
+    if (Object.keys(shelterWhere).length > 0) {
+        where.shelter = { is: shelterWhere };
     }
 
     // Timeframe filter
@@ -274,7 +314,7 @@ async function applySearchIntent(
     // State (from NLP, only if not already filtered via dropdown)
     if (intent.state && !where.shelter) {
         andClauses.push({
-            shelter: { state: { equals: intent.state, mode: 'insensitive' } },
+            shelter: { is: { state: { equals: intent.state, mode: 'insensitive' } } },
         });
     }
 
@@ -282,8 +322,8 @@ async function applySearchIntent(
     if (intent.city) {
         andClauses.push({
             OR: [
-                { shelter: { county: { contains: intent.city, mode: 'insensitive' } } },
-                { shelter: { name: { contains: intent.city, mode: 'insensitive' } } },
+                { shelter: { is: { county: { contains: intent.city, mode: 'insensitive' } } } },
+                { shelter: { is: { name: { contains: intent.city, mode: 'insensitive' } } } },
             ],
         });
     }
@@ -321,7 +361,7 @@ async function applySearchIntent(
     // Zip code — match against shelter zipCode
     if (intent.zip) {
         andClauses.push({
-            shelter: { zipCode: { startsWith: intent.zip } },
+            shelter: { is: { zipCode: { startsWith: intent.zip } } },
         });
     }
 
@@ -331,8 +371,8 @@ async function applySearchIntent(
             OR: [
                 { name: { contains: token, mode: 'insensitive' } },
                 { breed: { contains: token, mode: 'insensitive' } },
-                { shelter: { name: { contains: token, mode: 'insensitive' } } },
-                { shelter: { county: { contains: token, mode: 'insensitive' } } },
+                { shelter: { is: { name: { contains: token, mode: 'insensitive' } } } },
+                { shelter: { is: { county: { contains: token, mode: 'insensitive' } } } },
             ],
         });
     }
@@ -357,7 +397,7 @@ export async function searchAnimals(intent: SearchIntent): Promise<AnimalWithShe
         orderBy: [{ createdAt: 'desc' }],
     }) as AnimalWithShelter[];
 
-    return animals.sort((a, b) => {
+    return animals.filter((a) => !shouldExclude(a)).sort((a, b) => {
         const aEuth = a.euthScheduledAt ? new Date(a.euthScheduledAt).getTime() : Infinity;
         const bEuth = b.euthScheduledAt ? new Date(b.euthScheduledAt).getTime() : Infinity;
         if (aEuth !== bEuth) return aEuth - bEuth;
@@ -482,6 +522,113 @@ export async function getAnimalById(id: string): Promise<AnimalWithShelterAndSou
     });
 }
 
+/**
+ * Compute 3-5 noteworthy natural-language insights about a shelter's animals.
+ */
+export async function getShelterInsights(shelterId: string): Promise<string[]> {
+    const animals = await prisma.animal.findMany({
+        where: { shelterId, status: { in: ['AVAILABLE', 'URGENT', 'RESCUE_PULL'] } },
+        select: {
+            species: true,
+            breed: true,
+            size: true,
+            sex: true,
+            ageKnownYears: true,
+            ageEstimatedLow: true,
+            ageEstimatedHigh: true,
+            intakeReason: true,
+        },
+    });
+
+    if (animals.length < 3) return []; // not enough data
+
+    const insights: string[] = [];
+    const total = animals.length;
+
+    // 1. Species breakdown
+    const dogs = animals.filter(a => a.species === 'DOG').length;
+    const cats = animals.filter(a => a.species === 'CAT').length;
+    if (dogs > 0 && cats > 0) {
+        const dogPct = Math.round((dogs / total) * 100);
+        const catPct = Math.round((cats / total) * 100);
+        if (dogPct >= 70) insights.push(`${dogPct}% of seniors here are dogs`);
+        else if (catPct >= 70) insights.push(`${catPct}% of seniors here are cats`);
+        else insights.push(`Mixed population: ${dogPct}% dogs, ${catPct}% cats`);
+    } else if (dogs > 0) {
+        insights.push(`All ${total} seniors here are dogs`);
+    } else if (cats > 0) {
+        insights.push(`All ${total} seniors here are cats`);
+    }
+
+    // 2. Top breed (if clear leader)
+    const breedCounts = new Map<string, number>();
+    for (const a of animals) {
+        if (a.breed) {
+            const normalized = a.breed.toLowerCase().replace(/mix$/i, '').trim();
+            breedCounts.set(normalized, (breedCounts.get(normalized) || 0) + 1);
+        }
+    }
+    const sortedBreeds = [...breedCounts.entries()].sort((a, b) => b[1] - a[1]);
+    if (sortedBreeds.length > 0) {
+        const [topBreed, topCount] = sortedBreeds[0];
+        const pct = Math.round((topCount / total) * 100);
+        if (pct >= 10 && topCount >= 2) {
+            const display = topBreed.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+            insights.push(`${display} mixes make up ${pct}% of intake`);
+        }
+    }
+
+    // 3. Size distribution skew
+    const sizes = animals.filter(a => a.size !== null);
+    if (sizes.length >= 3) {
+        const large = sizes.filter(a => a.size === 'LARGE' || a.size === 'XLARGE').length;
+        const small = sizes.filter(a => a.size === 'SMALL').length;
+        const largePct = Math.round((large / sizes.length) * 100);
+        const smallPct = Math.round((small / sizes.length) * 100);
+        if (largePct >= 50) insights.push(`${largePct}% are large or extra-large animals`);
+        else if (smallPct >= 50) insights.push(`${smallPct}% are small-breed animals`);
+    }
+
+    // 4. Intake reason pattern
+    const surrenders = animals.filter(a => a.intakeReason === 'OWNER_SURRENDER').length;
+    const strays = animals.filter(a => a.intakeReason === 'STRAY').length;
+    if (surrenders >= 3) {
+        const pct = Math.round((surrenders / total) * 100);
+        if (pct >= 25) insights.push(`${pct}% were surrendered by their owners`);
+    }
+    if (strays >= 3) {
+        const pct = Math.round((strays / total) * 100);
+        if (pct >= 25) insights.push(`${pct}% came in as strays`);
+    }
+
+    // 5. Age clustering
+    const ages = animals
+        .map(a => a.ageKnownYears ?? (a.ageEstimatedLow !== null && a.ageEstimatedHigh !== null
+            ? Math.round((a.ageEstimatedLow + a.ageEstimatedHigh) / 2) : null))
+        .filter((a): a is number => a !== null);
+    if (ages.length >= 3) {
+        const avg = Math.round(ages.reduce((s, a) => s + a, 0) / ages.length);
+        const over12 = ages.filter(a => a >= 12).length;
+        const over12Pct = Math.round((over12 / ages.length) * 100);
+        if (over12Pct >= 30) {
+            insights.push(`${over12Pct}% are 12 years or older`);
+        } else {
+            insights.push(`Average age of seniors is ${avg} years`);
+        }
+    }
+
+    // 6. Gender skew
+    const males = animals.filter(a => a.sex === 'MALE').length;
+    const females = animals.filter(a => a.sex === 'FEMALE').length;
+    if (males + females >= 5) {
+        const malePct = Math.round((males / (males + females)) * 100);
+        if (malePct >= 65) insights.push(`${malePct}% of seniors are male`);
+        else if (malePct <= 35) insights.push(`${100 - malePct}% of seniors are female`);
+    }
+
+    return insights.slice(0, 5);
+}
+
 /** Fetch minimal animal data for metadata generation (no sources needed). */
 export async function getAnimalForMetadata(id: string) {
     return prisma.animal.findUnique({
@@ -541,4 +688,30 @@ export async function getActivePolls() {
         where: { active: true },
         orderBy: { createdAt: 'desc' },
     });
+}
+
+// ─── Snapshot Queries ────────────────────────────────────
+
+/** Fetch temporal snapshots for an animal, newest first. */
+export async function getAnimalSnapshots(animalId: string) {
+    return prisma.animalSnapshot.findMany({
+        where: { animalId },
+        orderBy: { scrapedAt: 'desc' },
+        take: 50, // cap at 50 snapshots
+    });
+}
+
+/** Look up breed-typical health conditions from BreedProfile table. */
+export async function getBreedCommonConditions(breedNames: string[]): Promise<string[]> {
+    if (breedNames.length === 0) return [];
+    const profiles = await prisma.breedProfile.findMany({
+        where: {
+            OR: breedNames.map(name => ({
+                name: { contains: name, mode: 'insensitive' as const },
+            })),
+        },
+        select: { commonConditions: true },
+    });
+    const conditions = profiles.flatMap(p => p.commonConditions);
+    return [...new Set(conditions)];
 }

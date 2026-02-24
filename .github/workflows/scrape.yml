@@ -3,7 +3,7 @@
 # Keeps animal listings and shelter data fresh by running
 # scraper pipelines on a cron schedule.
 #
-# Budget: ~1,458 of 2,000 free GitHub Actions min/month
+# Budget: ~1,700 of 2,000 free GitHub Actions min/month
 #
 # Required repository secrets:
 #   DATABASE_URL        — Railway PostgreSQL connection string
@@ -35,6 +35,9 @@ on:
           - shelters
           - rescuegroups
           - petango
+          - shelterluv
+          - adoptapet
+          - socrata-listings
           - opendata
           - breeds
           - shelter-stats
@@ -107,6 +110,69 @@ jobs:
       - run: npm ci
       - run: npx prisma generate
       - run: npx tsx scraper/run-petango.ts
+
+  # ── Socrata Listings (every 8 hours) ────────────────────
+  scrape-socrata-listings:
+    if: >-
+      github.event.schedule == '0 2,10,18 * * *' ||
+      (github.event_name == 'workflow_dispatch' &&
+       (github.event.inputs.pipeline == 'all' ||
+        github.event.inputs.pipeline == 'socrata-listings'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npx tsx scraper/run-socrata-listings.ts
+
+  # ── ShelterLuv (every 8 hours) ─────────────────────────
+  scrape-shelterluv:
+    if: >-
+      github.event.schedule == '0 2,10,18 * * *' ||
+      (github.event_name == 'workflow_dispatch' &&
+       (github.event.inputs.pipeline == 'all' ||
+        github.event.inputs.pipeline == 'shelterluv'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npx tsx scraper/run-shelterluv.ts
+
+  # ── Adopt-a-Pet (every 12 hours) ─────────────────────
+  scrape-adoptapet:
+    if: >-
+      github.event.schedule == '0 2,10,18 * * *' ||
+      (github.event_name == 'workflow_dispatch' &&
+       (github.event.inputs.pipeline == 'all' ||
+        github.event.inputs.pipeline == 'adoptapet'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npx tsx scraper/run-adoptapet.ts
 
   # ── Open Data Stats (weekly) ────────────────────────────
   scrape-stats:

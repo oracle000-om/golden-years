@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { getNoKillShelters } from '@/lib/queries';
 import { DidYouKnowCard } from './dyk-card';
 
-export const revalidate = 3600;
+export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
     title: 'Best of Breed | Golden Years Club',

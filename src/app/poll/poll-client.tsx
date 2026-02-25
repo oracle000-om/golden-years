@@ -7,6 +7,7 @@ interface Poll {
     slug: string;
     title: string;
     statement: string;
+    seniorNote: string | null;
     forTitle: string;
     forArgument: string;
     againstTitle: string;
@@ -101,7 +102,7 @@ function PollCard({ poll, viewMode }: { poll: Poll; viewMode: ViewMode }) {
                 `/api/poll/results?pollId=${poll.id}&voterToken=${token}`
             );
             const data = await res.json();
-            if (!data.locked) {
+            if (data.hasVoted) {
                 setResults(data.results);
                 setSelected(data.userChoice);
                 setHasVoted(true);
@@ -327,6 +328,13 @@ function PollCard({ poll, viewMode }: { poll: Poll; viewMode: ViewMode }) {
                 <button className="poll-item__expand" onClick={() => setExpanded(true)}>
                     Weigh in →
                 </button>
+            )}
+
+            {/* Senior impact — only visible when card is unfurled */}
+            {(isListMode || expanded) && poll.seniorNote && (
+                <div className="poll-item__senior-note">
+                    🐾 <strong>Senior impact:</strong> {poll.seniorNote}
+                </div>
             )}
         </div>
     );

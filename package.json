@@ -19,6 +19,13 @@
     "scrape:shelterluv": "npx tsx scraper/run-shelterluv.ts",
     "scrape:adoptapet": "npx tsx scraper/run-adoptapet.ts",
     "scrape:socrata-listings": "npx tsx scraper/run-socrata-listings.ts",
+    "scrape:colorado": "npx tsx scraper/run-colorado.ts",
+    "scrape:michigan": "npx tsx scraper/run-michigan.ts",
+    "scrape:north-carolina": "npx tsx scraper/run-north-carolina.ts",
+    "scrape:new-jersey": "npx tsx scraper/run-new-jersey.ts",
+    "scrape:south-carolina": "npx tsx scraper/run-south-carolina.ts",
+    "scrape:connecticut": "npx tsx scraper/run-connecticut.ts",
+    "scrape:maryland": "npx tsx scraper/run-maryland.ts",
     "postinstall": "prisma generate",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -51,6 +58,7 @@
     "eslint-config-next": "16.1.6",
     "tsx": "^4.21.0",
     "typescript": "^5",
-    "vitest": "^4.0.18"
+    "vitest": "^4.0.18",
+    "xlsx": "^0.18.5"
   }
 }

@@ -141,6 +141,15 @@
   line-height: 1.7;
 }
 
+.poll-item__senior-note {
+  padding: var(--space-sm) var(--space-xl);
+  background: rgba(255, 192, 75, 0.04);
+  border-top: 1px solid rgba(255, 192, 75, 0.1);
+  font-size: var(--font-size-xs);
+  color: var(--color-gold);
+  line-height: 1.6;
+}
+
 .poll-item__status {
   display: flex;
   align-items: center;
@@ -546,3 +555,4 @@
   .poll-item__expand {
     padding: var(--space-sm) var(--space-md);
   }
+}

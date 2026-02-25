@@ -114,6 +114,7 @@ model Animal {
 
   // ── v3: Status lifecycle ──
   delistedAt            DateTime?   @map("delisted_at")
+  shelterEntryCount     Int         @default(1) @map("shelter_entry_count")
   outcomeDate           DateTime?   @map("outcome_date")
   outcomeNotes          String?     @map("outcome_notes")
 
@@ -242,6 +243,7 @@ model Poll {
   slug            String     @unique
   title           String     @default("")
   statement       String
+  seniorNote      String?    @map("senior_note")
   forTitle        String     @map("for_title")
   forArgument     String     @map("for_argument")
   againstTitle    String     @map("against_title")
@@ -249,6 +251,7 @@ model Poll {
   neitherTitle    String     @default("It's not that simple") @map("neither_title")
   neitherPrompt   String     @default("Here's what needs to change:") @map("neither_prompt")
   active          Boolean    @default(true)
+  sortOrder       Int        @default(0) @map("sort_order")
   createdAt       DateTime   @default(now()) @map("created_at")
 
   votes PollVote[]
@@ -331,4 +334,47 @@ model ScrapeFailure {
 
   @@index([pipeline, resolvedAt])
   @@map("scrape_failures")
+}
+
+model StatePolicy {
+  id                    String   @id @default(uuid())
+  state                 String   @unique  // 2-letter code (e.g., "TX")
+  stateName             String   @map("state_name")   // Full name (e.g., "Texas")
+
+  // ── ALDF Rankings ──
+  aldfRank              Int?     @map("aldf_rank")     // 1-50
+  aldfTier              String?  @map("aldf_tier")     // "Top Tier", "Middle Tier", "Bottom Tier"
+  aldfYear              Int?     @map("aldf_year")     // Report year (e.g., 2025)
+  aldfUrl               String?  @map("aldf_url")      // e.g., "https://aldf.org/state/texas"
+
+  // ── Shelter-Relevant Policies ──
+  mandatoryReporting       Boolean? @map("mandatory_reporting")        // State requires shelter stats reporting?
+  reportingBody            String?  @map("reporting_body")             // e.g., "VDACS", "NCDA&CS"
+  reportingUrl             String?  @map("reporting_url")              // URL to reporting portal
+  holdingPeriodDays        Int?     @map("holding_period_days")        // Min days before euthanasia
+  spayNeuterRequired       Boolean? @map("spay_neuter_required")      // Required before adoption?
+  breedSpecificLegislation Boolean? @map("breed_specific_legislation") // BSL exists?
+  bslDetails               String?  @map("bsl_details")               // What breeds / what restrictions
+  vetCrueltyReporting      Boolean? @map("vet_cruelty_reporting")     // Vets must report cruelty?
+  crossReporting           Boolean? @map("cross_reporting")           // Animal ↔ child abuse cross-reporting?
+  catDeclawingBan          Boolean? @map("cat_declawing_ban")
+  cosmeticsTestingBan      Boolean? @map("cosmetics_testing_ban")
+  policyNotes              String?  @map("policy_notes")              // Free-text notes
+
+  // ── Metadata ──
+  lastScrapedAt         DateTime? @map("last_scraped_at")
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+
+  @@map("state_policies")
+}
+
+model Feedback {
+  id        String   @id @default(uuid())
+  firstName String   @map("first_name")
+  email     String?
+  note      String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("feedback")
 }

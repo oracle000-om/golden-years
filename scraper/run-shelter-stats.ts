@@ -76,13 +76,13 @@ async function main() {
             if (dryRun) {
                 console.log(`   ✅ MATCH: "${sacShelter.sacName}" → "${match.name}" (${match.id})`);
                 console.log(`      Intake: ${sacShelter.totalIntake.toLocaleString()} | Euth: ${sacShelter.totalEuthanized.toLocaleString()} | LRR: ${liveReleaseRate}% | Year: ${sacShelter.dataYear}`);
-                if (match.dataYear && sacShelter.dataYear <= match.dataYear) {
-                    console.log(`      ⚠ Skipping: DB has newer or same data (${match.dataYear})`);
+                if (match.totalIntakeAnnual > 0 && match.dataYear && sacShelter.dataYear <= match.dataYear) {
+                    console.log(`      ⚠ Skipping: DB has real stats from ${match.dataYear}`);
                 }
             } else {
-                // Only update if SAC data is newer
-                if (match.dataYear && sacShelter.dataYear <= match.dataYear) {
-                    console.log(`   ⏭ ${match.name}: DB has data from ${match.dataYear}, SAC has ${sacShelter.dataYear}`);
+                // Only skip if DB has REAL stats (non-zero intake) from a newer year
+                if (match.totalIntakeAnnual > 0 && match.dataYear && sacShelter.dataYear <= match.dataYear) {
+                    console.log(`   ⏭ ${match.name}: DB has real stats from ${match.dataYear}, SAC has ${sacShelter.dataYear}`);
                     continue;
                 }
 

@@ -68,15 +68,15 @@
         "id": "slv-33",
         "shelterName": "ShelterLuv IFAS",
         "orgId": "33",
-        "city": "Unknown",
-        "state": "US"
+        "city": "Sudbury",
+        "state": "MA"
     },
     {
         "id": "slv-167",
         "shelterName": "ShelterLuv MVSF",
         "orgId": "167",
-        "city": "Unknown",
-        "state": "US"
+        "city": "West Palm Beach",
+        "state": "FL"
     },
     {
         "id": "slv-168",
@@ -110,8 +110,8 @@
         "id": "slv-184",
         "shelterName": "ShelterLuv RCKT",
         "orgId": "184",
-        "city": "Unknown",
-        "state": "US"
+        "city": "Placentia",
+        "state": "CA"
     },
     {
         "id": "slv-187",
@@ -145,15 +145,15 @@
         "id": "slv-271",
         "shelterName": "ShelterLuv PAWS",
         "orgId": "271",
-        "city": "Unknown",
-        "state": "US"
+        "city": "Brighton",
+        "state": "CO"
     },
     {
         "id": "slv-278",
         "shelterName": "ShelterLuv CLIL",
         "orgId": "278",
-        "city": "Unknown",
-        "state": "US"
+        "city": "Oak Park",
+        "state": "IL"
     },
     {
         "id": "slv-280",
@@ -173,8 +173,8 @@
         "id": "slv-1211",
         "shelterName": "ShelterLuv ACT",
         "orgId": "1211",
-        "city": "Unknown",
-        "state": "US"
+        "city": "Fresno",
+        "state": "CA"
     },
     {
         "id": "slv-1263",
@@ -215,8 +215,8 @@
         "id": "slv-2762",
         "shelterName": "ShelterLuv CCIL",
         "orgId": "2762",
-        "city": "Unknown",
-        "state": "US"
+        "city": "Chicago",
+        "state": "IL"
     },
     {
         "id": "slv-2783",
@@ -285,8 +285,8 @@
         "id": "slv-5442",
         "shelterName": "ShelterLuv HACC",
         "orgId": "5442",
-        "city": "Unknown",
-        "state": "US"
+        "city": "Henderson",
+        "state": "NV"
     },
     {
         "id": "slv-5449",
@@ -362,22 +362,22 @@
         "id": "slv-5595",
         "shelterName": "ShelterLuv HPAC",
         "orgId": "5595",
-        "city": "Unknown",
-        "state": "US"
+        "city": "Woodinville",
+        "state": "WA"
     },
     {
         "id": "slv-5596",
         "shelterName": "ShelterLuv HTAR",
         "orgId": "5596",
-        "city": "Unknown",
-        "state": "US"
+        "city": "St. Augustine",
+        "state": "FL"
     },
     {
         "id": "slv-5618",
         "shelterName": "ShelterLuv HNC",
         "orgId": "5618",
-        "city": "Unknown",
-        "state": "US"
+        "city": "Fayetteville",
+        "state": "NC"
     },
     {
         "id": "slv-5620",
@@ -481,8 +481,8 @@
         "id": "slv-379",
         "shelterName": "ShelterLuv MNDO",
         "orgId": "379",
-        "city": "Unknown",
-        "state": "US"
+        "city": "Fort Bragg",
+        "state": "CA"
     },
     {
         "id": "slv-474",
@@ -509,8 +509,8 @@
         "id": "slv-593",
         "shelterName": "ShelterLuv 593",
         "orgId": "593",
-        "city": "Unknown",
-        "state": "US"
+        "city": "Brownsboro",
+        "state": "AL"
     },
     {
         "id": "slv-6205",
@@ -551,8 +551,8 @@
         "id": "slv-6278",
         "shelterName": "ShelterLuv JJMO",
         "orgId": "6278",
-        "city": "Unknown",
-        "state": "US"
+        "city": "St. Louis",
+        "state": "MO"
     },
     {
         "id": "slv-6302",
@@ -565,8 +565,8 @@
         "id": "slv-6349",
         "shelterName": "ShelterLuv KCHA",
         "orgId": "6349",
-        "city": "Unknown",
-        "state": "US"
+        "city": "Charleston",
+        "state": "WV"
     },
     {
         "id": "slv-6414",
@@ -635,15 +635,15 @@
         "id": "slv-11816",
         "shelterName": "ShelterLuv UCHS",
         "orgId": "11816",
-        "city": "Unknown",
-        "state": "US"
+        "city": "Marysville",
+        "state": "OH"
     },
     {
         "id": "slv-11820",
         "shelterName": "ShelterLuv UAF",
         "orgId": "11820",
-        "city": "Unknown",
-        "state": "US"
+        "city": "Rock Falls",
+        "state": "IL"
     },
     {
         "id": "slv-11843",
@@ -691,8 +691,8 @@
         "id": "slv-11985",
         "shelterName": "ShelterLuv WWPR",
         "orgId": "11985",
-        "city": "Unknown",
-        "state": "US"
+        "city": "Columbia",
+        "state": "SC"
     },
     {
         "id": "slv-12020",
@@ -726,8 +726,8 @@
         "id": "foster-home-6001",
         "shelterName": "Foster Home",
         "orgId": "6001",
-        "city": "Unknown",
-        "state": "US"
+        "city": "Shorewood",
+        "state": "IL"
     },
     {
         "id": "hsov-jungle-room-5943",
@@ -747,8 +747,8 @@
         "id": "foster-home-6074",
         "shelterName": "Foster Home",
         "orgId": "6074",
-        "city": "Unknown",
-        "state": "US"
+        "city": "Durham",
+        "state": "NC"
     },
     {
         "id": "hsni-kitty-corner-5884",
@@ -775,8 +775,8 @@
         "id": "humane-society-of-greater-dayton-frodo-s-5819",
         "shelterName": "Humane Society of Greater Dayton, Frodo's Feline Room",
         "orgId": "5819",
-        "city": "Unknown",
-        "state": "US"
+        "city": "Rowlett",
+        "state": "TX"
     },
     {
         "id": "foster-home-5896",
@@ -810,8 +810,8 @@
         "id": "foster-home-5968",
         "shelterName": "Foster Home",
         "orgId": "5968",
-        "city": "Unknown",
-        "state": "US"
+        "city": "Abilene",
+        "state": "TX"
     },
     {
         "id": "large-dogs-large-dogs-5986",
@@ -859,8 +859,8 @@
         "id": "critter-room-980",
         "shelterName": "Critter Room",
         "orgId": "980",
-        "city": "Unknown",
-        "state": "US"
+        "city": "Delaware",
+        "state": "OH"
     },
     {
         "id": "hsnega-cat-adoptions-5886",
@@ -880,15 +880,15 @@
         "id": "foster-home-5953",
         "shelterName": "Foster Home",
         "orgId": "5953",
-        "city": "Unknown",
-        "state": "US"
+        "city": "Murray",
+        "state": "UT"
     },
     {
         "id": "back-intake-cat-room-5941",
         "shelterName": "Back/Intake Cat Room",
         "orgId": "5941",
-        "city": "Unknown",
-        "state": "US"
+        "city": "Lima",
+        "state": "OH"
     },
     {
         "id": "bonus-room-4157",
@@ -901,8 +901,8 @@
         "id": "foster-home-5801",
         "shelterName": "Foster Home",
         "orgId": "5801",
-        "city": "Unknown",
-        "state": "US"
+        "city": "Delaware",
+        "state": "OH"
     },
     {
         "id": "dogs-main-kennel-5959",

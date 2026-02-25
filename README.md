@@ -25,6 +25,8 @@ Golden Years Club surfaces senior dogs and cats facing euthanasia at shelters an
 - **Admin dashboard** — Overview stats, source breakdowns (municipal/rescue/foster), shelter leaderboard, CV confidence, and stale animal monitoring
 - **Admin data chat** — Natural language interface to query the database (e.g., "what percent of intake are dogs at this shelter")
 - **Modular scraper pipeline** — Adapter-based system supporting 8+ data sources with JSON-driven configuration and automated reconciliation
+- **State shelter statistics** — Mandatory reporting data from Virginia (VDACS), Georgia (GDA), Florida (UF Census), Colorado (PACFA), and North Carolina (NCDA) with live release rate calculations
+- **State policy rankings** — ALDF animal protection law rankings by state
 
 ## Tech Stack
 
@@ -126,6 +128,10 @@ scraper/
     ├── adoptapet.ts            # Adopt-a-Pet API
     ├── socrata-listings.ts     # Socrata active inventory
     ├── opendata-outcomes.ts    # Socrata open data portals (outcomes)
+    ├── vdacs.ts                # Virginia VDACS shelter reports
+    ├── georgia-gda.ts          # Georgia GDA XLSX parser
+    ├── colorado-pacfa.ts       # Colorado PACFA XLSX parser
+    ├── north-carolina-ncda.ts  # North Carolina NCDA XLSX parser
     ├── breed-db.ts             # AKC/CFA breed data APIs
     └── shelter-animals-count.ts # Shelter Animals Count (ASPCA)
 
@@ -145,9 +151,15 @@ prisma/
 | Petango / 24PetConnect | JSON API | ~50+ orgs | ✅ Active |
 | Adopt-a-Pet | JSON API | Configured shelters | ✅ Active |
 | Web shelter scraper | HTML scraping | Config-driven, multi-shelter | ✅ Active |
-| Socrata open data portals | JSON API | Austin, Sonoma, + more | ✅ Active |
+| Socrata open data portals | JSON API | Austin, Dallas, King County, Sonoma, Norfolk, Bloomington | ✅ Active |
 | Shelter Animals Count (ASPCA) | JSON API | Shelter intake/outcome stats | ✅ Active |
 | AKC/CFA Breed Database | JSON API | Breed profiles + lifespans | ✅ Active |
+| Virginia VDACS | HTML scraping | ~459 agencies, mandatory annual reports | ✅ Active |
+| Georgia GDA | XLSX export | Government shelters, monthly reports | ✅ Active |
+| Florida UF Census | HTML scraping | ~153 shelters statewide | ✅ Active |
+| Colorado PACFA | XLSX (Google Sheets) | Shelters & rescues, annual stats | ✅ Active |
+| North Carolina NCDA | XLSX export | Public shelters, annual reports | ✅ Active |
+| ALDF State Rankings | HTML scraping | 50 states + DC policy rankings | ✅ Active |
 
 ## Scripts
 
@@ -167,6 +179,12 @@ prisma/
 | `npx tsx scraper/run-opendata.ts` | Run open data pipeline |
 | `npx tsx scraper/run-shelter-stats.ts` | Run shelter stats pipeline |
 | `npx tsx scraper/run-breed-db.ts` | Populate breed profiles |
+| `npx tsx scraper/run-vdacs.ts` | Run Virginia VDACS stats |
+| `npx tsx scraper/run-georgia.ts` | Run Georgia GDA stats |
+| `npx tsx scraper/run-florida.ts` | Run Florida UF Census stats |
+| `npx tsx scraper/run-colorado.ts` | Run Colorado PACFA stats |
+| `npx tsx scraper/run-north-carolina.ts` | Run North Carolina NCDA stats |
+| `npx tsx scraper/run-aldf.ts` | Run ALDF state rankings |
 
 All scraper scripts accept `--dry-run` (preview), `--no-cv` (skip AI), and `--shelter=<id>` (single source) flags.
 

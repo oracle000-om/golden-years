@@ -131,7 +131,7 @@ async function main() {
     let created = 0, updated = 0, cvProcessed = 0, skippedNonPhoto = 0, dedupMerged = 0, cvSkipped = 0, errors = 0;
     const startTime = Date.now();
 
-    async function processAnimal(animal: ScrapedAnimal): Promise<void> {
+    async function processAnimal(animal: ScrapedAnimal): Promise<{ newHash?: [string, string] }> {
         const shelterId = animal._shelterId || 'unknown';
         let imageBuffer: Buffer | null = null;
         if (animal.photoUrl) imageBuffer = await downloadImage(animal.photoUrl);
@@ -168,7 +168,7 @@ async function main() {
                 try { cvEstimate = await cvProvider.estimateAge(animal.photoUrl, animal.photoUrls, { shelterSize: animal.size, shelterSpecies: animal.species, shelterAge: animal.ageKnownYears, shelterBreed: animal.breed, shelterNotes: animal.notes }); if (cvEstimate) cvProcessed++; } catch { /* skip */ }
             }
 
-            if (cvEstimate && cvEstimate.confidence === 'NONE') { skippedNonPhoto++; return; }
+            if (cvEstimate && cvEstimate.confidence === 'NONE') { skippedNonPhoto++; return {}; }
 
             const lifeExp = cvEstimate?.detectedBreeds?.length
                 ? lookupLifeExpectancy(cvEstimate.detectedBreeds, animal.species, animal.size) : null;
@@ -216,7 +216,13 @@ async function main() {
             }
 
             let animalId: string;
+            let newHashPair: [string, string] | undefined;
             if (existing) {
+                // Re-entry detection: animal was delisted but reappeared
+                if (existing.status === 'DELISTED') {
+                    data.shelterEntryCount = (existing.shelterEntryCount || 1) + 1;
+                    console.log(`      🔄 Re-entry #${data.shelterEntryCount}: ${animal.name || animal.intakeId}`);
+                }
                 await (prisma as any).animal.update({
                     where: { id: existing.id }, data: {
                         ...data,
@@ -230,7 +236,8 @@ async function main() {
                     data: { shelterId, intakeId: animal.intakeId, ...data, firstSeenAt: now, daysInShelter: 0 },
                 });
                 animalId = record.id; created++;
-                if (photoHash) existingHashes.set(animalId, photoHash);
+                // Buffer hash for post-batch merge (avoids race condition)
+                if (photoHash) newHashPair = [animalId, photoHash];
             }
 
             const cvDiff = (cvEstimate && existing)
@@ -255,12 +262,24 @@ async function main() {
                         : null,
                 }
             });
-        } catch (err) { errors++; console.error(`   ❌ ${animal.intakeId}: ${(err as Error).message?.substring(0, 100)}`); }
+            return { newHash: newHashPair };
+        } catch (err) { errors++; console.error(`   ❌ ${animal.intakeId}: ${(err as Error).message?.substring(0, 100)}`); return {}; }
     }
 
+    // Process in batches — merge new hashes after each batch to prevent
+    // race conditions where concurrent tasks miss each other's hashes.
     for (let i = 0; i < withPhotos.length; i += CONCURRENCY) {
         const batch = withPhotos.slice(i, i + CONCURRENCY);
-        await Promise.allSettled(batch.map(a => processAnimal(a)));
+        const results = await Promise.allSettled(batch.map(a => processAnimal(a)));
+
+        // Merge new hashes into the shared map after the batch completes
+        for (const result of results) {
+            if (result.status === 'fulfilled' && result.value.newHash) {
+                const [id, hash] = result.value.newHash;
+                existingHashes.set(id, hash);
+            }
+        }
+
         const processed = Math.min(i + CONCURRENCY, withPhotos.length);
         if (processed % 50 < CONCURRENCY || processed === withPhotos.length) {
             const elapsed = ((Date.now() - startTime) / 1000).toFixed(0);

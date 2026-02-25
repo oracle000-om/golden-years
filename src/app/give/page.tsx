@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { RoadmapPoll } from './roadmap-client';
+import { FeedbackForm } from './feedback-form';
 
 export const metadata: Metadata = {
     title: 'Give — Golden Years Club',
@@ -14,6 +15,7 @@ export default function GivePage() {
                     <span className="page-badge">💛 Give</span>
                 </div>
                 <RoadmapPoll />
+                <FeedbackForm />
             </div>
         </section>
     );

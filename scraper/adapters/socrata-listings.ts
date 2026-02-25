@@ -133,6 +133,24 @@ const LISTING_CONFIGS: SocrataListingConfig[] = [
         },
         photoUrlTemplate: 'https://24petconnect.com/image/NRFK/{id}',
     },
+    {
+        id: 'bloomington-in',
+        shelterName: 'Bloomington Animal Shelter',
+        city: 'Bloomington',
+        state: 'IN',
+        domain: 'data.bloomington.in.gov',
+        resourceId: 'e245-r9ub',
+        // Animals still in the shelter: no movement out + not deceased
+        adoptableFilter: "deceaseddate IS NULL AND movementtype='None'",
+        fields: {
+            animalId: 'id',
+            name: 'animalname',
+            species: 'speciesname',
+            breed: 'breedname',
+            sex: 'sexname',
+            age: 'animalage',
+        },
+    },
 ];
 
 // ── Fetcher ────────────────────────────────────────────

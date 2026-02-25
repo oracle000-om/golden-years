@@ -46,6 +46,7 @@ export interface Animal {
     status: 'AVAILABLE' | 'URGENT' | 'RESCUE_PULL' | 'ADOPTED' | 'TRANSFERRED' | 'RETURNED_OWNER' | 'EUTHANIZED' | 'DELISTED';
     lastSeenAt: Date | null;
     delistedAt: Date | null;
+    shelterEntryCount: number;
     outcomeDate: Date | null;
     outcomeNotes: string | null;
     ageKnownYears: number | null;

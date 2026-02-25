@@ -24,14 +24,14 @@ export async function GET(request: NextRequest) {
         });
 
         if (!existingVote) {
-            return NextResponse.json({ locked: true });
+            return NextResponse.json({ hasVoted: false });
         }
 
         // Return aggregated results + the user's choice
         const results = await getPollResults(pollId);
 
         return NextResponse.json({
-            locked: false,
+            hasVoted: true,
             userChoice: existingVote.choice,
             results,
         });

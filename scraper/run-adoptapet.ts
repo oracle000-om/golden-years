@@ -205,6 +205,11 @@ async function main() {
 
             let animalId: string;
             if (existing) {
+                // Re-entry detection: animal was delisted but reappeared
+                if (existing.status === 'DELISTED') {
+                    data.shelterEntryCount = (existing.shelterEntryCount || 1) + 1;
+                    console.log(`      🔄 Re-entry #${data.shelterEntryCount}: ${animal.name || animal.intakeId}`);
+                }
                 await (prisma as any).animal.update({
                     where: { id: existing.id }, data: {
                         ...data,

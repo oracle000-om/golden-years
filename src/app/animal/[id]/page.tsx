@@ -2,13 +2,13 @@ import Link from 'next/link';
 import { SafeImage } from '@/components/SafeImage';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
-import { getAnimalById, getAnimalForMetadata, getAnimalSnapshots, getBreedCommonConditions, getShelterInsights } from '@/lib/queries';
+import { getAnimalById, getAnimalForMetadata, getBreedCommonConditions, getShelterInsights } from '@/lib/queries';
 import { formatDeathMarker, hoursUntil, getUrgencyLevel, formatIntakeReason, formatYearsRemaining, getAgeDiscrepancy, getGoldenYearsConfidence, computeHealthScore, getSaveRate, getBestAge, cleanDisplayText } from '@/lib/utils';
 import { CopyLinkButton } from '@/components/copy-link-button';
 import { BackButton } from '@/components/back-button';
 import { PhotoGallery } from '@/components/photo-gallery';
 import { ShelterStatsCharts } from '@/components/shelter-stats-charts';
-import { TrendSection } from '@/components/trend-section';
+
 import type { AnimalWithShelterAndSources } from '@/lib/types';
 
 export const revalidate = 60;
@@ -167,6 +167,10 @@ export default async function AnimalDetailPage({
         return null;
     })();
 
+    const breedLifespan = (animal.lifeExpectancyLow && animal.lifeExpectancyHigh)
+        ? `${animal.lifeExpectancyLow}–${animal.lifeExpectancyHigh} yrs`
+        : '—';
+
     return (
         <div className="animal-detail">
             <div className="container">
@@ -272,6 +276,18 @@ export default async function AnimalDetailPage({
                                     </span>
                                 </div>
                             )}
+                            {breedLifespan !== '—' && (
+                                <div className="animal-detail__detail-row">
+                                    <span className="animal-detail__detail-label">Breed life expectancy</span>
+                                    <span className="animal-detail__detail-value">{breedLifespan}</span>
+                                </div>
+                            )}
+                            {yearsRemaining && (
+                                <div className="animal-detail__detail-row">
+                                    <span className="animal-detail__detail-label">Golden Years remaining</span>
+                                    <span className="animal-detail__detail-value cv-estimated">{yearsRemaining}</span>
+                                </div>
+                            )}
                             {sizeDisplay && (
                                 <div className="animal-detail__detail-row">
                                     <span className="animal-detail__detail-label">Size</span>
@@ -290,6 +306,12 @@ export default async function AnimalDetailPage({
                                             month: 'short', day: 'numeric', year: 'numeric',
                                         })}
                                     </span>
+                                </div>
+                            )}
+                            {animal.shelterEntryCount > 1 && (
+                                <div className="animal-detail__detail-row" style={{ gridColumn: '1 / -1' }}>
+                                    <span className="animal-detail__detail-label">Shelter re-entry</span>
+                                    <span className="animal-detail__detail-value cv-estimated">🔄 Entry #{animal.shelterEntryCount} in the shelter system</span>
                                 </div>
                             )}
                         </div>
@@ -492,26 +514,7 @@ export default async function AnimalDetailPage({
                             )}
                         </div>
                     )}
-                    {/* --- Changes Since Intake (Sparkline Trends) --- */}
-                    {await (async () => {
-                        const snapshots = await getAnimalSnapshots(animal.id);
-                        if (snapshots.length < 2) return null;
 
-                        // Serialize snapshot data for the client component
-                        const serialized = snapshots.map(s => ({
-                            scrapedAt: s.scrapedAt.toISOString(),
-                            bodyConditionScore: s.bodyConditionScore,
-                            coatCondition: s.coatCondition,
-                            stressLevel: s.stressLevel,
-                        }));
-
-                        return (
-                            <TrendSection
-                                snapshots={serialized}
-                                animalName={animal.name || 'this animal'}
-                            />
-                        );
-                    })()}
                 </div>
 
                 {/* --- Shelter Card --- */}

@@ -15,6 +15,7 @@ export default async function PollPage() {
         slug: string;
         title: string;
         statement: string;
+        seniorNote: string | null;
         forTitle: string;
         forArgument: string;
         againstTitle: string;

@@ -70,6 +70,7 @@ animals (
   last_seen_at TIMESTAMP,
   days_in_shelter INT,
   delisted_at TIMESTAMP,
+  shelter_entry_count INT DEFAULT 1,
   outcome_date TIMESTAMP,
   outcome_notes TEXT,
   created_at TIMESTAMP,
@@ -178,8 +179,6 @@ function isSafeQuery(sql: string): boolean {
     for (const keyword of blocked) {
         if (new RegExp(`\\b${keyword}\\b`, 'i').test(sql)) return false;
     }
-    // Block UNION-based injection
-    if (/\bUNION\b/i.test(sql)) return false;
     // Block semicolons (multi-statement) and comments (obfuscation)
     if (sql.includes(';') || sql.includes('--') || sql.includes('/*')) return false;
     return true;

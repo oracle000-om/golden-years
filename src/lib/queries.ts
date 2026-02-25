@@ -212,8 +212,6 @@ export async function getFilteredAnimals(filters: AnimalFilters): Promise<Pagina
         // NLP "longest wait" query — override sort to intake date ascending
         orderBy.push({ intakeDate: { sort: 'asc', nulls: 'last' } });
     } else if (sort === 'urgency') {
-        // #1: DB-level urgency sort — euth dates first (ascending),
-        // then all others sorted by newest. Avoids full-table scan.
         orderBy.push({ euthScheduledAt: { sort: 'asc', nulls: 'last' } });
         orderBy.push({ createdAt: 'desc' });
     } else if (sort === 'newest') {
@@ -223,12 +221,21 @@ export async function getFilteredAnimals(filters: AnimalFilters): Promise<Pagina
         orderBy.push({ ageKnownYears: 'desc' });
         orderBy.push({ createdAt: 'desc' });
     } else {
-        // 'distance' — DB-sorted by createdAt, re-sorted post-query
+        // 'distance' — we'll sort in-memory after computing distances
         orderBy.push({ createdAt: 'desc' });
     }
 
-    // DB-level pagination for all sort modes
-    const skip = (page - 1) * DEFAULT_PAGE_SIZE;
+    // For distance sort or radius filtering, we need to fetch a broader
+    // window and paginate in-memory after computing distances.
+    const needsDistanceSort = sort === 'distance' && userCoords;
+    const needsRadiusFilter = userCoords && filters.radius !== 'any';
+    const needsInMemoryPagination = needsDistanceSort || needsRadiusFilter;
+
+    // When we need in-memory pagination, fetch a larger window from DB
+    // (up to 500 animals). Otherwise use standard DB-level pagination.
+    const DISTANCE_WINDOW = 500;
+    const skip = needsInMemoryPagination ? 0 : (page - 1) * DEFAULT_PAGE_SIZE;
+    const take = needsInMemoryPagination ? DISTANCE_WINDOW : DEFAULT_PAGE_SIZE;
 
     const [dbAnimals, count] = await Promise.all([
         prisma.animal.findMany({
@@ -236,7 +243,7 @@ export async function getFilteredAnimals(filters: AnimalFilters): Promise<Pagina
             include: { shelter: true },
             orderBy,
             skip,
-            take: DEFAULT_PAGE_SIZE,
+            take,
         }) as Promise<AnimalWithShelter[]>,
         prisma.animal.count({ where }),
     ]);
@@ -244,7 +251,7 @@ export async function getFilteredAnimals(filters: AnimalFilters): Promise<Pagina
     let animals: AnimalResult[] = dbAnimals as AnimalResult[];
     let totalCount = count;
 
-    // Compute distances for the page of results
+    // Compute distances for results
     if (userCoords && animals.length > 0) {
         // Collect unique shelter location keys for geocoding
         const shelterLocations = new Map<string, { zip?: string; county?: string; state?: string }>();
@@ -292,18 +299,22 @@ export async function getFilteredAnimals(filters: AnimalFilters): Promise<Pagina
             }
         }
 
-        // If sort is distance, re-sort by computed distance
+        // Radius filter: remove animals beyond the user's radius
+        if (filters.radius !== 'any') {
+            animals = animals.filter(a => a.distance !== undefined && a.distance <= radius);
+            totalCount = animals.length; // true count within radius (up to DISTANCE_WINDOW)
+        }
+
+        // Distance sort: sort all fetched animals by distance, then paginate
         if (sort === 'distance') {
             animals.sort((a, b) => (a.distance ?? Infinity) - (b.distance ?? Infinity));
         }
+    }
 
-        // Post-query radius filter: remove animals beyond the user's radius
-        if (filters.radius !== 'any') {
-            animals = animals.filter(a => a.distance !== undefined && a.distance <= radius);
-            // We can't accurately count total radius-filtered results without
-            // geocoding every shelter in the state, so cap to what this page shows
-            totalCount = animals.length;
-        }
+    // In-memory pagination when we fetched a larger window
+    if (needsInMemoryPagination) {
+        const inMemorySkip = (page - 1) * DEFAULT_PAGE_SIZE;
+        animals = animals.slice(inMemorySkip, inMemorySkip + DEFAULT_PAGE_SIZE);
     }
 
     return {
@@ -623,7 +634,7 @@ export async function getShelterInsights(shelterId: string): Promise<string[]> {
     const insights: string[] = [];
 
     // ── 1. Save rate ──
-    if (shelter.totalIntakeAnnual > 0 && shelter.totalEuthanizedAnnual > 0) {
+    if (shelter.totalIntakeAnnual > 0 && shelter.totalEuthanizedAnnual >= 0) {
         const saveRate = Math.round(
             ((shelter.totalIntakeAnnual - shelter.totalEuthanizedAnnual) / shelter.totalIntakeAnnual) * 100
         );
@@ -663,7 +674,7 @@ export async function getShelterInsights(shelterId: string): Promise<string[]> {
         if (shelter.shelterType === 'RESCUE') {
             insights.push('This is a rescue — animals here were pulled from other shelters');
         } else if (shelter.shelterType === 'NO_KILL') {
-            insights.push('This is a no-kill shelter — committed to saving at least 90% of animals');
+            insights.push('This is a no-kill organization');
         } else if (shelter.shelterType === 'FOSTER_BASED') {
             insights.push('Foster-based rescue — these seniors are living in homes, not kennels');
         }
@@ -709,14 +720,14 @@ export async function getShelterForMetadata(id: string) {
 
 /** Check if any active animals have a future euthanasia date scheduled. */
 export async function hasEuthScheduledAnimals(): Promise<boolean> {
-    const count = await prisma.animal.count({
+    const found = await prisma.animal.findFirst({
         where: {
             status: { in: ['AVAILABLE', 'URGENT'] },
             euthScheduledAt: { gte: new Date() },
         },
-        take: 1,
+        select: { id: true },
     });
-    return count > 0;
+    return found !== null;
 }
 
 /** Fetch distinct states that have shelters with active (AVAILABLE/URGENT) animals. */
@@ -743,6 +754,7 @@ export interface NoKillShelter {
     state: string;
     county: string;
     websiteUrl: string | null;
+    shelterType: string;
     saveRate: number;       // 0–100
     yearsRunning: number;   // consecutive no-kill years (≥ 1)
     dataYear: number | null;
@@ -750,9 +762,9 @@ export interface NoKillShelter {
 
 /**
  * Fetch shelters that have achieved "no-kill" status (≥ 90% save rate)
- * based on their most recent annual data. Uses prior-year data to
- * determine how many consecutive years they've held the status.
- * Also returns the % of data-bearing shelters that qualify.
+ * based on publicly available intake/euthanasia data.
+ * Only includes shelters whose no-kill status can be verified from stats.
+ * Uses prior-year data to determine consecutive years.
  */
 export async function getNoKillShelters(): Promise<{
     shelters: NoKillShelter[];
@@ -769,6 +781,7 @@ export async function getNoKillShelters(): Promise<{
             state: true,
             county: true,
             websiteUrl: true,
+            shelterType: true,
             totalIntakeAnnual: true,
             totalEuthanizedAnnual: true,
             dataYear: true,
@@ -805,6 +818,7 @@ export async function getNoKillShelters(): Promise<{
             state: s.state,
             county: s.county,
             websiteUrl: s.websiteUrl,
+            shelterType: s.shelterType,
             saveRate,
             yearsRunning,
             dataYear: s.dataYear,
@@ -824,11 +838,11 @@ export async function getNoKillShelters(): Promise<{
 
 // ─── Poll Queries ────────────────────────────────────────
 
-/** Fetch all active polls, newest first. */
+/** Fetch all active polls, ordered by relevance to seniors. */
 export async function getActivePolls() {
     return prisma.poll.findMany({
         where: { active: true },
-        orderBy: { createdAt: 'desc' },
+        orderBy: { sortOrder: 'asc' },
     });
 }
 

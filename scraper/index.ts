@@ -104,6 +104,11 @@ async function main() {
             where: { id: shelter.id },
             update: {
                 name: shelter.name,
+                county: shelter.county,
+                state: shelter.state,
+                address: shelter.address,
+                phone: shelter.phone,
+                websiteUrl: shelter.websiteUrl,
                 lastScrapedAt: new Date(),
             },
             create: {
@@ -247,6 +252,11 @@ async function main() {
 
                 let animalId: string;
                 if (existing) {
+                    // Re-entry detection: animal was delisted but reappeared
+                    if (existing.status === 'DELISTED') {
+                        data.shelterEntryCount = ((existing as any).shelterEntryCount || 1) + 1;
+                        console.log(`      🔄 Re-entry #${data.shelterEntryCount}: ${animal.name || animal.intakeId}`);
+                    }
                     await prisma.animal.update({
                         where: { id: existing.id },
                         data: {

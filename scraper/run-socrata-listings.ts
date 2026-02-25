@@ -73,7 +73,12 @@ async function main() {
         try {
             await (prisma as any).shelter.upsert({
                 where: { id: dbId },
-                update: { lastScrapedAt: new Date() },
+                update: {
+                    name: config.shelterName,
+                    county: config.city,
+                    state: config.state,
+                    lastScrapedAt: new Date(),
+                },
                 create: {
                     id: dbId,
                     name: config.shelterName,
@@ -204,6 +209,11 @@ async function main() {
             }
 
             if (existing) {
+                // Re-entry detection: animal was delisted but reappeared
+                if (existing.status === 'DELISTED') {
+                    data.shelterEntryCount = (existing.shelterEntryCount || 1) + 1;
+                    console.log(`      🔄 Re-entry #${data.shelterEntryCount}: ${animal.name || animal.intakeId}`);
+                }
                 await (prisma as any).animal.update({
                     where: { id: existing.id },
                     data: {

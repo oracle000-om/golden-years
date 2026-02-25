@@ -319,7 +319,7 @@ async function fetchOrgAnimals(
 
         page++;
         if (page < totalPages) {
-            await new Promise(r => setTimeout(r, 500));
+            await new Promise(r => setTimeout(r, 250));
         }
     }
 
@@ -335,11 +335,23 @@ export interface PetfinderScrapeResult {
 
 export async function scrapePetfinder(opts?: {
     shelterIds?: string[];
+    /** 0-indexed shard number for parallel execution */
+    shard?: number;
+    /** Total number of shards */
+    totalShards?: number;
 }): Promise<PetfinderScrapeResult> {
     const configs = loadConfig();
-    const filtered = opts?.shelterIds
+    let filtered = opts?.shelterIds
         ? configs.filter(c => opts.shelterIds!.includes(c.id))
         : configs;
+
+    // Shard support: split org list into N chunks for parallel execution
+    if (opts?.shard != null && opts?.totalShards && opts.totalShards > 1) {
+        const chunkSize = Math.ceil(filtered.length / opts.totalShards);
+        const start = opts.shard * chunkSize;
+        filtered = filtered.slice(start, start + chunkSize);
+        console.log(`   📦 Shard ${opts.shard + 1}/${opts.totalShards}: orgs ${start + 1}–${start + filtered.length} of ${configs.length}`);
+    }
 
     if (filtered.length === 0) {
         console.warn('   ⚠ No Petfinder shelters configured. Check petfinder-config.json');
@@ -349,14 +361,17 @@ export async function scrapePetfinder(opts?: {
     const allAnimals: ScrapedAnimal[] = [];
     const shelterMap = new Map<string, { name: string; city: string; state: string }>();
 
-    for (const config of filtered) {
+    for (let i = 0; i < filtered.length; i++) {
+        const config = filtered[i];
         shelterMap.set(`petfinder-${config.id}`, {
             name: config.shelterName,
             city: config.city,
             state: config.state,
         });
 
-        console.log(`   🏠 ${config.shelterName} (${config.city}, ${config.state})...`);
+        if (i % 100 === 0 || i === filtered.length - 1) {
+            console.log(`   🏠 [${i + 1}/${filtered.length}] ${config.shelterName} (${config.city}, ${config.state})...`);
+        }
 
         for (const type of ['Dog', 'Cat'] as const) {
             try {
@@ -367,7 +382,7 @@ export async function scrapePetfinder(opts?: {
             }
         }
 
-        await new Promise(r => setTimeout(r, 1000));
+        await new Promise(r => setTimeout(r, 300));
     }
 
     console.log(`   Total Petfinder seniors: ${allAnimals.length} from ${shelterMap.size} shelters`);

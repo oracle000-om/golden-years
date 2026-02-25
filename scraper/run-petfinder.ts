@@ -41,13 +41,19 @@ async function main() {
     const dryRun = process.argv.includes('--dry-run');
     const noCv = process.argv.includes('--no-cv');
     const shelterArg = process.argv.find(a => a.startsWith('--shelter='))?.split('=')[1];
+    const shardArg = process.argv.find(a => a.startsWith('--shard='))?.split('=')[1];
+    const totalShardsArg = process.argv.find(a => a.startsWith('--total-shards='))?.split('=')[1];
+    const shard = shardArg != null ? parseInt(shardArg, 10) : undefined;
+    const totalShards = totalShardsArg != null ? parseInt(totalShardsArg, 10) : undefined;
 
-    console.log(`🐾 Golden Years Club — Petfinder Sync${dryRun ? ' (DRY RUN)' : ''}${noCv ? ' (NO CV)' : ''}`);
+    console.log(`🐾 Golden Years Club — Petfinder Sync${dryRun ? ' (DRY RUN)' : ''}${noCv ? ' (NO CV)' : ''}${shard != null ? ` (SHARD ${shard + 1}/${totalShards})` : ''}`);
     if (shelterArg) console.log(`   Shelter filter: ${shelterArg}`);
 
     // Step 1: Fetch from Petfinder API
     const { animals, shelters } = await scrapePetfinder({
         shelterIds: shelterArg ? [shelterArg] : undefined,
+        shard,
+        totalShards,
     });
 
     console.log(`\n📊 Fetched ${animals.length} senior animals from ${shelters.size} shelters`);

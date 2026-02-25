@@ -91,7 +91,7 @@ jobs:
       - run: npx prisma generate
       - run: npx tsx scraper/run-rescuegroups.ts
 
-  # ── Petfinder (every 8 hours) ────────────────────────────
+  # ── Petfinder (every 8 hours, 4 parallel shards) ───────
   scrape-petfinder:
     if: >-
       github.event.schedule == '0 2,10,18 * * *' ||
@@ -99,7 +99,11 @@ jobs:
        (github.event.inputs.pipeline == 'all' ||
         github.event.inputs.pipeline == 'petfinder'))
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3]
     steps:
       - uses: actions/checkout@v4
 
@@ -110,7 +114,7 @@ jobs:
 
       - run: npm ci
       - run: npx prisma generate
-      - run: npx tsx scraper/run-petfinder.ts
+      - run: npx tsx scraper/run-petfinder.ts --shard=${{ matrix.shard }} --total-shards=4
 
   # ── Petango / 24PetConnect (every 8 hours) ──────────────
   scrape-petango:

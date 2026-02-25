@@ -33,6 +33,8 @@ export interface SearchIntent {
     nearMe: boolean;
     zip: string | null;
     radiusMiles: number | null;
+    careLevel: 'low' | 'moderate' | 'high' | null;
+    sortByWait: boolean;
     textTokens: string[];
 }
 
@@ -250,6 +252,8 @@ const STOP_WORDS = new Set([
     'from', 'that', 'who', 'old', 'years', 'year', 'yrs',
     'yr', 'than', 'about', 'around', 'roughly',
     'type', 'breed', 'color', 'colour', 'colored', 'coloured',
+    'senior', 'seniors', 'elderly', 'older',
+    'maintenance', 'wait', 'waiting',
 ]);
 
 // Note: "or" and "near" are NOT stop words — they have special meaning now.
@@ -327,6 +331,13 @@ export function getIntentLabels(intent: SearchIntent): { emoji: string; label: s
     if (intent.radiusMiles) {
         labels.push({ emoji: '📏', label: `${intent.radiusMiles} mi`, field: 'radius' });
     }
+    if (intent.careLevel) {
+        const careLevelLabel = { low: 'Low-maintenance', moderate: 'Moderate care', high: 'High care' }[intent.careLevel];
+        labels.push({ emoji: '🛋️', label: careLevelLabel, field: 'careLevel' });
+    }
+    if (intent.sortByWait) {
+        labels.push({ emoji: '⏳', label: 'Longest wait', field: 'sortByWait' });
+    }
     for (const token of intent.textTokens) {
         labels.push({ emoji: '🔤', label: token, field: 'text' });
     }
@@ -352,6 +363,8 @@ export function parseSearchQuery(raw: string): SearchIntent {
         nearMe: false,
         zip: null,
         radiusMiles: null,
+        careLevel: null,
+        sortByWait: false,
         textTokens: [],
     };
 
@@ -385,6 +398,36 @@ export function parseSearchQuery(raw: string): SearchIntent {
     for (const phrase of NEAR_ME_PHRASES) {
         if (text.includes(phrase)) {
             intent.nearMe = true;
+            text = text.replace(phrase, ' ').trim();
+            break;
+        }
+    }
+
+    // ── 0.7. Detect care level phrases ─────────────────────
+    const CARE_LEVEL_PHRASES: [string[], 'low' | 'moderate' | 'high'][] = [
+        [['low maintenance', 'low-maintenance', 'easy care', 'easy-care', 'easy going', 'easy-going', 'easygoing', 'laid back', 'laid-back', 'chill'], 'low'],
+        [['moderate care', 'some care', 'moderate maintenance'], 'moderate'],
+        [['high maintenance', 'high-maintenance', 'special needs', 'high care'], 'high'],
+    ];
+    for (const [phrases, level] of CARE_LEVEL_PHRASES) {
+        for (const phrase of phrases) {
+            if (text.includes(phrase)) {
+                intent.careLevel = level;
+                text = text.replace(phrase, ' ').trim();
+                break;
+            }
+        }
+        if (intent.careLevel) break;
+    }
+
+    // ── 0.8. Detect "longest wait" / sort-by-wait phrases ──
+    const WAIT_PHRASES = [
+        'longest wait', 'waiting the longest', 'waiting longest',
+        'longest in shelter', 'most overlooked', 'most time',
+    ];
+    for (const phrase of WAIT_PHRASES) {
+        if (text.includes(phrase)) {
+            intent.sortByWait = true;
             text = text.replace(phrase, ' ').trim();
             break;
         }

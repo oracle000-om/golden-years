@@ -208,7 +208,10 @@ export async function getFilteredAnimals(filters: AnimalFilters): Promise<Pagina
     // Determine Prisma orderBy based on sort mode
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const orderBy: any[] = [];
-    if (sort === 'urgency') {
+    if (searchIntent?.sortByWait) {
+        // NLP "longest wait" query — override sort to intake date ascending
+        orderBy.push({ intakeDate: { sort: 'asc', nulls: 'last' } });
+    } else if (sort === 'urgency') {
         // #1: DB-level urgency sort — euth dates first (ascending),
         // then all others sorted by newest. Avoids full-table scan.
         orderBy.push({ euthScheduledAt: { sort: 'asc', nulls: 'last' } });
@@ -420,6 +423,11 @@ async function applySearchIntent(
         });
     }
 
+    // Care level filter
+    if (intent.careLevel) {
+        andClauses.push({ estimatedCareLevel: intent.careLevel });
+    }
+
     // Remaining text tokens — each must match somewhere (AND logic)
     for (const token of intent.textTokens) {
         andClauses.push({
@@ -451,20 +459,30 @@ export async function searchAnimals(intent: SearchIntent): Promise<AnimalWithShe
 
     await applySearchIntent(where, intent);
 
+    // Determine ordering: sort-by-wait overrides default urgency sort
+    const orderBy = intent.sortByWait
+        ? [{ intakeDate: { sort: 'asc' as const, nulls: 'last' as const } }]
+        : [{ euthScheduledAt: { sort: 'asc' as const, nulls: 'last' as const } }, { createdAt: 'desc' as const }];
+
     // #2: Cap results to prevent unbounded memory usage on broad queries
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const animals = await (prisma.animal.findMany as any)({
         where,
         include: { shelter: true },
-        orderBy: [{ euthScheduledAt: { sort: 'asc', nulls: 'last' } }, { createdAt: 'desc' }],
+        orderBy,
         take: 100,
     }) as AnimalWithShelter[];
 
-    return animals.sort((a, b) => {
-        const aEuth = a.euthScheduledAt ? new Date(a.euthScheduledAt).getTime() : Infinity;
-        const bEuth = b.euthScheduledAt ? new Date(b.euthScheduledAt).getTime() : Infinity;
-        return aEuth - bEuth;
-    });
+    // For non-wait sorts, apply urgency-first sort in app layer
+    if (!intent.sortByWait) {
+        return animals.sort((a, b) => {
+            const aEuth = a.euthScheduledAt ? new Date(a.euthScheduledAt).getTime() : Infinity;
+            const bEuth = b.euthScheduledAt ? new Date(b.euthScheduledAt).getTime() : Infinity;
+            return aEuth - bEuth;
+        });
+    }
+
+    return animals;
 }
 
 // ─── "Did You Mean?" Suggestions ─────────────────────────

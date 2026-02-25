@@ -406,6 +406,15 @@
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
 }
 
+.search-suggest__header {
+  padding: var(--space-sm) var(--space-md);
+  font-size: 0.7rem;
+  color: var(--color-text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border-bottom: 1px solid rgba(255, 240, 224, 0.06);
+}
+
 .search-suggest__item {
   display: flex;
   align-items: center;

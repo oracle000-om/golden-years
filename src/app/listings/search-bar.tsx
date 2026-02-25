@@ -5,11 +5,12 @@ import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { parseSearchQuery, getIntentLabels } from '@/lib/search-parser';
 
 interface Suggestion {
-    type: 'breed' | 'location' | 'shelter';
+    type: 'breed' | 'location' | 'shelter' | 'quick';
     label: string;
     sublabel?: string;
     value: string;
     id?: string;
+    icon?: string;
 }
 
 interface SuggestResponse {
@@ -17,6 +18,12 @@ interface SuggestResponse {
     locations: Suggestion[];
     shelters: Suggestion[];
 }
+
+const QUICK_SEARCHES: Suggestion[] = [
+    { type: 'quick', label: 'Low-maintenance seniors', sublabel: 'Easy-going companions', value: 'low maintenance senior', icon: '🛋️' },
+    { type: 'quick', label: 'Seniors waiting the longest', sublabel: 'They need you most', value: 'longest wait senior', icon: '⏳' },
+    { type: 'quick', label: 'Urgent dogs near me', sublabel: 'At-risk & need homes now', value: 'urgent dogs near me', icon: '🚨' },
+];
 
 export function SearchBar() {
     const router = useRouter();
@@ -196,7 +203,13 @@ export function SearchBar() {
         breed: '🏷️',
         location: '📍',
         shelter: '🏠',
+        quick: '✨',
     };
+
+    // Show quick suggestions on focus when input is empty
+    const displayItems: Suggestion[] = (!query.trim() && showSuggestions)
+        ? QUICK_SEARCHES
+        : suggestions;
 
     return (
         <div className="search-wrapper" ref={wrapperRef}>
@@ -208,7 +221,7 @@ export function SearchBar() {
                     placeholder="Describe the senior you want to save"
                     value={query}
                     onChange={(e) => handleChange(e.target.value)}
-                    onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+                    onFocus={() => setShowSuggestions(true)}
                     onKeyDown={handleKeyDown}
                     aria-label="Search animals"
                     autoComplete="off"
@@ -225,9 +238,12 @@ export function SearchBar() {
                 </div>
             </form>
 
-            {showSuggestions && suggestions.length > 0 && (
+            {showSuggestions && displayItems.length > 0 && (
                 <div className="search-suggest" role="listbox">
-                    {suggestions.map((s, idx) => (
+                    {!query.trim() && (
+                        <div className="search-suggest__header">Try searching for…</div>
+                    )}
+                    {displayItems.map((s, idx) => (
                         <button
                             key={`${s.type}-${s.value}`}
                             className={`search-suggest__item ${idx === selectedIdx ? 'search-suggest__item--active' : ''}`}
@@ -236,12 +252,16 @@ export function SearchBar() {
                             onMouseDown={() => handleSuggestionClick(s)}
                             onMouseEnter={() => setSelectedIdx(idx)}
                         >
-                            <span className="search-suggest__icon">{typeIcons[s.type]}</span>
+                            <span className="search-suggest__icon">
+                                {s.icon || typeIcons[s.type]}
+                            </span>
                             <span className="search-suggest__label">{s.label}</span>
                             {s.sublabel && (
                                 <span className="search-suggest__sublabel">{s.sublabel}</span>
                             )}
-                            <span className="search-suggest__type">{s.type}</span>
+                            {s.type !== 'quick' && (
+                                <span className="search-suggest__type">{s.type}</span>
+                            )}
                         </button>
                     ))}
                 </div>

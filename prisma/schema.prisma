@@ -305,3 +305,30 @@ model RoadmapVote {
 
   @@map("roadmap_votes")
 }
+
+model RateLimitEntry {
+  id        String   @id @default(uuid())
+  ip        String
+  route     String
+  count     Int      @default(1)
+  windowEnd DateTime @map("window_end")
+
+  @@unique([ip, route])
+  @@index([windowEnd])
+  @@map("rate_limit_entries")
+}
+
+model ScrapeFailure {
+  id            String    @id @default(uuid())
+  pipeline      String
+  shelterId     String?   @map("shelter_id")
+  animalIntakeId String?  @map("animal_intake_id")
+  errorMessage  String    @map("error_message")
+  payload       Json?
+  retryCount    Int       @default(0) @map("retry_count")
+  resolvedAt    DateTime? @map("resolved_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  @@index([pipeline, resolvedAt])
+  @@map("scrape_failures")
+}

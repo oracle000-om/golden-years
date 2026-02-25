@@ -13,7 +13,7 @@ const limiter = createRateLimiter('search', 60); // 60 req/min per IP
 
 export async function GET(request: NextRequest) {
     const ip = getClientIp(request);
-    const result = limiter.check(ip);
+    const result = await limiter.check(ip);
     if (!result.allowed) {
         return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
     }

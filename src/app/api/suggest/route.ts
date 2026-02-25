@@ -10,7 +10,7 @@ const limiter = createRateLimiter('suggest', 90); // 90 req/min (fires on keystr
 
 export async function GET(req: NextRequest) {
     const ip = getClientIp(req);
-    const result = limiter.check(ip);
+    const result = await limiter.check(ip);
     if (!result.allowed) {
         return NextResponse.json({ breeds: [], locations: [], shelters: [] }, { status: 429 });
     }

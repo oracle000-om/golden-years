@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import Image from 'next/image';
+import { SafeImage } from '@/components/SafeImage';
 
 interface PhotoGalleryProps {
     photos: string[];
@@ -16,7 +16,7 @@ export function PhotoGallery({ photos, name }: PhotoGalleryProps) {
     return (
         <div className="photo-gallery">
             <div className="photo-gallery__main">
-                <Image
+                <SafeImage
                     src={photos[activeIndex]}
                     alt={`${name} — photo ${activeIndex + 1}`}
                     fill
@@ -54,7 +54,7 @@ export function PhotoGallery({ photos, name }: PhotoGalleryProps) {
                         onClick={(e) => { e.preventDefault(); setActiveIndex(i); }}
                         aria-label={`View photo ${i + 1}`}
                     >
-                        <Image
+                        <SafeImage
                             src={url}
                             alt={`${name} — thumbnail ${i + 1}`}
                             fill

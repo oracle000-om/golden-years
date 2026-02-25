@@ -17,6 +17,15 @@ import { isSenior } from './base-adapter';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
+// Petfinder's GraphQL returns raw S3 URLs in _media.s3Url. The S3 bucket
+// blocks direct access (403). The same paths are served via CloudFront.
+const S3_HOST = 'npus-pr-petfusbbc-pdp-media-service-public-use1-sss.s3.amazonaws.com';
+const CF_HOST = 'dbw3zep4prcju.cloudfront.net';
+
+function rewriteS3Url(url: string): string {
+    return url.replace(S3_HOST, CF_HOST);
+}
+
 // ── Types ──────────────────────────────────────────────
 
 export interface PetfinderConfig {
@@ -252,10 +261,10 @@ async function fetchOrgAnimals(
             const VIDEO_EXTS = /\.(mp4|mov|webm|avi|m4v)(\?|$)/i;
             const photos = media
                 .filter(m => m.s3Url && !VIDEO_EXTS.test(m.s3Url))
-                .map(m => m.s3Url)
+                .map(m => rewriteS3Url(m.s3Url))
                 .filter(Boolean);
             const videoMedia = media.find(m => m.s3Url && VIDEO_EXTS.test(m.s3Url));
-            const videoUrl = videoMedia?.s3Url || null;
+            const videoUrl = videoMedia ? rewriteS3Url(videoMedia.s3Url) : null;
 
             if (photos.length === 0) continue;
 

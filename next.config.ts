@@ -35,6 +35,9 @@ const nextConfig: NextConfig = {
       { protocol: 'https', hostname: '**.petfinder.com' },
       // AdoptAPet CDN
       { protocol: 'https', hostname: 'photos.adoptapet.com' },
+      { protocol: 'https', hostname: '**.adoptapet.com' },
+      // Adopt-a-Pet PDP media (S3)
+      { protocol: 'https', hostname: 'npus-pr-petfusbbc-pdp-media-service-public-use1-sss.s3.amazonaws.com' },
       // County shelter portals
       { protocol: 'https', hostname: '**.sanantonio.gov' },
       { protocol: 'https', hostname: '**.animalfoundation.com' },

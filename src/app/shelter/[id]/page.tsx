@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import Image from 'next/image';
+import { SafeImage } from '@/components/SafeImage';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { getShelterById, getShelterForMetadata } from '@/lib/queries';
@@ -334,7 +335,7 @@ export default async function ShelterDetailPage({
                                 >
                                     <div className="animal-card__image">
                                         {animal.photoUrl ? (
-                                            <Image src={animal.photoUrl} alt={animal.name || 'Unnamed animal'} fill sizes="(max-width: 768px) 100vw, 33vw" style={{ objectFit: 'cover' }} />
+                                            <SafeImage src={animal.photoUrl} alt={animal.name || 'Unnamed animal'} fill sizes="(max-width: 768px) 100vw, 33vw" style={{ objectFit: 'cover' }} />
                                         ) : (
                                             <Image src="/no-photo.svg" alt="Photo not available" fill sizes="(max-width: 768px) 100vw, 33vw" style={{ objectFit: 'cover' }} />
                                         )}

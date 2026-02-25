@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import Image from 'next/image';
+import { SafeImage } from '@/components/SafeImage';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { getAnimalById, getAnimalForMetadata, getAnimalSnapshots, getBreedCommonConditions, getShelterInsights } from '@/lib/queries';
@@ -216,7 +216,7 @@ export default async function AnimalDetailPage({
                                 return <PhotoGallery photos={allPhotos} name={animal.name || 'Unnamed animal'} />;
                             }
                             return animal.photoUrl ? (
-                                <Image src={animal.photoUrl} alt={animal.name || 'Unnamed animal'} fill sizes="(max-width: 768px) 100vw, 50vw" style={{ objectFit: 'cover' }} priority />
+                                <SafeImage src={animal.photoUrl} alt={animal.name || 'Unnamed animal'} fill sizes="(max-width: 768px) 100vw, 50vw" style={{ objectFit: 'cover' }} priority />
                             ) : (
                                 <div className="animal-detail__photo-placeholder">
                                     {animal.species === 'DOG' ? '🐕' : animal.species === 'CAT' ? '🐈' : '🐾'}

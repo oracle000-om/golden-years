@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
+import { SafeImage } from '@/components/SafeImage';
 import { useState } from 'react';
 import { formatScheduledDate, formatIntakeDate, hoursUntil, getUrgencyLevel, getGoldenYearsConfidence, getSaveRate } from '@/lib/utils';
 import type { AnimalResult } from '@/lib/queries';
@@ -124,7 +125,7 @@ export function AnimalGrid({ animals, totalCount, page, totalPages }: AnimalGrid
                         >
                             <div className="animal-card__image">
                                 {animal.photoUrl ? (
-                                    <Image src={animal.photoUrl} alt={animal.name || 'Unnamed animal'} fill sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 640px" style={{ objectFit: 'cover' }} />
+                                    <SafeImage src={animal.photoUrl} alt={animal.name || 'Unnamed animal'} fill sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 640px" style={{ objectFit: 'cover' }} />
                                 ) : (
                                     <Image src="/no-photo.svg" alt="Photo not available" fill sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 640px" style={{ objectFit: 'cover' }} />
                                 )}

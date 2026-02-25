@@ -24,6 +24,8 @@ import { createAgeEstimationProvider, lookupLifeExpectancy, computeAssessmentDif
 import { extractKeyFrames } from './cv/video-frames';
 import { findDuplicate, computePhotoHash } from './dedup';
 import { sanitizeText } from './lib/sanitize-text';
+import { enqueueFailure } from './lib/retry-queue';
+import { checkScrapeHealth } from './lib/alert';
 
 
 
@@ -65,6 +67,7 @@ async function main() {
     let grandTotalUpdated = 0;
     let grandTotalCvProcessed = 0;
     let grandTotalDedupMerged = 0;
+    let grandTotalErrors = 0;
 
     for (const shelter of shelters) {
         console.log(`🏠 ${shelter.name}`);
@@ -298,6 +301,8 @@ async function main() {
                 });
             } catch (err) {
                 console.error(`      ❌ DB error for ${animal.intakeId}: ${(err as Error).message?.substring(0, 120)}`);
+                grandTotalErrors++;
+                await enqueueFailure('shelters', shelter.id, animal.intakeId, (err as Error).message);
             }
         }
 
@@ -327,7 +332,9 @@ async function main() {
         console.log(`   ✅ Created: ${created}, Updated: ${updated}, Dedup: ${dedupMerged}, CV: ${cvProcessed}/${withPhotos.length}\n`);
     }
 
-    console.log(`🏁 Done. Total: ${grandTotalCreated} created, ${grandTotalUpdated} updated, ${grandTotalDedupMerged} deduped, ${grandTotalCvProcessed} CV estimates.`);
+    const totalAnimals = grandTotalCreated + grandTotalUpdated;
+    console.log(`🏁 Done. Total: ${grandTotalCreated} created, ${grandTotalUpdated} updated, ${grandTotalDedupMerged} deduped, ${grandTotalCvProcessed} CV estimates, ${grandTotalErrors} errors.`);
+    checkScrapeHealth('shelters', totalAnimals, grandTotalErrors, Date.now());
     process.exit(0);
 }
 

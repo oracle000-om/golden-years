@@ -186,7 +186,7 @@ async function main() {
                 }
 
                 const now = new Date();
-                const data = {
+                const data: Record<string, unknown> = {
                     name: sanitizeText(animal.name),
                     species: animal.species,
                     breed: sanitizeText(animal.breed),
@@ -196,37 +196,6 @@ async function main() {
                     photoHash,
                     status: animal.status,
                     ageKnownYears: animal.ageKnownYears != null ? Number(animal.ageKnownYears) : null,
-                    ageSource: cvEstimate ? 'CV_ESTIMATED' as const : (animal.ageSource || 'SHELTER_REPORTED' as const),
-                    ageEstimatedLow: cvEstimate?.estimatedAgeLow ?? null,
-                    ageEstimatedHigh: cvEstimate?.estimatedAgeHigh ?? null,
-                    ageConfidence: cvEstimate?.confidence ?? 'NONE' as const,
-                    ageIndicators: cvEstimate?.indicators ?? [],
-                    detectedBreeds: cvEstimate?.detectedBreeds ?? [],
-                    breedConfidence: cvEstimate?.detectedBreeds?.length ? cvEstimate.confidence : 'NONE' as const,
-                    lifeExpectancyLow: lifeExp?.low ?? null,
-                    lifeExpectancyHigh: lifeExp?.high ?? null,
-                    // v2: health assessment
-                    bodyConditionScore: cvEstimate?.bodyConditionScore ?? null,
-                    coatCondition: cvEstimate?.coatCondition ?? null,
-                    visibleConditions: cvEstimate?.visibleConditions ?? [],
-                    healthNotes: cvEstimate?.healthNotes ?? null,
-                    // v2: behavioral signals
-                    aggressionRisk: cvEstimate?.aggressionRisk ?? null,
-                    fearIndicators: cvEstimate?.fearIndicators ?? [],
-                    stressLevel: cvEstimate?.stressLevel ?? null,
-                    behaviorNotes: cvEstimate?.behaviorNotes ?? null,
-                    // v2: photo quality
-                    photoQuality: cvEstimate?.photoQuality ?? null,
-                    // v2: care guidance
-                    likelyCareNeeds: cvEstimate?.likelyCareNeeds ?? [],
-                    estimatedCareLevel: cvEstimate?.estimatedCareLevel ?? null,
-                    dataConflicts: cvEstimate?.dataConflicts ?? [],
-                    // v5: dental & eye close-up
-                    dentalGrade: cvEstimate?.dentalGrade ?? null,
-                    tartarSeverity: cvEstimate?.tartarSeverity ?? null,
-                    dentalNotes: cvEstimate?.dentalNotes ?? null,
-                    cataractStage: cvEstimate?.cataractStage ?? null,
-                    eyeNotes: cvEstimate?.eyeNotes ?? null,
                     intakeReason: animal.intakeReason,
                     intakeReasonDetail: sanitizeText(animal.intakeReasonDetail),
                     euthScheduledAt: animal.euthScheduledAt,
@@ -235,6 +204,43 @@ async function main() {
                     // v2: temporal tracking
                     lastSeenAt: now,
                 };
+
+                // Only overwrite CV fields when we have a fresh estimate —
+                // otherwise preserve whatever is already in the DB
+                if (cvEstimate) {
+                    Object.assign(data, {
+                        ageSource: 'CV_ESTIMATED' as const,
+                        ageEstimatedLow: cvEstimate.estimatedAgeLow ?? null,
+                        ageEstimatedHigh: cvEstimate.estimatedAgeHigh ?? null,
+                        ageConfidence: cvEstimate.confidence ?? 'NONE',
+                        ageIndicators: cvEstimate.indicators ?? [],
+                        detectedBreeds: cvEstimate.detectedBreeds ?? [],
+                        breedConfidence: cvEstimate.detectedBreeds?.length ? cvEstimate.confidence : 'NONE',
+                        lifeExpectancyLow: lifeExp?.low ?? null,
+                        lifeExpectancyHigh: lifeExp?.high ?? null,
+                        bodyConditionScore: cvEstimate.bodyConditionScore ?? null,
+                        coatCondition: cvEstimate.coatCondition ?? null,
+                        visibleConditions: cvEstimate.visibleConditions ?? [],
+                        healthNotes: cvEstimate.healthNotes ?? null,
+                        aggressionRisk: cvEstimate.aggressionRisk ?? null,
+                        fearIndicators: cvEstimate.fearIndicators ?? [],
+                        stressLevel: cvEstimate.stressLevel ?? null,
+                        behaviorNotes: cvEstimate.behaviorNotes ?? null,
+                        photoQuality: cvEstimate.photoQuality ?? null,
+                        likelyCareNeeds: cvEstimate.likelyCareNeeds ?? [],
+                        estimatedCareLevel: cvEstimate.estimatedCareLevel ?? null,
+                        dataConflicts: cvEstimate.dataConflicts ?? [],
+                        dentalGrade: cvEstimate.dentalGrade ?? null,
+                        tartarSeverity: cvEstimate.tartarSeverity ?? null,
+                        dentalNotes: cvEstimate.dentalNotes ?? null,
+                        cataractStage: cvEstimate.cataractStage ?? null,
+                        eyeNotes: cvEstimate.eyeNotes ?? null,
+                    });
+                } else if (!existing) {
+                    // New animal with no CV — set default source
+                    data.ageSource = animal.ageSource || 'SHELTER_REPORTED';
+                    data.ageConfidence = 'NONE';
+                }
 
                 let animalId: string;
                 if (existing) {

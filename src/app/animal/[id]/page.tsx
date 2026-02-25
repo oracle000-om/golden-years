@@ -3,12 +3,13 @@ import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { getAnimalById, getAnimalForMetadata, getAnimalSnapshots, getBreedCommonConditions, getShelterInsights } from '@/lib/queries';
-import { formatDeathMarker, hoursUntil, getUrgencyLevel, formatAge, formatShelterStats, formatIntakeReason, formatYearsRemaining, getAgeDiscrepancy, getGoldenYearsConfidence, computeHealthScore, getSaveRate, getBestAge, cleanDisplayText } from '@/lib/utils';
+import { formatDeathMarker, hoursUntil, getUrgencyLevel, formatIntakeReason, formatYearsRemaining, getAgeDiscrepancy, getGoldenYearsConfidence, computeHealthScore, getSaveRate, getBestAge, cleanDisplayText } from '@/lib/utils';
 import { CopyLinkButton } from '@/components/copy-link-button';
 import { BackButton } from '@/components/back-button';
 import { PhotoGallery } from '@/components/photo-gallery';
 import { ShelterStatsCharts } from '@/components/shelter-stats-charts';
-import type { AnimalWithShelterAndSources, Source } from '@/lib/types';
+import { TrendSection } from '@/components/trend-section';
+import type { AnimalWithShelterAndSources } from '@/lib/types';
 
 export const revalidate = 60;
 
@@ -103,16 +104,8 @@ export default async function AnimalDetailPage({
 
     const hours = hoursUntil(animal.euthScheduledAt);
     const urgency = getUrgencyLevel(hours);
-    const shelterStatsLine = formatShelterStats(animal.shelter.totalIntakeAnnual, animal.shelter.totalEuthanizedAnnual, animal.shelter.dataYear);
     const saveRate = getSaveRate(animal.shelter.totalIntakeAnnual, animal.shelter.totalEuthanizedAnnual);
     const shelterInsights = await getShelterInsights(animal.shelterId);
-    const ageDisplay = formatAge(
-        animal.ageKnownYears,
-        animal.ageEstimatedLow,
-        animal.ageEstimatedHigh,
-        animal.ageConfidence,
-        animal.ageSource,
-    );
     const intakeReasonDisplay = formatIntakeReason(animal.intakeReason, animal.intakeReasonDetail);
     const yearsRemaining = formatYearsRemaining(
         animal.ageKnownYears,
@@ -477,86 +470,46 @@ export default async function AnimalDetailPage({
                             </div>
                         );
                     })()}
-                    {/* --- Changes Since Intake (Trend Delta) --- */}
+                    {/* --- Dental & Eye Health (from close-up assessment) --- */}
+                    {(animal.dentalGrade || animal.cataractStage) && (
+                        <div className="animal-detail__report-section">
+                            <h3>Dental &amp; Eye Health</h3>
+                            {animal.dentalGrade && (
+                                <p>
+                                    <strong>Dental Grade: {animal.dentalGrade}/4</strong>
+                                    {animal.tartarSeverity && ` · Tartar: ${animal.tartarSeverity}`}
+                                    {animal.dentalNotes && <><br /><span style={{ color: 'var(--color-text-dim)', fontSize: 'var(--font-size-xs)' }}>{animal.dentalNotes}</span></>}
+                                </p>
+                            )}
+                            {animal.cataractStage && animal.cataractStage !== 'none' && (
+                                <p>
+                                    <strong>Cataracts: {animal.cataractStage}</strong>
+                                    {animal.eyeNotes && <><br /><span style={{ color: 'var(--color-text-dim)', fontSize: 'var(--font-size-xs)' }}>{animal.eyeNotes}</span></>}
+                                </p>
+                            )}
+                            {animal.cataractStage === 'none' && (
+                                <p>Eyes: Clear, no cataracts detected</p>
+                            )}
+                        </div>
+                    )}
+                    {/* --- Changes Since Intake (Sparkline Trends) --- */}
                     {await (async () => {
                         const snapshots = await getAnimalSnapshots(animal.id);
                         if (snapshots.length < 2) return null;
 
-                        const oldest = snapshots[snapshots.length - 1];
-                        const newest = snapshots[0];
-
-                        const changes: { label: string; from: string; to: string; direction: 'improved' | 'declined' | 'stable' }[] = [];
-
-                        // BCS change
-                        if (oldest.bodyConditionScore !== null && newest.bodyConditionScore !== null && oldest.bodyConditionScore !== newest.bodyConditionScore) {
-                            const diff = newest.bodyConditionScore - oldest.bodyConditionScore;
-                            // BCS closer to 4-5 = improvement
-                            const oldDist = Math.min(Math.abs(oldest.bodyConditionScore - 4), Math.abs(oldest.bodyConditionScore - 5));
-                            const newDist = Math.min(Math.abs(newest.bodyConditionScore - 4), Math.abs(newest.bodyConditionScore - 5));
-                            changes.push({
-                                label: 'Body Condition Score (BCS)',
-                                from: `${oldest.bodyConditionScore}/9`,
-                                to: `${newest.bodyConditionScore}/9`,
-                                direction: newDist < oldDist ? 'improved' : newDist > oldDist ? 'declined' : diff > 0 ? 'improved' : 'declined',
-                            });
-                        }
-
-                        // Coat change
-                        if (oldest.coatCondition && newest.coatCondition && oldest.coatCondition !== newest.coatCondition) {
-                            const coatRank: Record<string, number> = { poor: 0, fair: 1, good: 2 };
-                            changes.push({
-                                label: 'Coat condition',
-                                from: oldest.coatCondition,
-                                to: newest.coatCondition,
-                                direction: (coatRank[newest.coatCondition] ?? 0) > (coatRank[oldest.coatCondition] ?? 0) ? 'improved' : 'declined',
-                            });
-                        }
-
-                        // Stress change
-                        if (oldest.stressLevel && newest.stressLevel && oldest.stressLevel !== newest.stressLevel) {
-                            const stressRank: Record<string, number> = { low: 2, moderate: 1, high: 0 };
-                            changes.push({
-                                label: 'Stress level',
-                                from: oldest.stressLevel,
-                                to: newest.stressLevel,
-                                direction: (stressRank[newest.stressLevel] ?? 0) > (stressRank[oldest.stressLevel] ?? 0) ? 'improved' : 'declined',
-                            });
-                        }
-
-                        // Status change
-                        if (oldest.status !== newest.status) {
-                            changes.push({
-                                label: 'Status',
-                                from: oldest.status.charAt(0) + oldest.status.slice(1).toLowerCase(),
-                                to: newest.status.charAt(0) + newest.status.slice(1).toLowerCase(),
-                                direction: newest.status === 'URGENT' ? 'declined' : oldest.status === 'URGENT' ? 'improved' : 'stable',
-                            });
-                        }
-
-                        if (changes.length === 0) return null;
-
-                        const daysDiff = Math.round((new Date(newest.scrapedAt).getTime() - new Date(oldest.scrapedAt).getTime()) / (1000 * 60 * 60 * 24));
+                        // Serialize snapshot data for the client component
+                        const serialized = snapshots.map(s => ({
+                            scrapedAt: s.scrapedAt.toISOString(),
+                            bodyConditionScore: s.bodyConditionScore,
+                            coatCondition: s.coatCondition,
+                            stressLevel: s.stressLevel,
+                        }));
 
                         return (
-                            <div className="animal-detail__report-section">
-                                <h3>Changes Since Intake</h3>
-                                <p className="animal-detail__delta-intro">
-                                    Since entering the shelter{daysDiff > 0 ? ` (${daysDiff} day${daysDiff !== 1 ? 's' : ''} ago)` : ''}, {animal.name || 'this animal'} has experienced:
-                                </p>
-                                <div className="animal-detail__delta-list">
-                                    {changes.map((c, i) => (
-                                        <div key={i} className={`animal-detail__delta-item animal-detail__delta-item--${c.direction}`}>
-                                            <span className="animal-detail__delta-label">{c.label}</span>
-                                            <span className="animal-detail__delta-change">
-                                                {c.from} → {c.to}
-                                                <span className="animal-detail__delta-badge">
-                                                    {c.direction === 'improved' ? '↑ Improved' : c.direction === 'declined' ? '↓ Declined' : '— Changed'}
-                                                </span>
-                                            </span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
+                            <TrendSection
+                                snapshots={serialized}
+                                animalName={animal.name || 'this animal'}
+                            />
                         );
                     })()}
                 </div>
@@ -609,7 +562,7 @@ export default async function AnimalDetailPage({
                         {(() => {
                             const adoptUrl = animal.shelter.websiteUrl
                                 || (animal.sources.length > 0 ? animal.sources[0].sourceUrl : null);
-                            const isRescue = animal.shelter.shelterType === 'RESCUE' || animal.shelter.shelterType === 'FOSTER_BASED';
+                            const isRescue = animal.shelter.shelterType === 'RESCUE' || animal.shelter.shelterType === 'NO_KILL' || animal.shelter.shelterType === 'FOSTER_BASED';
                             const ctaLabel = isRescue ? 'Go to rescue website →' : 'Go to shelter website →';
                             return adoptUrl ? (
                                 <a

@@ -6,7 +6,7 @@ export interface Shelter {
     name: string;
     county: string;
     state: string;
-    shelterType: 'MUNICIPAL' | 'RESCUE' | 'FOSTER_BASED';
+    shelterType: 'MUNICIPAL' | 'RESCUE' | 'NO_KILL' | 'FOSTER_BASED';
     address: string | null;
     zipCode: string | null;
     phone: string | null;
@@ -42,6 +42,7 @@ export interface Animal {
     size: 'SMALL' | 'MEDIUM' | 'LARGE' | 'XLARGE' | null;
     photoUrl: string | null;
     photoUrls: string[];
+    videoUrl: string | null;
     status: 'AVAILABLE' | 'URGENT' | 'RESCUE_PULL' | 'ADOPTED' | 'TRANSFERRED' | 'RETURNED_OWNER' | 'EUTHANIZED' | 'DELISTED';
     lastSeenAt: Date | null;
     delistedAt: Date | null;
@@ -65,6 +66,11 @@ export interface Animal {
     fearIndicators: string[];
     likelyCareNeeds: string[];
     estimatedCareLevel: string | null;
+    dentalGrade: number | null;
+    tartarSeverity: string | null;
+    dentalNotes: string | null;
+    cataractStage: string | null;
+    eyeNotes: string | null;
     intakeReason: 'OWNER_SURRENDER' | 'STRAY' | 'OWNER_DECEASED' | 'CONFISCATE' | 'RETURN' | 'TRANSFER' | 'INJURED' | 'OTHER' | 'UNKNOWN';
     intakeReasonDetail: string | null;
     notes: string | null;

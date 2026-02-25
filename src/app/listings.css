@@ -181,6 +181,42 @@
   outline: none;
 }
 
+/* --- Timeframe Toggle Buttons --- */
+.filter-bar__time-group {
+  display: flex;
+  border: 1px solid rgba(255, 240, 224, 0.1);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.filter-bar__time-btn {
+  background: var(--color-bg-raised);
+  color: var(--color-text-dim);
+  border: none;
+  border-right: 1px solid rgba(255, 240, 224, 0.08);
+  padding: var(--space-sm) var(--space-md);
+  font-size: var(--font-size-sm);
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.filter-bar__time-btn:last-child {
+  border-right: none;
+}
+
+.filter-bar__time-btn:hover {
+  color: var(--color-text);
+  background: rgba(255, 240, 224, 0.06);
+}
+
+.filter-bar__time-btn.active {
+  background: var(--color-gold-glow);
+  color: var(--color-gold);
+  font-weight: 600;
+}
+
 .filter-bar__reset {
   background: transparent;
   color: var(--color-text-dim);

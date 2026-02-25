@@ -34,6 +34,7 @@ on:
           - all
           - shelters
           - rescuegroups
+          - petfinder
           - petango
           - shelterluv
           - adoptapet
@@ -89,6 +90,27 @@ jobs:
       - run: npm ci
       - run: npx prisma generate
       - run: npx tsx scraper/run-rescuegroups.ts
+
+  # ── Petfinder (every 8 hours) ────────────────────────────
+  scrape-petfinder:
+    if: >-
+      github.event.schedule == '0 2,10,18 * * *' ||
+      (github.event_name == 'workflow_dispatch' &&
+       (github.event.inputs.pipeline == 'all' ||
+        github.event.inputs.pipeline == 'petfinder'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npx tsx scraper/run-petfinder.ts
 
   # ── Petango / 24PetConnect (every 8 hours) ──────────────
   scrape-petango:
@@ -153,7 +175,7 @@ jobs:
       - run: npx prisma generate
       - run: npx tsx scraper/run-shelterluv.ts
 
-  # ── Adopt-a-Pet (every 12 hours) ─────────────────────
+  # ── Adopt-a-Pet (every 8 hours) ──────────────────────
   scrape-adoptapet:
     if: >-
       github.event.schedule == '0 2,10,18 * * *' ||

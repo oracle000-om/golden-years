@@ -129,7 +129,7 @@ export function getSaveRate(totalIntake: number, totalEuthanized: number): numbe
 export function formatShelterStats(
     totalIntake: number,
     totalEuthanized: number,
-    dataYear: number | null
+    _dataYear?: number | null
 ): string | null {
     const saveRate = getSaveRate(totalIntake, totalEuthanized);
     if (saveRate === null) return null;

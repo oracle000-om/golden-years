@@ -53,6 +53,14 @@ export default async function AdminDashboard() {
         <div className="admin-page">
             <h1 className="admin-page__title">Overview</h1>
 
+            {/* ── Enhancement 7: Quick-Glance Summary ── */}
+            <p className="admin-summary">
+                Tracking <strong>{data.totalAnimals.toLocaleString()}</strong> animals across{' '}
+                <strong>{data.totalShelters.toLocaleString()}</strong> shelters in{' '}
+                <strong>{data.totalStates}</strong> states —{' '}
+                <strong>{data.activeAnimals.toLocaleString()}</strong> currently available.
+            </p>
+
             {/* ── Top Stats ── */}
             <div className="admin-stats-grid">
                 <StatCard label="Total Animals" value={data.totalAnimals} />
@@ -117,7 +125,7 @@ export default async function AdminDashboard() {
                         {data.shelterTypeBreakdown.map(t => (
                             <div key={t.type} className="admin-breakdown__row">
                                 <span className="admin-breakdown__emoji">
-                                    {t.type === 'MUNICIPAL' ? '🏛️' : t.type === 'RESCUE' ? '🤝' : '🏠'}
+                                    {t.type === 'MUNICIPAL' ? '🏛️' : t.type === 'RESCUE' ? '🤝' : t.type === 'NO_KILL' ? '🐾' : '🏠'}
                                 </span>
                                 <span className="admin-breakdown__label">{t.type}</span>
                                 <span className="admin-breakdown__count">
@@ -134,6 +142,55 @@ export default async function AdminDashboard() {
                     </div>
                 </div>
             </div>
+
+            {/* ── Enhancement 1: Data Health ── */}
+            <div className="admin-card">
+                <h2 className="admin-card__title">Data Health</h2>
+                <div className="admin-breakdown">
+                    {[
+                        { label: 'No Photo', count: data.withoutPhoto, emoji: '📷' },
+                        { label: 'No Size', count: data.withoutSize, emoji: '📏' },
+                        { label: 'No Sex', count: data.withoutSex, emoji: '⚥' },
+                        { label: 'Data Conflicts', count: data.withConflicts, emoji: '⚠️' },
+                        { label: 'Visible Conditions', count: data.withVisibleConditions, emoji: '🏥' },
+                    ].map(item => (
+                        <div key={item.label} className="admin-breakdown__row">
+                            <span className="admin-breakdown__emoji">{item.emoji}</span>
+                            <span className="admin-breakdown__label">{item.label}</span>
+                            <span className="admin-breakdown__count">{item.count.toLocaleString()}</span>
+                            <div className="admin-breakdown__bar">
+                                <div
+                                    className="admin-breakdown__bar-fill admin-breakdown__bar-fill--warn"
+                                    style={{ width: `${Math.min((item.count / data.totalAnimals) * 100, 100)}%` }}
+                                />
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            {/* ── Enhancement 5: State Coverage ── */}
+            {data.stateBreakdown.length > 0 && (
+                <div className="admin-card">
+                    <h2 className="admin-card__title">Coverage by State ({data.totalStates} states)</h2>
+                    <div className="admin-breakdown">
+                        {data.stateBreakdown.map(s => (
+                            <div key={s.state} className="admin-breakdown__row">
+                                <span className="admin-breakdown__label">{s.state}</span>
+                                <span className="admin-breakdown__count">
+                                    {s.animals.toLocaleString()} animals · {s.shelters} shelter{s.shelters !== 1 ? 's' : ''}
+                                </span>
+                                <div className="admin-breakdown__bar">
+                                    <div
+                                        className="admin-breakdown__bar-fill"
+                                        style={{ width: `${Math.min((s.animals / data.activeAnimals) * 100, 100)}%` }}
+                                    />
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             {/* ── Shelter Leaderboard ── */}
             <div className="admin-card">

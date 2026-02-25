@@ -27,24 +27,37 @@ interface OpenDataConfig {
 
 interface SocrataOutcome {
     animal_id?: string;
+    animalid?: string;       // Riverside uses this
     id?: string;             // Sonoma uses this
     animal_type?: string;
+    animaltype?: string;     // Riverside uses this
     breed?: string;
     animal_breed?: string;   // Dallas uses this
     color?: string;
     age_upon_outcome?: string;
+    impound_age?: string;    // Riverside: age in days
+    petage?: string;         // Montgomery: e.g. "3 YEARS"
     sex_upon_outcome?: string;
     sex?: string;            // Sonoma uses this
     outcome_type?: string;
+    outcome_status?: string; // Austin datahub uses this
+    outtype?: string;        // Montgomery uses this (EUTH, ADOPTION, etc.)
+    dispositiontype?: string; // Riverside uses this (EUTH, TRANSFER, etc.)
     outcome_subtype?: string;
+    outsubtype?: string;     // Montgomery uses this
     datetime?: string;
     outcome_date?: string;   // Dallas uses this instead of datetime
+    outdate?: string;        // Montgomery uses this
+    disposition_date?: string; // Riverside uses this
     date_of_birth?: string;
     name?: string;
+    petname?: string;        // Montgomery uses this
     type?: string;
     outcome_condition?: string;
     intake_type?: string;    // Dallas includes this in same dataset
+    intype?: string;         // Montgomery uses this
     intake_date?: string;    // Dallas includes this in same dataset
+    indate?: string;         // Montgomery uses this
 }
 
 interface SocrataIntake {
@@ -80,6 +93,13 @@ function loadConfig(): OpenDataConfig[] {
 
 function parseAgeToYears(ageStr: string | undefined): number | null {
     if (!ageStr) return null;
+    // Handle age in days (Riverside: impound_age is in days)
+    const numOnly = ageStr.trim();
+    if (/^\d+$/.test(numOnly)) {
+        const days = parseInt(numOnly, 10);
+        if (days > 365) return Math.round(days / 365);
+        return null; // Less than 1 year — not senior
+    }
     const yearMatch = ageStr.match(/(\d+)\s*year/i);
     if (yearMatch) return parseInt(yearMatch[1], 10);
     const monthMatch = ageStr.match(/(\d+)\s*month/i);
@@ -136,7 +156,7 @@ async function fetchSoda<T>(url: string): Promise<T[]> {
 }
 
 /**
- * Detect which date field this dataset uses by trying datetime first, then outcome_date.
+ * Detect which date field this dataset uses by trying datetime first, then outcome_date, then disposition_date.
  */
 async function detectDateField(domain: string, resourceId: string): Promise<string> {
     // Try 'datetime' first (Austin-style)
@@ -158,6 +178,28 @@ async function detectDateField(domain: string, resourceId: string): Promise<stri
         });
         await fetchSoda(url);
         return 'outcome_date';
+    } catch {
+        // Fall through
+    }
+    // Try 'disposition_date' (Riverside-style)
+    try {
+        const url = buildSodaUrl(domain, resourceId, {
+            '$select': 'disposition_date',
+            '$limit': '1',
+        });
+        await fetchSoda(url);
+        return 'disposition_date';
+    } catch {
+        // Fall through
+    }
+    // Try 'outdate' (Montgomery-style)
+    try {
+        const url = buildSodaUrl(domain, resourceId, {
+            '$select': 'outdate',
+            '$limit': '1',
+        });
+        await fetchSoda(url);
+        return 'outdate';
     } catch {
         // Fall through
     }
@@ -191,38 +233,42 @@ async function fetchCityOutcomes(config: OpenDataConfig, daysPast: number = 90):
 
     // ── Filter euthanasia outcomes ──
     // Cities use different spellings: euthanasia (Austin), euthanized (Dallas), euthanize (Sonoma)
+    // Riverside uses dispositiontype: EUTH
+    // Montgomery uses outtype: EUTH
+    // Austin datahub uses outcome_status: Euthanasia
     const euthOutcomes = allOutcomes.filter(o => {
-        const outcomeType = o.outcome_type?.toLowerCase() || '';
-        return outcomeType.startsWith('euthan');
+        const outcomeType = (o.outcome_type || o.outcome_status || o.outtype || o.dispositiontype || '').toLowerCase();
+        return outcomeType.startsWith('euth');
     });
     console.log(`   🔴 ${euthOutcomes.length} euthanasia outcomes`);
 
     // ── Map euthanasia outcomes to ScrapedAnimal ──
     const shelterId = `opendata-${config.id}`;
     const outcomes: ScrapedAnimal[] = euthOutcomes
-        .filter(o => o.animal_id || o.id) // Must have an ID
+        .filter(o => o.animal_id || o.animalid || o.id) // Must have an ID
         .map(o => {
-            const outcomeDate = o.datetime || o.outcome_date;
+            const outcomeDate = o.datetime || o.outcome_date || o.outdate || o.disposition_date;
             const breed = o.breed || o.animal_breed;
-            const animalId = o.animal_id || o.id!;
+            const animalId = o.animal_id || o.animalid || o.id!;
+            const outcomeSubtype = o.outcome_subtype || o.outsubtype;
             return {
                 intakeId: animalId,
-                name: o.name || null,
-                species: mapSpecies(o.animal_type || o.type),
+                name: o.name || o.petname || null,
+                species: mapSpecies(o.animal_type || o.animaltype || o.type),
                 breed: breed || null,
                 sex: mapSex(o.sex_upon_outcome || o.sex),
                 size: null,
                 photoUrl: null, // Open data doesn't include photos
                 status: 'URGENT' as const,
-                ageKnownYears: parseAgeToYears(o.age_upon_outcome),
+                ageKnownYears: parseAgeToYears(o.age_upon_outcome || o.petage || o.impound_age),
                 ageSource: 'SHELTER_REPORTED' as const,
                 euthScheduledAt: outcomeDate ? new Date(outcomeDate) : null,
-                intakeDate: o.intake_date ? new Date(o.intake_date) : null,
-                notes: o.outcome_subtype
-                    ? `Euthanasia reason: ${o.outcome_subtype}`
+                intakeDate: (o.intake_date || o.indate) ? new Date((o.intake_date || o.indate)!) : null,
+                notes: outcomeSubtype
+                    ? `Euthanasia reason: ${outcomeSubtype}`
                     : null,
                 intakeReason: 'UNKNOWN' as const,
-                intakeReasonDetail: o.outcome_subtype || null,
+                intakeReasonDetail: outcomeSubtype || null,
                 _shelterId: shelterId,
                 _shelterName: config.shelterName,
                 _shelterCity: config.city,

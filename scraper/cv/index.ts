@@ -16,6 +16,8 @@ export { lookupLifeExpectancy } from './breed-lifespan';
 export { computeAssessmentDiff } from './cv-diff';
 export { enrichWithBreedProfile } from './breed-enrichment';
 export { extractKeyFrames, isFFmpegAvailable } from './video-frames';
+export { computeCalibrationConfig } from './calibration-config';
+export type { CalibrationConfig } from './calibration-config';
 export type { AnimalAssessment, AgeEstimate, Confidence, AgeEstimationProvider, AssessmentProvider, AssessmentContext } from './types';
 export type { AssessmentDiff, AssessmentDiffEntry } from './cv-diff';
 export type { BreedEnrichment } from './breed-enrichment';

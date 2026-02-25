@@ -236,15 +236,16 @@ export function AnimalGrid({ animals, totalCount, page, totalPages }: AnimalGrid
                                             <span className="animal-card__death-marker-label">Status</span>
                                             <span className="animal-card__death-marker-time standard">
                                                 {(animal.shelter as any).shelterType === 'RESCUE' ? 'In Rescue'
-                                                    : (animal.shelter as any).shelterType === 'FOSTER_BASED' ? 'In Foster'
-                                                        : 'In Shelter'}
+                                                    : (animal.shelter as any).shelterType === 'NO_KILL' ? 'In No-Kill Shelter'
+                                                        : (animal.shelter as any).shelterType === 'FOSTER_BASED' ? 'In Foster'
+                                                            : 'In Shelter'}
                                             </span>
                                         </>
                                     )}
                                     {daysInShelter !== null && (
                                         <div className="animal-card__days-in-shelter">
                                             {daysInShelter === 0 ? 'Arrived today'
-                                                : `${daysInShelter} day${daysInShelter !== 1 ? 's' : ''} ${(animal.shelter as any).shelterType === 'RESCUE' ? 'in rescue' : (animal.shelter as any).shelterType === 'FOSTER_BASED' ? 'in foster' : 'in shelter'}`}
+                                                : `${daysInShelter} day${daysInShelter !== 1 ? 's' : ''} ${(animal.shelter as any).shelterType === 'RESCUE' ? 'in rescue' : (animal.shelter as any).shelterType === 'NO_KILL' ? 'in no-kill shelter' : (animal.shelter as any).shelterType === 'FOSTER_BASED' ? 'in foster' : 'in shelter'}`}
                                         </div>
                                     )}
                                 </div>

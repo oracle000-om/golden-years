@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
-import { getFilteredAnimals, getDistinctStates, getSuggestions } from '@/lib/queries';
+import { getFilteredAnimals, getDistinctStates, getSuggestions, hasEuthScheduledAnimals } from '@/lib/queries';
 import { parseSearchQuery } from '@/lib/search-parser';
 import { FilterBar } from './listings/filter-bar';
 import { SearchBar } from './listings/search-bar';
@@ -37,6 +37,7 @@ interface SearchParams {
   page?: string;
   radius?: string;
   source?: string;
+  status?: string;
 }
 
 export default async function Home({
@@ -49,12 +50,14 @@ export default async function Home({
   let result: PaginatedResult = { animals: [], totalCount: 0, page: 1, totalPages: 1, pageSize: 24 };
   let states: string[] = [];
   let suggestions: SearchSuggestion[] = [];
+  let hasEuthDates = false;
   let error = false;
 
   try {
-    [result, states] = await Promise.all([
+    [result, states, hasEuthDates] = await Promise.all([
       getFilteredAnimals(params),
       getDistinctStates(),
+      hasEuthScheduledAnimals(),
     ]);
 
     // Generate suggestions when search returns 0 results
@@ -111,7 +114,9 @@ export default async function Home({
           currentSort={params.sort || 'urgency'}
           currentRadius={params.radius || '100'}
           currentSource={params.source || 'all'}
+          currentTime={params.time || 'all'}
           hasLocation={hasLocation}
+          hasEuthDates={hasEuthDates}
           states={states}
         />
 

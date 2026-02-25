@@ -22,6 +22,15 @@ export interface AdminOverview {
     shelterLeaderboard: ShelterStat[];
     cvConfidenceBreakdown: { confidence: string; count: number }[];
     staleAnimals: number;
+    // Enhancement 1: Data quality
+    withoutPhoto: number;
+    withoutSize: number;
+    withoutSex: number;
+    withConflicts: number;
+    withVisibleConditions: number;
+    // Enhancement 5: State coverage
+    stateBreakdown: { state: string; shelters: number; animals: number }[];
+    totalStates: number;
 }
 
 interface RecentAnimal {
@@ -52,6 +61,11 @@ export async function getAdminOverview(): Promise<AdminOverview> {
         withCvEstimate,
         withPhoto,
         staleAnimals,
+        withoutPhoto,
+        withoutSize,
+        withoutSex,
+        withConflicts,
+        withVisibleConditions,
     ] = await Promise.all([
         prisma.animal.count(),
         prisma.animal.count({ where: { status: { in: ['AVAILABLE', 'URGENT'] } } }),
@@ -67,6 +81,12 @@ export async function getAdminOverview(): Promise<AdminOverview> {
                 lastSeenAt: { lt: new Date(Date.now() - 48 * 60 * 60 * 1000) },
             },
         }),
+        // Enhancement 1: Data quality counts
+        prisma.animal.count({ where: { photoUrl: null } }),
+        prisma.animal.count({ where: { size: null } }),
+        prisma.animal.count({ where: { sex: null } }),
+        prisma.animal.count({ where: { dataConflicts: { isEmpty: false } } }),
+        prisma.animal.count({ where: { visibleConditions: { isEmpty: false } } }),
     ]);
 
     // Species breakdown
@@ -171,6 +191,24 @@ export async function getAdminOverview(): Promise<AdminOverview> {
     });
     const activeShelters = activeShelterIds.length;
 
+    // Enhancement 5: State coverage
+    const stateGroups = await prisma.shelter.groupBy({
+        by: ['state'],
+        _count: { state: true },
+    });
+    const stateAnimalCounts = await Promise.all(
+        stateGroups.map(async (g) => {
+            const count = await prisma.animal.count({
+                where: {
+                    status: { in: ['AVAILABLE', 'URGENT'] },
+                    shelter: { is: { state: g.state } },
+                },
+            });
+            return { state: g.state, shelters: g._count.state, animals: count };
+        })
+    );
+    const stateBreakdown = stateAnimalCounts.sort((a, b) => b.animals - a.animals);
+
     return {
         totalAnimals,
         activeAnimals,
@@ -187,6 +225,13 @@ export async function getAdminOverview(): Promise<AdminOverview> {
         shelterLeaderboard,
         cvConfidenceBreakdown,
         staleAnimals,
+        withoutPhoto,
+        withoutSize,
+        withoutSex,
+        withConflicts,
+        withVisibleConditions,
+        stateBreakdown,
+        totalStates: stateGroups.length,
     };
 }
 
@@ -199,6 +244,10 @@ export interface AdminAnimalStats {
     byAgeSource: { source: string; count: number }[];
     byPhotoQuality: { quality: string; count: number }[];
     bySourceType: { type: string; count: number }[];
+    byIntakeReason: { reason: string; count: number }[];
+    bySex: { sex: string; count: number }[];
+    bySize: { size: string; count: number }[];
+    byCareLevel: { level: string; count: number }[];
     withoutName: number;
     withoutAge: number;
     urgentCount: number;
@@ -255,7 +304,7 @@ export async function getAdminAnimalStats(): Promise<AdminAnimalStats> {
 
     // Active animals by shelter source type
     const sourceTypeCounts = await Promise.all(
-        ['MUNICIPAL', 'RESCUE', 'FOSTER_BASED'].map(async (type) => {
+        ['MUNICIPAL', 'RESCUE', 'NO_KILL', 'FOSTER_BASED'].map(async (type) => {
             const count = await prisma.animal.count({
                 where: {
                     status: { in: ['AVAILABLE', 'URGENT'] },
@@ -267,6 +316,33 @@ export async function getAdminAnimalStats(): Promise<AdminAnimalStats> {
     );
     const bySourceType = sourceTypeCounts.filter(s => s.count > 0);
 
+    // Enhancement 2: Intake reason breakdown
+    const byIntakeReason = (await prisma.animal.groupBy({ by: ['intakeReason'], _count: { intakeReason: true } }))
+        .map(g => ({ reason: g.intakeReason, count: g._count.intakeReason }))
+        .sort((a, b) => b.count - a.count);
+
+    // Enhancement 3: Sex & size breakdowns
+    const bySex = (await prisma.animal.groupBy({ by: ['sex'], _count: { sex: true } }))
+        .map(g => ({ sex: g.sex || 'UNKNOWN', count: g._count.sex }))
+        .sort((a, b) => b.count - a.count);
+
+    const bySize = (await prisma.animal.groupBy({
+        by: ['size'],
+        _count: { size: true },
+        where: { size: { not: null } },
+    }))
+        .map(g => ({ size: g.size || 'UNKNOWN', count: g._count.size }))
+        .sort((a, b) => b.count - a.count);
+
+    // Enhancement 4: Care level distribution
+    const byCareLevel = (await prisma.animal.groupBy({
+        by: ['estimatedCareLevel'],
+        _count: { estimatedCareLevel: true },
+        where: { estimatedCareLevel: { not: null } },
+    }))
+        .map(g => ({ level: g.estimatedCareLevel || 'unknown', count: g._count.estimatedCareLevel }))
+        .sort((a, b) => b.count - a.count);
+
     return {
         total,
         bySpecies,
@@ -274,6 +350,10 @@ export async function getAdminAnimalStats(): Promise<AdminAnimalStats> {
         byAgeSource,
         byPhotoQuality,
         bySourceType,
+        byIntakeReason,
+        bySex,
+        bySize,
+        byCareLevel,
         withoutName,
         withoutAge,
         urgentCount,

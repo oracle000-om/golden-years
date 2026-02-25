@@ -5,7 +5,7 @@
 import { prisma } from './db';
 import type { AnimalWithShelter, AnimalWithShelterAndSources, ShelterWithAnimals } from './types';
 import { parseSearchQuery, type SearchIntent } from './search-parser';
-import { geocodeZip, haversineDistance } from './geocode';
+import { geocodeZip, geocodeZipFull, geocodeCounty, haversineDistance } from './geocode';
 
 // ─── Data quality guards ─────────────────────────────────
 /** Names that indicate junk / placeholder records from shelter systems. */
@@ -29,6 +29,7 @@ export interface AnimalFilters {
     page?: string;
     radius?: string;
     source?: string;
+    status?: string;
 }
 
 export interface AnimalResult extends AnimalWithShelter {
@@ -71,7 +72,7 @@ function seniorThreshold(species: string, size: string | null): number {
  * OR our CV age estimate indicates the animal is NOT a senior.
  * CV analyzes the actual photo, so it's authoritative on its own.
  */
-function shouldExclude(animal: AnimalWithShelter): boolean {
+function _shouldExclude(animal: AnimalWithShelter): boolean {
     const threshold = seniorThreshold(animal.species, animal.size);
     if (animal.ageKnownYears !== null && animal.ageKnownYears < threshold) return true;
     if (animal.ageEstimatedHigh !== null && animal.ageEstimatedHigh < threshold) return true;
@@ -120,8 +121,13 @@ function buildSeniorExclusionClause(): Record<string, unknown> {
 
 /** Fetch filtered, sorted, paginated animal listings with distance. */
 export async function getFilteredAnimals(filters: AnimalFilters): Promise<PaginatedResult> {
+    // Status filter: default to both, narrow to URGENT-only when requested
+    const statusFilter = filters.status === 'urgent'
+        ? { in: ['URGENT'] }
+        : { in: ['AVAILABLE', 'URGENT'] };
+
     const where: Record<string, unknown> = {
-        status: { in: ['AVAILABLE', 'URGENT'] },
+        status: statusFilter,
         species: { in: ['DOG', 'CAT'] },
         photoUrl: { not: null },
         name: { notIn: PLACEHOLDER_NAMES },
@@ -146,10 +152,6 @@ export async function getFilteredAnimals(filters: AnimalFilters): Promise<Pagina
 
     if (filters.source && filters.source !== 'all') {
         shelterWhere.shelterType = filters.source.toUpperCase();
-    }
-
-    if (Object.keys(shelterWhere).length > 0) {
-        where.shelter = { is: shelterWhere };
     }
 
     // Timeframe filter
@@ -184,8 +186,23 @@ export async function getFilteredAnimals(filters: AnimalFilters): Promise<Pagina
     // Resolve user location for distance sorting/filtering
     const userZip = filters.zip?.trim() || searchIntent?.zip || null;
     let userCoords: { lat: number; lng: number } | null = null;
+    let userState: string | null = null;
     if (userZip) {
-        userCoords = await geocodeZip(userZip);
+        const fullGeo = await geocodeZipFull(userZip);
+        if (fullGeo) {
+            userCoords = { lat: fullGeo.lat, lng: fullGeo.lng };
+            userState = fullGeo.state;
+        }
+    }
+
+    // If user provided a zip and we know their state, add state-level DB filter
+    // (unless a state dropdown is already set — don't override explicit choice)
+    if (userState && !shelterWhere.state) {
+        shelterWhere.state = { equals: userState, mode: 'insensitive' };
+    }
+
+    if (Object.keys(shelterWhere).length > 0) {
+        where.shelter = { is: shelterWhere };
     }
 
     // Determine Prisma orderBy based on sort mode
@@ -207,87 +224,83 @@ export async function getFilteredAnimals(filters: AnimalFilters): Promise<Pagina
         orderBy.push({ createdAt: 'desc' });
     }
 
-    // Distance sort needs post-query processing for distance computation.
-    // All other sorts use DB-level pagination.
-    const needsPostSort = sort === 'distance' && !!userCoords;
+    // DB-level pagination for all sort modes
+    const skip = (page - 1) * DEFAULT_PAGE_SIZE;
 
-    let animals: AnimalResult[];
-    let totalCount: number;
+    const [dbAnimals, count] = await Promise.all([
+        prisma.animal.findMany({
+            where,
+            include: { shelter: true },
+            orderBy,
+            skip,
+            take: DEFAULT_PAGE_SIZE,
+        }) as Promise<AnimalWithShelter[]>,
+        prisma.animal.count({ where }),
+    ]);
 
-    if (needsPostSort && userCoords) {
-        // Distance sort: apply a bounding box to narrow results,
-        // compute distances, sort, then paginate.
-        const milesPerDegreeLat = 69.0;
-        const latDelta = radius / milesPerDegreeLat;
-        const lngDelta = radius / (milesPerDegreeLat * Math.cos(userCoords.lat * Math.PI / 180));
+    let animals: AnimalResult[] = dbAnimals as AnimalResult[];
+    let totalCount = count;
 
-        // Add bounding-box filter on shelter coordinates
-        const distWhere = {
-            ...where,
-            shelter: {
-                is: {
-                    ...(typeof where.shelter === 'object' && where.shelter !== null
-                        ? (where.shelter as Record<string, unknown>).is || {}
-                        : {}),
-                    latitude: { gte: userCoords.lat - latDelta, lte: userCoords.lat + latDelta },
-                    longitude: { gte: userCoords.lng - lngDelta, lte: userCoords.lng + lngDelta },
-                },
-            },
-        };
+    // Compute distances for the page of results
+    if (userCoords && animals.length > 0) {
+        // Collect unique shelter location keys for geocoding
+        const shelterLocations = new Map<string, { zip?: string; county?: string; state?: string }>();
+        for (const a of animals) {
+            if (a.shelter.latitude && a.shelter.longitude) continue; // already has coords
+            const key = a.shelter.zipCode || `${a.shelter.county}|${a.shelter.state}`;
+            if (!shelterLocations.has(key)) {
+                shelterLocations.set(key, {
+                    zip: a.shelter.zipCode || undefined,
+                    county: a.shelter.county || undefined,
+                    state: a.shelter.state || undefined,
+                });
+            }
+        }
 
-        const [boxAnimals, count] = await Promise.all([
-            prisma.animal.findMany({
-                where: distWhere,
-                include: { shelter: true },
-                orderBy,
-            }) as Promise<AnimalWithShelter[]>,
-            prisma.animal.count({ where: distWhere }),
-        ]);
+        // Geocode shelter locations (zip preferred, county+state fallback)
+        const locationCoords = new Map<string, { lat: number; lng: number } | null>();
+        for (const [key, loc] of shelterLocations) {
+            if (loc.zip) {
+                locationCoords.set(key, await geocodeZip(loc.zip));
+            } else if (loc.county && loc.state) {
+                locationCoords.set(key, await geocodeCounty(loc.county, loc.state));
+            }
+        }
 
-        // Compute exact distances and filter by radius
-        animals = boxAnimals
-            .map((a) => {
-                const result = a as AnimalResult;
-                if (a.shelter.latitude && a.shelter.longitude) {
-                    result.distance = Math.round(
-                        haversineDistance(userCoords!.lat, userCoords!.lng, a.shelter.latitude, a.shelter.longitude) * 10
-                    ) / 10;
+        // Compute distances
+        for (const animal of animals) {
+            let sLat = animal.shelter.latitude;
+            let sLng = animal.shelter.longitude;
+
+            // Fall back to geocoded coordinates
+            if (!sLat || !sLng) {
+                const key = animal.shelter.zipCode || `${animal.shelter.county}|${animal.shelter.state}`;
+                const coords = locationCoords.get(key);
+                if (coords) {
+                    sLat = coords.lat;
+                    sLng = coords.lng;
                 }
-                return result;
-            })
-            .filter((a) => a.distance === undefined || a.distance <= radius);
+            }
 
-        // Sort by distance
-        animals.sort((a, b) => (a.distance ?? Infinity) - (b.distance ?? Infinity));
-
-        totalCount = animals.length;
-        const start = (page - 1) * DEFAULT_PAGE_SIZE;
-        animals = animals.slice(start, start + DEFAULT_PAGE_SIZE);
-    } else {
-        // DB-level pagination (urgency, newest, age — all DB-sortable now)
-        const skip = (page - 1) * DEFAULT_PAGE_SIZE;
-
-        const [dbAnimals, count] = await Promise.all([
-            prisma.animal.findMany({
-                where,
-                include: { shelter: true },
-                orderBy,
-                skip,
-                take: DEFAULT_PAGE_SIZE,
-            }) as Promise<AnimalWithShelter[]>,
-            prisma.animal.count({ where }),
-        ]);
-
-        animals = dbAnimals.map((a) => {
-            const result = a as AnimalResult;
-            if (userCoords && a.shelter.latitude && a.shelter.longitude) {
-                result.distance = Math.round(
-                    haversineDistance(userCoords.lat, userCoords.lng, a.shelter.latitude, a.shelter.longitude) * 10
+            if (sLat && sLng) {
+                animal.distance = Math.round(
+                    haversineDistance(userCoords.lat, userCoords.lng, sLat, sLng) * 10
                 ) / 10;
             }
-            return result;
-        });
-        totalCount = count;
+        }
+
+        // If sort is distance, re-sort by computed distance
+        if (sort === 'distance') {
+            animals.sort((a, b) => (a.distance ?? Infinity) - (b.distance ?? Infinity));
+        }
+
+        // Post-query radius filter: remove animals beyond the user's radius
+        if (filters.radius !== 'any') {
+            animals = animals.filter(a => a.distance !== undefined && a.distance <= radius);
+            // We can't accurately count total radius-filtered results without
+            // geocoding every shelter in the state, so cap to what this page shows
+            totalCount = animals.length;
+        }
     }
 
     return {
@@ -631,6 +644,8 @@ export async function getShelterInsights(shelterId: string): Promise<string[]> {
     if (insights.length < 3) {
         if (shelter.shelterType === 'RESCUE') {
             insights.push('This is a rescue — animals here were pulled from other shelters');
+        } else if (shelter.shelterType === 'NO_KILL') {
+            insights.push('This is a no-kill shelter — committed to saving at least 90% of animals');
         } else if (shelter.shelterType === 'FOSTER_BASED') {
             insights.push('Foster-based rescue — these seniors are living in homes, not kennels');
         }
@@ -672,6 +687,18 @@ export async function getShelterForMetadata(id: string) {
             },
         },
     });
+}
+
+/** Check if any active animals have a future euthanasia date scheduled. */
+export async function hasEuthScheduledAnimals(): Promise<boolean> {
+    const count = await prisma.animal.count({
+        where: {
+            status: { in: ['AVAILABLE', 'URGENT'] },
+            euthScheduledAt: { gte: new Date() },
+        },
+        take: 1,
+    });
+    return count > 0;
 }
 
 /** Fetch distinct states that have shelters with active (AVAILABLE/URGENT) animals. */

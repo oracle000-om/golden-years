@@ -371,8 +371,9 @@ export default async function ShelterDetailPage({
                                             <span className={`animal-card__death-marker-time ${animal.euthScheduledAt ? urgency : 'standard'}`}>
                                                 {animal.euthScheduledAt ? formatDeathMarker(animal.euthScheduledAt)
                                                     : (shelter as any).shelterType === 'RESCUE' ? 'In Rescue'
-                                                        : (shelter as any).shelterType === 'FOSTER_BASED' ? 'In Foster'
-                                                            : 'In Shelter'}
+                                                        : (shelter as any).shelterType === 'NO_KILL' ? 'In No-Kill Shelter'
+                                                            : (shelter as any).shelterType === 'FOSTER_BASED' ? 'In Foster'
+                                                                : 'In Shelter'}
                                             </span>
                                         </div>
                                     </div>

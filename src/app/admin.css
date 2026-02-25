@@ -643,6 +643,76 @@
     opacity: 0.9;
 }
 
+/* ── Summary ── */
+.admin-summary {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-dim);
+    margin: calc(var(--space-xl) * -0.5) 0 var(--space-xl);
+    line-height: 1.6;
+}
+
+.admin-summary strong {
+    color: var(--color-text);
+    font-weight: 600;
+}
+
+/* ── Data Health Bars ── */
+.admin-breakdown__bar-fill--warn {
+    background: #f59e0b;
+    opacity: 0.5;
+}
+
+/* ── Freshness Indicators ── */
+.admin-table__fresh {
+    color: #4ade80 !important;
+}
+
+.admin-table__stale {
+    color: #fbbf24 !important;
+}
+
+.admin-table__dead {
+    color: #71717a !important;
+}
+
+/* ── Quick Insights ── */
+.admin-chat__quick-insights {
+    display: flex;
+    gap: var(--space-xs);
+    padding: var(--space-sm) var(--space-md);
+    overflow-x: auto;
+    border-top: 1px solid var(--color-border);
+    scrollbar-width: none;
+}
+
+.admin-chat__quick-insights::-webkit-scrollbar {
+    display: none;
+}
+
+.admin-chat__quick-btn {
+    flex-shrink: 0;
+    padding: 6px 14px;
+    font-size: 0.8rem;
+    border: 1px solid var(--color-border);
+    border-radius: 999px;
+    background: var(--color-surface-raised);
+    color: var(--color-text-dim);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+}
+
+.admin-chat__quick-btn:hover:not(:disabled) {
+    background: var(--color-accent);
+    color: #fff;
+    border-color: var(--color-accent);
+}
+
+.admin-chat__quick-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
 /* ── Responsive ── */
 @media (max-width: 768px) {
     .admin-main {

@@ -28,17 +28,19 @@ export default async function AdminAnimalsPage() {
                     <div className="admin-stat__value">{stats.total.toLocaleString()}</div>
                     <div className="admin-stat__label">Total</div>
                 </div>
-                <div className="admin-stat admin-stat--accent">
+                <Link href="/?status=urgent" className="admin-stat admin-stat--accent" style={{ textDecoration: 'none', cursor: 'pointer' }}>
                     <div className="admin-stat__value">{stats.urgentCount.toLocaleString()}</div>
-                    <div className="admin-stat__label">Urgent</div>
-                </div>
+                    <div className="admin-stat__label">Urgent →</div>
+                </Link>
                 <div className="admin-stat">
-                    <div className="admin-stat__value">{stats.withoutName.toLocaleString()}</div>
-                    <div className="admin-stat__label">No Name</div>
+                    <div className="admin-stat__value">
+                        {stats.byCareLevel.find(c => c.level === 'high')?.count.toLocaleString() || '0'}
+                    </div>
+                    <div className="admin-stat__label">High Care</div>
                 </div>
                 <div className="admin-stat">
                     <div className="admin-stat__value">{stats.withoutAge.toLocaleString()}</div>
-                    <div className="admin-stat__label">No Age</div>
+                    <div className="admin-stat__label">No Age Data</div>
                 </div>
                 {stats.avgDaysInShelter !== null && (
                     <div className="admin-stat">
@@ -46,6 +48,10 @@ export default async function AdminAnimalsPage() {
                         <div className="admin-stat__label">Avg Days</div>
                     </div>
                 )}
+                <div className="admin-stat">
+                    <div className="admin-stat__value">{stats.withoutName.toLocaleString()}</div>
+                    <div className="admin-stat__label">No Name</div>
+                </div>
             </div>
 
             <div className="admin-section-grid">
@@ -66,25 +72,76 @@ export default async function AdminAnimalsPage() {
                     <div className="admin-breakdown">
                         {stats.byAgeSource.sort((a, b) => b.count - a.count).map(s => (
                             <div key={s.source} className="admin-breakdown__row">
+                                <span className="admin-breakdown__emoji">
+                                    {s.source === 'CV_ESTIMATED' ? '🔬' : s.source === 'SHELTER_REPORTED' ? '🏥' : '❓'}
+                                </span>
                                 <span className="admin-breakdown__label">{s.source}</span>
                                 <span className="admin-breakdown__count">{s.count.toLocaleString()}</span>
                             </div>
                         ))}
                     </div>
+                </div>
+            </div>
 
-                    <h2 className="admin-card__title" style={{ marginTop: '1.5rem' }}>By Source Type</h2>
+            {/* Enhancement 2-4: Intake Reason, Sex/Size, Care Level */}
+            <div className="admin-section-grid">
+                <div className="admin-card">
+                    <h2 className="admin-card__title">Intake Reason</h2>
                     <div className="admin-breakdown">
-                        {stats.bySourceType.map(s => (
-                            <div key={s.type} className="admin-breakdown__row">
-                                <span className="admin-breakdown__emoji">
-                                    {s.type === 'MUNICIPAL' ? '🏛️' : s.type === 'RESCUE' ? '🤝' : '🏠'}
-                                </span>
-                                <span className="admin-breakdown__label">{s.type}</span>
-                                <span className="admin-breakdown__count">{s.count.toLocaleString()}</span>
+                        {stats.byIntakeReason.map(r => (
+                            <div key={r.reason} className="admin-breakdown__row">
+                                <span className="admin-breakdown__label">{r.reason}</span>
+                                <span className="admin-breakdown__count">{r.count.toLocaleString()}</span>
                             </div>
                         ))}
                     </div>
                 </div>
+
+                <div className="admin-card">
+                    <h2 className="admin-card__title">Sex & Size</h2>
+                    <div className="admin-breakdown">
+                        {stats.bySex.map(s => (
+                            <div key={s.sex} className="admin-breakdown__row">
+                                <span className="admin-breakdown__emoji">
+                                    {s.sex === 'MALE' ? '♂️' : s.sex === 'FEMALE' ? '♀️' : '—'}
+                                </span>
+                                <span className="admin-breakdown__label">{s.sex}</span>
+                                <span className="admin-breakdown__count">{s.count.toLocaleString()}</span>
+                            </div>
+                        ))}
+                    </div>
+
+                    {stats.bySize.length > 0 && (
+                        <>
+                            <h2 className="admin-card__title" style={{ marginTop: '1.5rem' }}>Size</h2>
+                            <div className="admin-breakdown">
+                                {stats.bySize.map(s => (
+                                    <div key={s.size} className="admin-breakdown__row">
+                                        <span className="admin-breakdown__label">{s.size}</span>
+                                        <span className="admin-breakdown__count">{s.count.toLocaleString()}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </>
+                    )}
+                </div>
+
+                {stats.byCareLevel.length > 0 && (
+                    <div className="admin-card">
+                        <h2 className="admin-card__title">Care Level</h2>
+                        <div className="admin-breakdown">
+                            {stats.byCareLevel.map(c => (
+                                <div key={c.level} className="admin-breakdown__row">
+                                    <span className="admin-breakdown__emoji">
+                                        {c.level === 'low' ? '🟢' : c.level === 'moderate' ? '🟡' : c.level === 'high' ? '🔴' : '⚪'}
+                                    </span>
+                                    <span className="admin-breakdown__label">{c.level}</span>
+                                    <span className="admin-breakdown__count">{c.count.toLocaleString()}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
             </div>
 
             {stats.byPhotoQuality.length > 0 && (

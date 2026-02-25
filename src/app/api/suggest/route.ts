@@ -4,8 +4,17 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { createRateLimiter, getClientIp } from '@/lib/rate-limit';
+
+const limiter = createRateLimiter('suggest', 90); // 90 req/min (fires on keystroke)
 
 export async function GET(req: NextRequest) {
+    const ip = getClientIp(req);
+    const result = limiter.check(ip);
+    if (!result.allowed) {
+        return NextResponse.json({ breeds: [], locations: [], shelters: [] }, { status: 429 });
+    }
+
     const q = req.nextUrl.searchParams.get('q')?.trim() || '';
     const limit = Math.min(parseInt(req.nextUrl.searchParams.get('limit') || '8', 10), 20);
 

@@ -43,6 +43,7 @@ model Shelter {
 enum ShelterType {
   MUNICIPAL
   RESCUE
+  NO_KILL
   FOSTER_BASED
 }
 
@@ -58,6 +59,7 @@ model Animal {
   photoUrl              String?     @map("photo_url")
   photoHash             String?     @map("photo_hash")
   photoUrls             String[]    @default([]) @map("photo_urls")
+  videoUrl              String?     @map("video_url")
   status                AnimalStatus @default(AVAILABLE)
   ageKnownYears         Int?        @map("age_known_years")
   ageEstimatedLow       Int?        @map("age_estimated_low")
@@ -91,6 +93,13 @@ model Animal {
 
   // ── v3: Cross-validation ──
   dataConflicts         String[]    @default([]) @map("data_conflicts")
+
+  // ── v5: Dental & eye close-up assessment ──
+  dentalGrade           Int?        @map("dental_grade")
+  tartarSeverity        String?     @map("tartar_severity")
+  dentalNotes           String?     @map("dental_notes")
+  cataractStage         String?     @map("cataract_stage")
+  eyeNotes              String?     @map("eye_notes")
 
   intakeReason          IntakeReason @default(UNKNOWN) @map("intake_reason")
   intakeReasonDetail    String?     @map("intake_reason_detail")

@@ -14,7 +14,7 @@ export default function AdminChatPage() {
     const [messages, setMessages] = useState<ChatMessage[]>([
         {
             role: 'assistant',
-            content: 'Ask me anything about the shelter data — breeds, intake patterns, species breakdown, individual shelters, or trends. I\'ll query the database for you.',
+            content: 'Ask me anything about the shelter data — health metrics, breed risks, care levels, intake patterns, or trends. Try a Quick Insight below or type your own question.',
         },
     ]);
     const [input, setInput] = useState('');
@@ -63,7 +63,7 @@ export default function AdminChatPage() {
                     rowCount: data.rowCount,
                 }]);
             }
-        } catch (err) {
+        } catch (_err) {
             setMessages(prev => [...prev, {
                 role: 'assistant',
                 content: 'Failed to connect to the server. Please try again.',
@@ -80,6 +80,45 @@ export default function AdminChatPage() {
             e.preventDefault();
             handleSend();
         }
+    }
+
+    const QUICK_INSIGHTS = [
+        { emoji: '🩺', label: 'Health Overview', q: 'Give me a health overview: how many active animals have visible conditions, poor coat, high stress, or body condition scores outside 4-6?' },
+        { emoji: '⚠️', label: 'High Risk Animals', q: 'Which active animals have estimated care level high? Show their name, breed, shelter name, and visible conditions.' },
+        { emoji: '🧬', label: 'Breed Health Risks', q: 'Which breed profiles have health risk score 7 or above? Show breed name, species, health risk score, and common conditions.' },
+        { emoji: '📊', label: 'Care by State', q: 'Break down the count of active animals by estimated care level and state, ordered by high care count descending.' },
+        { emoji: '🏥', label: 'BCS Distribution', q: 'What is the distribution of body condition scores across all active animals? Show each score and its count.' },
+        { emoji: '📈', label: 'Avg Days in Shelter', q: 'What is the average days in shelter by species and care level for active animals?' },
+    ];
+
+    function handleQuickInsight(question: string) {
+        setInput(question);
+        // Auto-send after a tick so the user sees the question
+        setTimeout(() => {
+            setInput('');
+            setMessages(prev => [...prev, { role: 'user', content: question }]);
+            setLoading(true);
+            fetch('/api/admin-chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ question }),
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.error) {
+                        setMessages(prev => [...prev, { role: 'assistant', content: data.error, sql: data.sql, error: true }]);
+                    } else {
+                        setMessages(prev => [...prev, { role: 'assistant', content: data.answer, sql: data.sql, rowCount: data.rowCount }]);
+                    }
+                })
+                .catch(() => {
+                    setMessages(prev => [...prev, { role: 'assistant', content: 'Failed to connect to the server.', error: true }]);
+                })
+                .finally(() => {
+                    setLoading(false);
+                    inputRef.current?.focus();
+                });
+        }, 50);
     }
 
     return (
@@ -134,12 +173,26 @@ export default function AdminChatPage() {
                     <div ref={messagesEndRef} />
                 </div>
 
+                <div className="admin-chat__quick-insights">
+                    {QUICK_INSIGHTS.map((q, i) => (
+                        <button
+                            key={i}
+                            className="admin-chat__quick-btn"
+                            onClick={() => handleQuickInsight(q.q)}
+                            disabled={loading}
+                            title={q.q}
+                        >
+                            {q.emoji} {q.label}
+                        </button>
+                    ))}
+                </div>
+
                 <div className="admin-chat__input-bar">
                     <input
                         ref={inputRef}
                         type="text"
                         className="admin-chat__input"
-                        placeholder="Ask about the data..."
+                        placeholder="Ask about health data, breed risks, care levels..."
                         value={input}
                         onChange={e => setInput(e.target.value)}
                         onKeyDown={handleKeyDown}

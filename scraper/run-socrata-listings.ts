@@ -41,7 +41,7 @@ async function main() {
 
     console.log(`\n📊 Fetched ${animals.length} senior animals from ${configs.length} portals`);
 
-    const withPhotos = animals.filter(a => a.photoUrl);
+    const withPhotos = animals.filter(a => a.photoUrl && a.species !== 'OTHER');
     const withoutPhotos = animals.filter(a => !a.photoUrl);
     console.log(`   ${withPhotos.length} with photos, ${withoutPhotos.length} without`);
 
@@ -192,6 +192,11 @@ async function main() {
                     likelyCareNeeds: cvEstimate.likelyCareNeeds ?? [],
                     estimatedCareLevel: cvEstimate.estimatedCareLevel ?? null,
                     dataConflicts: cvEstimate.dataConflicts ?? [],
+                    dentalGrade: cvEstimate.dentalGrade ?? null,
+                    tartarSeverity: cvEstimate.tartarSeverity ?? null,
+                    dentalNotes: cvEstimate.dentalNotes ?? null,
+                    cataractStage: cvEstimate.cataractStage ?? null,
+                    eyeNotes: cvEstimate.eyeNotes ?? null,
                 });
             } else if (!hasExistingCv) {
                 data.ageSource = animal.ageSource || 'SHELTER_REPORTED';
@@ -228,8 +233,8 @@ async function main() {
         }
     }
 
-    // Step 4: Reconciliation — delist stale animals per shelter
-    const runStart = new Date(startTime);
+    // Step 4: Reconciliation — delist stale animals per shelter (48h grace period)
+    const graceCutoff = new Date(Date.now() - 48 * 60 * 60 * 1000);
     let totalDelisted = 0;
     for (const config of configs) {
         const dbId = `socrata-${config.id}`;
@@ -238,12 +243,12 @@ async function main() {
                 where: {
                     shelterId: dbId,
                     status: { in: ['AVAILABLE', 'URGENT'] },
-                    lastSeenAt: { lt: runStart },
+                    lastSeenAt: { lt: graceCutoff },
                 },
                 data: { status: 'DELISTED', delistedAt: new Date() },
             });
             if (delisted.count > 0) {
-                console.log(`   🔄 Delisted ${delisted.count} stale animals from ${config.shelterName}`);
+                console.log(`   🔄 Delisted ${delisted.count} animals not seen for 48+ hours from ${config.shelterName}`);
                 totalDelisted += delisted.count;
             }
         } catch (err) {

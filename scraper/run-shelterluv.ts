@@ -52,7 +52,7 @@ async function main() {
 
     console.log(`\n📊 Fetched ${animals.length} senior animals from ${shelters.size} shelters`);
 
-    const withPhotos = animals.filter(a => a.photoUrl);
+    const withPhotos = animals.filter(a => a.photoUrl && a.species !== 'OTHER');
     console.log(`   ${withPhotos.length} with photos (dropped ${animals.length - withPhotos.length} without)`);
 
     if (dryRun) {
@@ -199,6 +199,11 @@ async function main() {
                     likelyCareNeeds: cvEstimate.likelyCareNeeds ?? [],
                     estimatedCareLevel: cvEstimate.estimatedCareLevel ?? null,
                     dataConflicts: cvEstimate.dataConflicts ?? [],
+                    dentalGrade: cvEstimate.dentalGrade ?? null,
+                    tartarSeverity: cvEstimate.tartarSeverity ?? null,
+                    dentalNotes: cvEstimate.dentalNotes ?? null,
+                    cataractStage: cvEstimate.cataractStage ?? null,
+                    eyeNotes: cvEstimate.eyeNotes ?? null,
                 });
             } else if (!hasExistingCv) {
                 data.ageSource = animal.ageSource || 'SHELTER_REPORTED';
@@ -258,11 +263,8 @@ async function main() {
         }
     }
 
-    // Step 5: Reconciliation — delist stale animals per shelter
-    // Reconciliation: delist animals not seen during THIS scrape run.
-    // Uses startTime (captured before processing) so animals processed
-    // early in a long run aren't falsely delisted.
-    const runStart = new Date(startTime);
+    // Step 5: Reconciliation — delist stale animals per shelter (48h grace period)
+    const graceCutoff = new Date(Date.now() - 48 * 60 * 60 * 1000);
     let totalDelisted = 0;
     for (const [slId] of shelters) {
         try {
@@ -270,7 +272,7 @@ async function main() {
                 where: {
                     shelterId: slId,
                     status: { in: ['AVAILABLE', 'URGENT'] },
-                    lastSeenAt: { lt: runStart },
+                    lastSeenAt: { lt: graceCutoff },
                 },
                 data: {
                     status: 'DELISTED',
@@ -278,7 +280,7 @@ async function main() {
                 },
             });
             if (delisted.count > 0) {
-                console.log(`   🔄 Delisted ${delisted.count} stale animals from ${slId}`);
+                console.log(`   🔄 Delisted ${delisted.count} animals not seen for 48+ hours from ${slId}`);
                 totalDelisted += delisted.count;
             }
         } catch (err) {

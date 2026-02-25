@@ -1,15 +1,15 @@
 /**
  * CV Calibration — Admin API
  *
- * Returns aggregate confidence metrics for monitoring
- * CV pipeline quality. No auth required for admin routes
- * (behind admin layout).
+ * Returns aggregate confidence metrics and actionable tuning
+ * suggestions for monitoring CV pipeline quality.
  *
  * GET /api/admin/cv-calibration
  */
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { Prisma } from '../../../../generated/prisma/client';
 
 export async function GET() {
     try {
@@ -52,7 +52,7 @@ export async function GET() {
             avgSpanByConfidence[conf] = Math.round((data.sum / data.count) * 10) / 10;
         }
 
-        // 3. Data conflict rate (from Batch 1)
+        // 3. Data conflict rate
         const totalCvAnimals = cvAnimals.length;
         const withConflicts = await prisma.animal.count({
             where: {
@@ -86,16 +86,83 @@ export async function GET() {
             crossTab[conf][qual] = (crossTab[conf][qual] || 0) + 1;
         }
 
+        // 6. Model distribution from rawAssessment snapshots
+        const modelDistribution: Record<string, number> = {};
+        const recentSnapshots = await prisma.animalSnapshot.findMany({
+            where: { rawAssessment: { not: Prisma.JsonNull } },
+            select: { rawAssessment: true },
+            take: 500,
+            orderBy: { scrapedAt: 'desc' },
+        });
+        for (const snap of recentSnapshots) {
+            const raw = snap.rawAssessment as Record<string, unknown> | null;
+            const assessment = raw?.assessment as Record<string, unknown> | null;
+            const model = (assessment?.modelUsed as string) || 'unknown';
+            modelDistribution[model] = (modelDistribution[model] || 0) + 1;
+        }
+
+        // 7. Compute actionable calibration suggestions
+        const conflictRate = totalCvAnimals > 0
+            ? Math.round((withConflicts / totalCvAnimals) * 1000) / 10
+            : 0;
+
+        const suggestions: string[] = [];
+        const promptParts: string[] = [];
+        let suggestedMinConfidence: 'LOW' | 'MEDIUM' | 'HIGH' = 'LOW';
+        let rejectPoorPhotos = false;
+
+        if (totalCvAnimals > 0) {
+            // If >60% HIGH confidence, raise floor to MEDIUM
+            const highCount = confidenceDistribution['HIGH'] || 0;
+            const highPct = (highCount / totalCvAnimals) * 100;
+            if (highPct > 60) {
+                suggestedMinConfidence = 'MEDIUM';
+                suggestions.push(`${highPct.toFixed(0)}% HIGH confidence — raising minimum to MEDIUM`);
+            }
+
+            // If MEDIUM avg span >5yr, add precision prompt
+            const mediumSpan = avgSpanByConfidence['MEDIUM'] || 0;
+            if (mediumSpan > 5) {
+                promptParts.push('Narrow age estimates to within 3 years when possible.');
+                suggestions.push(`MEDIUM confidence avg span is ${mediumSpan.toFixed(1)}yr — adding precision prompt`);
+            }
+
+            // If >40% poor photos, flag for rejection
+            const poorCount = photoQualityDistribution['poor'] || 0;
+            const poorPct = (poorCount / totalCvAnimals) * 100;
+            if (poorPct > 40) {
+                rejectPoorPhotos = true;
+                suggestions.push(`${poorPct.toFixed(0)}% poor-quality photos — enabling photo rejection`);
+            }
+
+            // If conflict rate >20%, emphasize cross-validation
+            if (conflictRate > 20) {
+                promptParts.push('Pay extra attention to cross-validation and report all discrepancies.');
+                suggestions.push(`Conflict rate is ${conflictRate.toFixed(1)}% — adding cross-validation emphasis`);
+            }
+
+            if (suggestions.length === 0) {
+                suggestions.push('Pipeline metrics within normal range — no adjustments needed');
+            }
+        } else {
+            suggestions.push('No CV data yet — using defaults');
+        }
+
         return NextResponse.json({
             totalCvAssessments: totalCvAnimals,
             confidenceDistribution,
             avgSpanByConfidence,
-            conflictRate: totalCvAnimals > 0
-                ? Math.round((withConflicts / totalCvAnimals) * 1000) / 10
-                : 0,
+            conflictRate,
             conflictsFound: withConflicts,
             photoQualityDistribution,
             confidenceByPhotoQuality: crossTab,
+            modelDistribution,
+            calibration: {
+                suggestedMinConfidence,
+                promptAddendum: promptParts.length > 0 ? promptParts.join(' ') : null,
+                rejectPoorPhotos,
+                suggestions,
+            },
         });
     } catch (error) {
         console.error('CV calibration API error:', error);
@@ -105,3 +172,4 @@ export async function GET() {
         );
     }
 }
+

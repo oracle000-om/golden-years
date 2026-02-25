@@ -4,10 +4,10 @@
         "shelterName": "Austin Animal Center",
         "city": "Austin",
         "state": "TX",
-        "domain": "data.austintexas.gov",
-        "outcomesResourceId": "hcup-htgu",
-        "intakesResourceId": "wter-evkm",
-        "notes": "City of Austin Open Data. Includes euthanasia_reason field. Data through May 2025."
+        "domain": "datahub.austintexas.gov",
+        "outcomesResourceId": "gsvs-ypi7",
+        "intakesResourceId": null,
+        "notes": "Austin datahub (migrated from data.austintexas.gov). Fields: outcome_status, outcome_date, primary_breed, animal_type, sex. Updated daily."
     },
     {
         "id": "dallas-tx",
@@ -30,16 +30,6 @@
         "notes": "Sonoma County open data. Uses EUTHANIZE as outcome_type. Fields: outcome_type, outcome_date, type, breed, id."
     },
     {
-        "id": "bloomington-in",
-        "shelterName": "Bloomington Animal Shelter",
-        "city": "Bloomington",
-        "state": "IN",
-        "domain": "data.bloomington.in.gov",
-        "outcomesResourceId": "e245-r9ub",
-        "intakesResourceId": null,
-        "notes": "Bloomington IN open data. Animal Shelter Animals dataset."
-    },
-    {
         "id": "norfolk-va",
         "shelterName": "Norfolk Animal Care & Adoption Center",
         "city": "Norfolk",
@@ -47,7 +37,7 @@
         "domain": "data.norfolk.gov",
         "outcomesResourceId": "vfm4-5wv6",
         "intakesResourceId": null,
-        "notes": "Norfolk VA open data. Fields: animal_type, primary_breed, years_old, intake_type, outcome_type."
+        "notes": "Norfolk VA open data. Fields: animal_type, primary_breed, years_old, intake_type, outcome_type. Data may be stale."
     },
     {
         "id": "montgomery-md",
@@ -57,26 +47,16 @@
         "domain": "data.montgomerycountymd.gov",
         "outcomesResourceId": "hsz7-ef2y",
         "intakesResourceId": null,
-        "notes": "OAS Animal Shelter Pathway. Rich data: petdob, breed, intype, outtype, incondition, outcondition."
+        "notes": "OAS Animal Shelter Pathway. Fields: outtype (EUTH), outdate, petage, animal_type, breed, sex. Updated daily."
     },
     {
-        "id": "fulton-ga",
-        "shelterName": "Fulton County Animal Services",
-        "city": "Atlanta",
-        "state": "GA",
-        "domain": "sharefulton.fultoncountyga.gov",
-        "outcomesResourceId": "ujk8-xtnx",
-        "intakesResourceId": null,
-        "notes": "Hourly Animal Shelter Population dataset. Updated April 2024."
-    },
-    {
-        "id": "la-city",
-        "shelterName": "LA City Animal Services",
-        "city": "Los Angeles",
+        "id": "riverside-ca",
+        "shelterName": "Riverside County Animal Services",
+        "city": "Riverside",
         "state": "CA",
-        "domain": "data.lacity.org",
-        "outcomesResourceId": null,
-        "intakesResourceId": "8cmr-fbcu",
-        "notes": "LA City intake data. Separate from LA County (DACC). Fields: intake_type, animal_type."
+        "domain": "data.countyofriverside.us",
+        "outcomesResourceId": "9k7b-e6f8",
+        "intakesResourceId": null,
+        "notes": "Riverside County Animal Impound Report. Fields: dispositiontype (EUTH/TRANSFER), animaltype, breed, sex, impound_age (days). WARNING: dates use broken Y2K format (0024- instead of 2024-)."
     }
 ]

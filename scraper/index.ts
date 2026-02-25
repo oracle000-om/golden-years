@@ -21,6 +21,7 @@ import { createPrismaClient } from './lib/prisma';
 import { PrismaClient } from '../src/generated/prisma/client';
 import { shelterConfigs } from './shelters';
 import { createAgeEstimationProvider, lookupLifeExpectancy, computeAssessmentDiff, type AgeEstimationProvider } from './cv';
+import { extractKeyFrames } from './cv/video-frames';
 import { findDuplicate, computePhotoHash } from './dedup';
 import { sanitizeText } from './lib/sanitize-text';
 
@@ -78,8 +79,8 @@ async function main() {
             continue;
         }
 
-        // Filter: photo required
-        const withPhotos = animals.filter(a => a.photoUrl);
+        // Filter: photo required, dogs and cats only
+        const withPhotos = animals.filter(a => a.photoUrl && a.species !== 'OTHER');
         if (withPhotos.length < animals.length) {
             console.log(`   ⚠ Dropped ${animals.length - withPhotos.length} animals without photos`);
         }
@@ -126,26 +127,35 @@ async function main() {
             if (cvProvider && animal.photoUrl) {
                 try {
                     console.log(`   🔬 CV: ${animal.name || animal.intakeId}...`);
+                    // Extract video key frames if available
+                    let videoFrames: Buffer[] | undefined;
+                    if (animal.videoUrl) {
+                        videoFrames = await extractKeyFrames(animal.videoUrl, 3);
+                        if (videoFrames.length > 0) {
+                            console.log(`      🎥 Extracted ${videoFrames.length} video frames`);
+                        }
+                    }
                     cvEstimate = await cvProvider.estimateAge(animal.photoUrl, undefined, {
                         shelterSize: animal.size,
                         shelterSpecies: animal.species,
                         shelterAge: animal.ageKnownYears,
                         shelterBreed: animal.breed,
                         shelterNotes: animal.notes,
-                    });
+                    }, undefined, videoFrames);
                     if (cvEstimate) {
                         cvProcessed++;
                         const breeds = cvEstimate.detectedBreeds.length > 0
                             ? cvEstimate.detectedBreeds.join(' / ')
                             : 'unknown breed';
-                        console.log(`      → ${cvEstimate.estimatedAgeLow}–${cvEstimate.estimatedAgeHigh}yr (${cvEstimate.confidence}) | ${breeds} | BCS:${cvEstimate.bodyConditionScore ?? '?'} | Aggr:${cvEstimate.aggressionRisk}/5 | Care:${cvEstimate.estimatedCareLevel}`);
+                        const modelTag = cvEstimate.modelUsed === 'gemini-2.0-flash-lite' ? '[LITE]' : '[FLASH]';
+                        console.log(`      → ${modelTag} ${cvEstimate.estimatedAgeLow}–${cvEstimate.estimatedAgeHigh}yr (${cvEstimate.confidence}) | ${breeds} | BCS:${cvEstimate.bodyConditionScore ?? '?'} | Aggr:${cvEstimate.aggressionRisk}/5 | Care:${cvEstimate.estimatedCareLevel}`);
                     }
                 } catch (err) {
                     console.log(`      ⚠ CV error: ${(err as Error).message}`);
                 }
 
-                // Rate limit: 250ms between CV calls
-                await new Promise(r => setTimeout(r, 250));
+                // Rate limit: 350ms between CV calls (up from 250ms to account for tiered fallback)
+                await new Promise(r => setTimeout(r, 350));
             }
 
             // Life expectancy lookup from breed data
@@ -211,6 +221,12 @@ async function main() {
                     likelyCareNeeds: cvEstimate?.likelyCareNeeds ?? [],
                     estimatedCareLevel: cvEstimate?.estimatedCareLevel ?? null,
                     dataConflicts: cvEstimate?.dataConflicts ?? [],
+                    // v5: dental & eye close-up
+                    dentalGrade: cvEstimate?.dentalGrade ?? null,
+                    tartarSeverity: cvEstimate?.tartarSeverity ?? null,
+                    dentalNotes: cvEstimate?.dentalNotes ?? null,
+                    cataractStage: cvEstimate?.cataractStage ?? null,
+                    eyeNotes: cvEstimate?.eyeNotes ?? null,
                     intakeReason: animal.intakeReason,
                     intakeReasonDetail: sanitizeText(animal.intakeReasonDetail),
                     euthScheduledAt: animal.euthScheduledAt,
@@ -279,13 +295,14 @@ async function main() {
             }
         }
 
-        // Step 6: Reconciliation — delist stale animals
-        const runStart = new Date(shelterStartTime);
+        // Step 6: Reconciliation — delist stale animals (48h grace period)
+        // Only delist animals not seen for 2+ scrape cycles to avoid transient failures
+        const graceCutoff = new Date(Date.now() - 48 * 60 * 60 * 1000);
         const delisted = await prisma.animal.updateMany({
             where: {
                 shelterId: shelter.id,
                 status: { in: ['AVAILABLE', 'URGENT'] },
-                lastSeenAt: { lt: runStart },
+                lastSeenAt: { lt: graceCutoff },
             },
             data: {
                 status: 'DELISTED',
@@ -293,7 +310,7 @@ async function main() {
             },
         });
         if (delisted.count > 0) {
-            console.log(`   🔄 Delisted ${delisted.count} animals no longer found on source`);
+            console.log(`   🔄 Delisted ${delisted.count} animals not seen for 48+ hours`);
         }
 
         grandTotalCreated += created;

@@ -101,6 +101,7 @@ scraper/
 ├── types.ts                    # Scraper-specific types
 ├── config/                     # JSON configs for data sources
 │   ├── shelterluv-config.json  # ShelterLuv org IDs
+│   ├── petfinder-config.json   # Petfinder org slugs
 │   ├── petango-config.json     # Petango authkeys
 │   ├── adoptapet-config.json   # Adopt-a-Pet shelter IDs
 │   └── opendata-config.json    # Socrata portal endpoints
@@ -120,6 +121,7 @@ scraper/
     ├── web-shelters.ts         # Config-driven web scraper (multiple shelters)
     ├── rescuegroups.ts         # RescueGroups.org API
     ├── shelterluv.ts           # ShelterLuv API
+    ├── petfinder.ts            # Petfinder GraphQL (no API key)
     ├── petango.ts              # Petango/24PetConnect API
     ├── adoptapet.ts            # Adopt-a-Pet API
     ├── socrata-listings.ts     # Socrata active inventory
@@ -138,6 +140,7 @@ prisma/
 |---|---|---|---|
 | Municipal shelter APIs (LA, OC, NYC, Maricopa, Harris County) | Direct API | 5 major metro areas | ✅ Active |
 | RescueGroups.org | JSON API | ~600+ rescue orgs nationwide | ✅ Active |
+| Petfinder | GraphQL | ~150+ orgs nationwide | ✅ Active |
 | ShelterLuv | JSON API | ~200+ orgs | ✅ Active |
 | Petango / 24PetConnect | JSON API | ~50+ orgs | ✅ Active |
 | Adopt-a-Pet | JSON API | Configured shelters | ✅ Active |
@@ -156,6 +159,7 @@ prisma/
 | `npm run lint` | Run ESLint |
 | `npm run scrape` | Run main scraper pipeline |
 | `npx tsx scraper/run-rescuegroups.ts` | Run RescueGroups pipeline |
+| `npx tsx scraper/run-petfinder.ts` | Run Petfinder pipeline |
 | `npx tsx scraper/run-shelterluv.ts` | Run ShelterLuv pipeline |
 | `npx tsx scraper/run-petango.ts` | Run Petango pipeline |
 | `npx tsx scraper/run-adoptapet.ts` | Run Adopt-a-Pet pipeline |
@@ -165,6 +169,10 @@ prisma/
 | `npx tsx scraper/run-breed-db.ts` | Populate breed profiles |
 
 All scraper scripts accept `--dry-run` (preview), `--no-cv` (skip AI), and `--shelter=<id>` (single source) flags.
+
+## API Roadmap
+
+Golden Years Club is building toward an **open-source senior animal welfare API**. See [`.agents/API_VISION.md`](.agents/API_VISION.md) for the full vision, data ownership model, and phased rollout plan.
 
 ## License
 

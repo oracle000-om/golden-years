@@ -11,13 +11,16 @@ interface FilterBarProps {
     currentSort: string;
     currentRadius: string;
     currentSource: string;
+    currentTime: string;
     hasLocation: boolean;
+    hasEuthDates: boolean;
     states: string[];
 }
 
 export function FilterBar({
     currentSpecies, currentState, currentSex, currentZip,
-    currentSort, currentRadius, currentSource, hasLocation, states,
+    currentSort, currentRadius, currentSource, currentTime,
+    hasLocation, hasEuthDates, states,
 }: FilterBarProps) {
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -29,7 +32,7 @@ export function FilterBar({
     const updateFilter = useCallback(
         (key: string, value: string) => {
             const params = new URLSearchParams(searchParams.toString());
-            if (value === 'all' || value === '' || (key === 'sort' && value === 'urgency') || (key === 'radius' && value === '100')) {
+            if (value === 'all' || value === '' || (key === 'sort' && value === 'urgency') || (key === 'radius' && value === '100') || (key === 'time' && value === 'all')) {
                 params.delete(key);
             } else {
                 params.set(key, value);
@@ -158,6 +161,26 @@ export function FilterBar({
                 <option value="age">Sort: Oldest</option>
             </select>
 
+            {hasEuthDates && (
+                <div className="filter-bar__time-group">
+                    {[
+                        { value: 'all', label: 'All' },
+                        { value: '24', label: '24h' },
+                        { value: '48', label: '48h' },
+                        { value: '72', label: '72h' },
+                        { value: '168', label: '1wk' },
+                    ].map((opt) => (
+                        <button
+                            key={opt.value}
+                            className={`filter-bar__time-btn${currentTime === opt.value ? ' active' : ''}`}
+                            onClick={() => updateFilter('time', opt.value)}
+                            aria-pressed={currentTime === opt.value}
+                        >
+                            {opt.label}
+                        </button>
+                    ))}
+                </div>
+            )}
             <div className="filter-bar__location-group">
                 <input
                     className="filter-bar__input"

@@ -14,6 +14,8 @@
     "scrape:opendata": "npx tsx scraper/run-opendata.ts",
     "scrape:breeds": "npx tsx scraper/run-breed-db.ts",
     "scrape:petango": "npx tsx scraper/run-petango.ts",
+    "scrape:petfinder": "npx tsx scraper/run-petfinder.ts",
+    "scrape:rescuegroups": "npx tsx scraper/run-rescuegroups.ts",
     "scrape:shelterluv": "npx tsx scraper/run-shelterluv.ts",
     "scrape:adoptapet": "npx tsx scraper/run-adoptapet.ts",
     "scrape:socrata-listings": "npx tsx scraper/run-socrata-listings.ts",

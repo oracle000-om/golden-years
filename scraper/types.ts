@@ -27,6 +27,9 @@ export interface ScrapedAnimal {
     /** Additional photo URLs beyond the primary */
     photoUrls?: string[];
 
+    /** Video URL for behavioral analysis (from Petfinder _media) */
+    videoUrl?: string | null;
+
     /** Listing status */
     status: 'AVAILABLE' | 'URGENT';
 

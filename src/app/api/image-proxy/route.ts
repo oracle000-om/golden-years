@@ -26,6 +26,10 @@ const ALLOWED_DOMAINS = [
     'photos.adoptapet.com',
     'daccanimalimagesprod.blob.core.windows.net',
     'petadoption.ocpetinfo.com',
+    'dbw3zep4prcju.cloudfront.net',  // Petfinder CDN
+    'psl.petfinder.com',
+    'photos.petfinder.com',
+    'media.adoptapet.com',
     // Add more as shelters are onboarded — avoid shared hosting
     // domains like storage.googleapis.com (any bucket would pass).
 ];

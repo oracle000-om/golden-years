@@ -434,5 +434,656 @@
         "orgId": "5710",
         "city": "Unknown",
         "state": "US"
+    },
+    {
+        "id": "apa-austin-tx",
+        "shelterName": "Austin Pets Alive!",
+        "orgId": "464",
+        "city": "Austin",
+        "state": "TX"
+    },
+    {
+        "id": "slv-330",
+        "shelterName": "ShelterLuv HSHC",
+        "orgId": "330",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-331",
+        "shelterName": "ShelterLuv HEA",
+        "orgId": "331",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-359",
+        "shelterName": "ShelterLuv SCAL",
+        "orgId": "359",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-376",
+        "shelterName": "ShelterLuv GGBR",
+        "orgId": "376",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-378",
+        "shelterName": "ShelterLuv HRS",
+        "orgId": "378",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-379",
+        "shelterName": "ShelterLuv MNDO",
+        "orgId": "379",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-474",
+        "shelterName": "ShelterLuv 474",
+        "orgId": "474",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-531",
+        "shelterName": "ShelterLuv 531",
+        "orgId": "531",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-576",
+        "shelterName": "ShelterLuv 576",
+        "orgId": "576",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-593",
+        "shelterName": "ShelterLuv 593",
+        "orgId": "593",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-6205",
+        "shelterName": "ShelterLuv JRHS",
+        "orgId": "6205",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-6212",
+        "shelterName": "ShelterLuv JARM",
+        "orgId": "6212",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-6231",
+        "shelterName": "ShelterLuv JCS",
+        "orgId": "6231",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-6261",
+        "shelterName": "ShelterLuv JCCC",
+        "orgId": "6261",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-6271",
+        "shelterName": "ShelterLuv JLR",
+        "orgId": "6271",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-6278",
+        "shelterName": "ShelterLuv JJMO",
+        "orgId": "6278",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-6302",
+        "shelterName": "ShelterLuv KAR",
+        "orgId": "6302",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-6349",
+        "shelterName": "ShelterLuv KCHA",
+        "orgId": "6349",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-6414",
+        "shelterName": "ShelterLuv KCAS",
+        "orgId": "6414",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-6422",
+        "shelterName": "ShelterLuv KGDR",
+        "orgId": "6422",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-6459",
+        "shelterName": "ShelterLuv KCKS",
+        "orgId": "6459",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-6486",
+        "shelterName": "ShelterLuv KKOH",
+        "orgId": "6486",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-6487",
+        "shelterName": "ShelterLuv KRLA",
+        "orgId": "6487",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-11763",
+        "shelterName": "ShelterLuv TCPR",
+        "orgId": "11763",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-11766",
+        "shelterName": "ShelterLuv TCH",
+        "orgId": "11766",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-11768",
+        "shelterName": "ShelterLuv TBTR",
+        "orgId": "11768",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-11800",
+        "shelterName": "ShelterLuv UPRW",
+        "orgId": "11800",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-11816",
+        "shelterName": "ShelterLuv UCHS",
+        "orgId": "11816",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-11820",
+        "shelterName": "ShelterLuv UAF",
+        "orgId": "11820",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-11843",
+        "shelterName": "ShelterLuv UVHS",
+        "orgId": "11843",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-11859",
+        "shelterName": "ShelterLuv UVAR",
+        "orgId": "11859",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-11870",
+        "shelterName": "ShelterLuv VHSA",
+        "orgId": "11870",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-11874",
+        "shelterName": "ShelterLuv VRHS",
+        "orgId": "11874",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-11883",
+        "shelterName": "ShelterLuv VOKR",
+        "orgId": "11883",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-11886",
+        "shelterName": "ShelterLuv VAN",
+        "orgId": "11886",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-11985",
+        "shelterName": "ShelterLuv WWPR",
+        "orgId": "11985",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "slv-12020",
+        "shelterName": "ShelterLuv DRUM",
+        "orgId": "12020",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "indyhumane-in",
+        "shelterName": "IndyHumane",
+        "orgId": "100000959",
+        "city": "Indianapolis",
+        "state": "IN"
+    },
+    {
+        "id": "foster-home-5835",
+        "shelterName": "Foster Home",
+        "orgId": "5835",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "foster-home-2572",
+        "shelterName": "Foster Home",
+        "orgId": "2572",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "foster-home-6001",
+        "shelterName": "Foster Home",
+        "orgId": "6001",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "hsov-jungle-room-5943",
+        "shelterName": "HSOV, Jungle Room",
+        "orgId": "5943",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "fff-harmony-room-4362",
+        "shelterName": "FFF, Harmony Room",
+        "orgId": "4362",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "foster-home-6074",
+        "shelterName": "Foster Home",
+        "orgId": "6074",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "hsni-kitty-corner-5884",
+        "shelterName": "HSNI, Kitty Corner",
+        "orgId": "5884",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "foster-home-5924",
+        "shelterName": "Foster Home",
+        "orgId": "5924",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "dog-kennel-5861",
+        "shelterName": "Dog Kennel",
+        "orgId": "5861",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "humane-society-of-greater-dayton-frodo-s-5819",
+        "shelterName": "Humane Society of Greater Dayton, Frodo's Feline Room",
+        "orgId": "5819",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "foster-home-5896",
+        "shelterName": "Foster Home",
+        "orgId": "5896",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "cat-adoption-center-5966",
+        "shelterName": "Cat Adoption Center",
+        "orgId": "5966",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "foster-home-5893",
+        "shelterName": "Foster Home",
+        "orgId": "5893",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "foster-home-4399",
+        "shelterName": "Foster Home",
+        "orgId": "4399",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "foster-home-5968",
+        "shelterName": "Foster Home",
+        "orgId": "5968",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "large-dogs-large-dogs-5986",
+        "shelterName": "Large Dogs, Large Dogs",
+        "orgId": "5986",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "cat-wing-free-roam-1-5913",
+        "shelterName": "Cat Wing, Free Roam 1",
+        "orgId": "5913",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "c-r-main-5816",
+        "shelterName": "C.R., Main",
+        "orgId": "5816",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "shelter-dogs-large-runs-1-5903",
+        "shelterName": "Shelter - Dogs, Large Runs # 1",
+        "orgId": "5903",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "t-kennels-t-kennels-4412",
+        "shelterName": "T-Kennels, T-Kennels",
+        "orgId": "4412",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "foster-home-5809",
+        "shelterName": "Foster Home",
+        "orgId": "5809",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "critter-room-980",
+        "shelterName": "Critter Room",
+        "orgId": "980",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "hsnega-cat-adoptions-5886",
+        "shelterName": "HSNEGA, Cat Adoptions",
+        "orgId": "5886",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "foster-home-4141",
+        "shelterName": "Foster Home",
+        "orgId": "4141",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "foster-home-5953",
+        "shelterName": "Foster Home",
+        "orgId": "5953",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "back-intake-cat-room-5941",
+        "shelterName": "Back/Intake Cat Room",
+        "orgId": "5941",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "bonus-room-4157",
+        "shelterName": "Bonus Room",
+        "orgId": "4157",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "foster-home-5801",
+        "shelterName": "Foster Home",
+        "orgId": "5801",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "dogs-main-kennel-5959",
+        "shelterName": "Dogs, Main Kennel",
+        "orgId": "5959",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "humboldt-spca-cat-5993",
+        "shelterName": "Humboldt SPCA - CAT",
+        "orgId": "5993",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "big-barn-843",
+        "shelterName": "Big Barn",
+        "orgId": "843",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "adoption-center-cat-room-a-1014",
+        "shelterName": "Adoption Center, Cat Room A",
+        "orgId": "1014",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "shelter-adoption-dog-4161",
+        "shelterName": "Shelter, Adoption Dog",
+        "orgId": "4161",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "1n-where-are-you-2569",
+        "shelterName": "1n. Where Are You",
+        "orgId": "2569",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "kennels-13-21-5855",
+        "shelterName": "Kennels 13-21",
+        "orgId": "5855",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "cat-rooms-cat-room-free-roaming-teen-cat-5983",
+        "shelterName": "Cat Rooms, Cat Room- Free Roaming Teen Cats",
+        "orgId": "5983",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "foster-home-1091",
+        "shelterName": "Foster Home",
+        "orgId": "1091",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "lobby-room-3-5888",
+        "shelterName": "Lobby Room 3",
+        "orgId": "5888",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "foster-home-2564",
+        "shelterName": "Foster Home",
+        "orgId": "2564",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "foster-home-854",
+        "shelterName": "Foster Home",
+        "orgId": "854",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "foster-home-2514",
+        "shelterName": "Foster Home",
+        "orgId": "2514",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "foster-home-5853",
+        "shelterName": "Foster Home",
+        "orgId": "5853",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "foster-home-2637",
+        "shelterName": "Foster Home",
+        "orgId": "2637",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "humane-society-of-pagosa-springs-intake--5895",
+        "shelterName": "Humane Society of Pagosa Springs, Intake Room / Kennels",
+        "orgId": "5895",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "cat-room-1-cat-room-1-free-roaming-4153",
+        "shelterName": "Cat Room #1, Cat Room #1 Free Roaming",
+        "orgId": "4153",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "annex-dog-run-5934",
+        "shelterName": "Annex Dog Run",
+        "orgId": "5934",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "center-right-kennels-4193",
+        "shelterName": "Center Right Kennels",
+        "orgId": "4193",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "dog-run-5830",
+        "shelterName": "Dog Run",
+        "orgId": "5830",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "hssf-headquarters-5947",
+        "shelterName": "HSSF Headquarters",
+        "orgId": "5947",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "dog-kennels-4340",
+        "shelterName": "Dog Kennels",
+        "orgId": "4340",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "meow-manor-5857",
+        "shelterName": "Meow Manor",
+        "orgId": "5857",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "foster-home-5899",
+        "shelterName": "Foster Home",
+        "orgId": "5899",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "foster-home-4213",
+        "shelterName": "Foster Home",
+        "orgId": "4213",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "the-pet-place-cat-room-5829",
+        "shelterName": "The Pet Place, Cat Room",
+        "orgId": "5829",
+        "city": "Unknown",
+        "state": "US"
     }
 ]

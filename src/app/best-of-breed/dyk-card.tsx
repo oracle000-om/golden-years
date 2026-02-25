@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 
-export function DidYouKnowCard({ noKillPercent }: { noKillPercent: number }) {
+export function DidYouKnowCard({ noKillPercent: _noKillPercent }: { noKillPercent: number }) {
     const [expanded, setExpanded] = useState(false);
 
     return (

@@ -5,10 +5,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { parseSearchQuery } from '@/lib/search-parser';
 import { searchAnimals } from '@/lib/queries';
+import { createRateLimiter, getClientIp } from '@/lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
 
+const limiter = createRateLimiter('search', 60); // 60 req/min per IP
+
 export async function GET(request: NextRequest) {
+    const ip = getClientIp(request);
+    const result = limiter.check(ip);
+    if (!result.allowed) {
+        return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
+    }
+
     const q = request.nextUrl.searchParams.get('q') || '';
 
     if (!q.trim()) {

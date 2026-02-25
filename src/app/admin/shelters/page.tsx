@@ -4,9 +4,9 @@ import Link from 'next/link';
 export const dynamic = 'force-dynamic';
 
 export default async function AdminSheltersPage() {
-    let shelters;
+    let allShelters;
     try {
-        shelters = await getAdminShelterList();
+        allShelters = await getAdminShelterList();
     } catch (err) {
         return (
             <div className="admin-page">
@@ -19,8 +19,23 @@ export default async function AdminSheltersPage() {
         );
     }
 
+    // Only MUNICIPAL + NO_KILL — rescues have their own tab
+    const shelters = allShelters.filter(s =>
+        s.shelterType === 'MUNICIPAL' || s.shelterType === 'NO_KILL'
+    );
     const totalActive = shelters.reduce((sum, s) => sum + s.activeAnimals, 0);
     const withData = shelters.filter(s => s.totalIntakeAnnual > 0);
+
+    // Compute aggregate save rate
+    const totalIntake = withData.reduce((sum, s) => sum + s.totalIntakeAnnual, 0);
+    const totalEuth = withData.reduce((sum, s) => sum + s.totalEuthanizedAnnual, 0);
+    const overallSaveRate = totalIntake > 0 ? Math.round(((totalIntake - totalEuth) / totalIntake) * 100) : null;
+
+    // No-kill achievers (≥ 90% save rate)
+    const noKillCount = withData.filter(s => {
+        const sr = ((s.totalIntakeAnnual - s.totalEuthanizedAnnual) / s.totalIntakeAnnual) * 100;
+        return sr >= 90;
+    }).length;
 
     return (
         <div className="admin-page">
@@ -44,17 +59,25 @@ export default async function AdminSheltersPage() {
                     <div className="admin-stat__label">Municipal</div>
                 </div>
                 <div className="admin-stat">
-                    <div className="admin-stat__value">{shelters.filter(s => s.shelterType === 'RESCUE').length}</div>
-                    <div className="admin-stat__label">Rescues</div>
+                    <div className="admin-stat__value">{shelters.filter(s => s.shelterType === 'NO_KILL').length}</div>
+                    <div className="admin-stat__label">No-Kill</div>
                 </div>
-                <div className="admin-stat">
-                    <div className="admin-stat__value">{withData.length}</div>
-                    <div className="admin-stat__label">With Outcome Data</div>
-                </div>
+                {overallSaveRate !== null && (
+                    <div className="admin-stat">
+                        <div className="admin-stat__value">{overallSaveRate}%</div>
+                        <div className="admin-stat__label">Avg Save Rate</div>
+                    </div>
+                )}
+                {withData.length > 0 && (
+                    <div className="admin-stat">
+                        <div className="admin-stat__value">{noKillCount}/{withData.length}</div>
+                        <div className="admin-stat__label">No-Kill Achievers</div>
+                    </div>
+                )}
             </div>
 
             <div className="admin-card">
-                <h2 className="admin-card__title">All Shelters</h2>
+                <h2 className="admin-card__title">All Shelters ({shelters.length})</h2>
                 <table className="admin-table admin-table--full">
                     <thead>
                         <tr>
@@ -75,6 +98,14 @@ export default async function AdminSheltersPage() {
                                 ? Math.round(((s.totalIntakeAnnual - s.totalEuthanizedAnnual) / s.totalIntakeAnnual) * 100)
                                 : null;
 
+                            const now = Date.now();
+                            const scrapedMs = s.lastScrapedAt ? new Date(s.lastScrapedAt).getTime() : 0;
+                            const hoursAgo = s.lastScrapedAt ? (now - scrapedMs) / (1000 * 60 * 60) : Infinity;
+                            const freshnessClass = !s.lastScrapedAt ? 'admin-table__dead'
+                                : hoursAgo < 24 ? 'admin-table__fresh'
+                                    : hoursAgo < 72 ? 'admin-table__stale'
+                                        : 'admin-table__dead';
+
                             return (
                                 <tr key={s.id} className={s.activeAnimals === 0 ? 'admin-table__row--dim' : ''}>
                                     <td>
@@ -84,8 +115,8 @@ export default async function AdminSheltersPage() {
                                         <span className="admin-table__id">{s.id}</span>
                                     </td>
                                     <td>
-                                        <span className={`admin-badge admin-badge--${s.shelterType.toLowerCase()}`}>
-                                            {s.shelterType === 'MUNICIPAL' ? '🏛️' : '🤝'} {s.shelterType}
+                                        <span className={`admin-badge admin-badge--${s.shelterType.toLowerCase().replace('_', '-')}`}>
+                                            {s.shelterType === 'MUNICIPAL' ? '🏛️' : '🐾'} {s.shelterType.replace('_', ' ')}
                                         </span>
                                     </td>
                                     <td>{s.state}</td>
@@ -104,7 +135,7 @@ export default async function AdminSheltersPage() {
                                             </span>
                                         ) : '—'}
                                     </td>
-                                    <td className="admin-table__date">
+                                    <td className={`admin-table__date ${freshnessClass}`}>
                                         {s.lastScrapedAt
                                             ? new Date(s.lastScrapedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
                                             : '—'}

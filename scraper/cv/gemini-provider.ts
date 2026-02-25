@@ -1,8 +1,13 @@
 /**
  * CV Animal Assessment — Gemini Provider
  *
- * Gemini 2.5 Flash implementation of AssessmentProvider.
+ * Tiered Gemini implementation of AssessmentProvider.
  * Uses @google/genai SDK with structured output (responseSchema).
+ *
+ * v4 — Tiered model strategy:
+ *   1. Try gemini-2.0-flash-lite (cheap/fast) first
+ *   2. If result is null or LOW confidence, retry with gemini-2.5-flash
+ *   3. Track which model produced the final result
  *
  * Pipeline:
  *   1. Download photo from URL
@@ -10,17 +15,18 @@
  *   3. Resize to 512×512 for health/behavioral signal detection
  *   4. Send to Gemini with structured prompt + JSON schema enforcement
  *   5. Parse + validate JSON response into AnimalAssessment
- *
- * v3: Structured output via responseSchema, cross-validation context,
- *     dataConflicts field, few-shot examples in prompt.
+ *   6. If LOW confidence, retry with full model
  */
 
 import { GoogleGenAI, Type } from '@google/genai';
 import sharp from 'sharp';
 import { ANIMAL_ASSESSMENT_PROMPT } from './prompts';
-import type { AnimalAssessment, AssessmentProvider, AgeEstimationProvider, AssessmentContext } from './types';
+import { CLOSE_UP_ASSESSMENT_PROMPT } from './close-up-prompt';
+import type { AnimalAssessment, CloseUpAssessment, AssessmentProvider, AgeEstimationProvider, AssessmentContext } from './types';
+import type { CalibrationConfig } from './calibration-config';
 
-const MODEL = 'gemini-2.5-flash';
+const MODEL_FAST = 'gemini-2.0-flash-lite';
+const MODEL_FULL = 'gemini-2.5-flash';
 const TARGET_SIZE = 512;  // v2: increased from 256 for better health/behavioral detection
 const MIN_DIMENSION = 50;
 
@@ -215,7 +221,7 @@ export function createGeminiProvider(apiKey: string): AgeEstimationProvider {
 
     const MAX_ADDITIONAL_PHOTOS = 4; // cap at 5 total (1 primary + 4 extra)
 
-    async function assess(photoUrl: string, additionalPhotos?: string[], context?: AssessmentContext): Promise<AnimalAssessment | null> {
+    async function assess(photoUrl: string, additionalPhotos?: string[], context?: AssessmentContext, calibration?: CalibrationConfig, videoFrames?: Buffer[]): Promise<AnimalAssessment | null> {
         // Step 1: Download the primary image
         const imageBuffer = await downloadImage(photoUrl);
         if (!imageBuffer) {
@@ -243,7 +249,16 @@ export function createGeminiProvider(apiKey: string): AgeEstimationProvider {
             }
         }
 
+        // Step 3b: Add video key frames (pre-processed JPEG buffers)
+        if (videoFrames && videoFrames.length > 0) {
+            for (const frame of videoFrames.slice(0, 4)) {
+                const p = await preprocessImage(frame);
+                if (p) allProcessed.push(p);
+            }
+        }
+
         const isMultiPhoto = allProcessed.length > 1;
+        const hasVideoFrames = videoFrames && videoFrames.length > 0;
 
         // Step 4: Build parts — all images + prompt
         const parts: Array<{ inlineData: { mimeType: string; data: string } } | { text: string }> = [];
@@ -260,7 +275,10 @@ export function createGeminiProvider(apiKey: string): AgeEstimationProvider {
         // Build context preamble from shelter listing data
         const contextLines: string[] = [];
         if (isMultiPhoto) {
-            contextLines.push(`You are provided with ${allProcessed.length} photos of the SAME animal. Synthesize your assessment across ALL photos for maximum accuracy. Different angles help with breed identification (side profiles), body condition scoring (full body), and health assessment (close-ups). Use the combination of all views.`);
+            contextLines.push(`You are provided with ${allProcessed.length} images of the SAME animal${hasVideoFrames ? ' (including key frames extracted from a video)' : ''}. Synthesize your assessment across ALL images for maximum accuracy. Different angles help with breed identification (side profiles), body condition scoring (full body), and health assessment (close-ups). Use the combination of all views.`);
+        }
+        if (hasVideoFrames) {
+            contextLines.push('Some images are KEY FRAMES from a video. Use these for behavioral analysis: assess body language, gait, energy level, and any visible behavioral patterns that photos alone cannot capture.');
         }
         if (context?.shelterSize) {
             contextLines.push(`SHELTER-REPORTED SIZE: ${context.shelterSize}. Since all animals on this platform are seniors (full-grown adults), the shelter-reported size is a reliable indicator. Factor this into your breed identification.`);
@@ -279,57 +297,179 @@ export function createGeminiProvider(apiKey: string): AgeEstimationProvider {
             contextLines.push(`SHELTER NOTES: "${truncated}". Cross-reference any health or behavioral claims with what you observe in the photo.`);
         }
 
+        // Inject calibration prompt addendum if provided
+        if (calibration?.promptAddendum) {
+            contextLines.push(`CALIBRATION TUNING: ${calibration.promptAddendum}`);
+        }
+
         const promptText = contextLines.length > 0
             ? `${contextLines.join('\n\n')}\n\n${ANIMAL_ASSESSMENT_PROMPT}`
             : ANIMAL_ASSESSMENT_PROMPT;
 
         parts.push({ text: promptText });
 
-        // Step 5: Send to Gemini with structured output
-        try {
-            const response = await genai.models.generateContent({
-                model: MODEL,
-                contents: [{ role: 'user', parts }],
-                config: {
-                    responseMimeType: 'application/json',
-                    responseSchema: ASSESSMENT_SCHEMA,
-                },
-            });
-
-            const text = response.text;
-            if (!text) {
-                console.log('      ⚠ Empty response from Gemini');
-                return null;
-            }
-
-            // Step 6: Parse and validate response
-            // With structured output, JSON.parse should always succeed,
-            // but we keep validateResponse as a safety net for range clamping
-            let parsed: Record<string, unknown>;
+        // Step 5: Send to Gemini — tiered model strategy
+        // Try cheap model first, fall back to full model for LOW confidence
+        async function callModel(model: string): Promise<AnimalAssessment | null> {
             try {
-                parsed = JSON.parse(text);
-            } catch {
-                // Fallback: try stripping any residual markdown fences
-                const cleaned = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-                parsed = JSON.parse(cleaned);
-            }
+                const response = await genai.models.generateContent({
+                    model,
+                    contents: [{ role: 'user', parts }],
+                    config: {
+                        responseMimeType: 'application/json',
+                        responseSchema: ASSESSMENT_SCHEMA,
+                    },
+                });
 
-            const estimate = validateResponse(parsed);
-            if (!estimate) {
-                console.log('      ⚠ Could not validate Gemini response');
+                const text = response.text;
+                if (!text) return null;
+
+                let parsed: Record<string, unknown>;
+                try {
+                    parsed = JSON.parse(text);
+                } catch {
+                    const cleaned = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+                    parsed = JSON.parse(cleaned);
+                }
+
+                const estimate = validateResponse(parsed);
+                if (estimate) {
+                    estimate.modelUsed = model;
+                }
+                return estimate;
+            } catch (error) {
+                console.error(`      ❌ Gemini API error (${model}):`, (error as Error).message);
                 return null;
             }
+        }
 
-            if (isMultiPhoto) {
-                console.log(`      📸 Multi-photo assessment (${allProcessed.length} images)`);
-            }
-            if (estimate.dataConflicts.length > 0) {
-                console.log(`      ⚠ Data conflicts: ${estimate.dataConflicts.join(' | ')}`);
-            }
+        // Tier 1: Try fast/cheap model
+        let estimate = await callModel(MODEL_FAST);
 
-            return estimate;
-        } catch (error) {
-            console.error('      ❌ Gemini API error:', (error as Error).message);
+        // Tier 2: Fall back to full model if lite returned null or LOW confidence
+        if (!estimate || estimate.confidence === 'LOW') {
+            const liteResult = estimate?.confidence || 'null';
+            console.log(`      🔄 Lite model returned ${liteResult} — retrying with full model`);
+            const fullEstimate = await callModel(MODEL_FULL);
+            if (fullEstimate) {
+                estimate = fullEstimate;
+            }
+            // If full also fails, keep the lite LOW result (better than nothing)
+        }
+
+        if (!estimate) {
+            console.log('      ⚠ Both models failed to produce a valid assessment');
+            return null;
+        }
+
+        const modelTag = estimate.modelUsed === MODEL_FAST ? '[LITE]' : '[FLASH]';
+        if (isMultiPhoto) {
+            console.log(`      📸 ${modelTag} Multi-photo assessment (${allProcessed.length} images)`);
+        }
+        if (estimate.dataConflicts.length > 0) {
+            console.log(`      ⚠ Data conflicts: ${estimate.dataConflicts.join(' | ')}`);
+        }
+
+        // Apply calibration confidence floor
+        if (calibration?.minConfidence) {
+            const confidenceRank: Record<string, number> = { 'NONE': 0, 'LOW': 1, 'MEDIUM': 2, 'HIGH': 3 };
+            const minRank = confidenceRank[calibration.minConfidence] || 1;
+            const resultRank = confidenceRank[estimate.confidence] || 0;
+            if (resultRank < minRank) {
+                console.log(`      ⚠ Below confidence floor (${estimate.confidence} < ${calibration.minConfidence}) — rejecting`);
+                return null;
+            }
+        }
+
+        // Step 6: Secondary close-up assessment (dental/eye)
+        // Trigger when primary assessment detected dental or cataract indicators
+        const dentalKeywords = ['dental', 'teeth', 'tartar', 'gum', 'oral', 'tooth', 'mouth'];
+        const eyeKeywords = ['cataract', 'eye', 'cloudy', 'opacity', 'lens', 'vision'];
+        const allText = [
+            ...(estimate.visibleConditions || []),
+            ...(estimate.likelyCareNeeds || []),
+            estimate.healthNotes || '',
+        ].join(' ').toLowerCase();
+
+        const hasDentalSignals = dentalKeywords.some(kw => allText.includes(kw));
+        const hasEyeSignals = eyeKeywords.some(kw => allText.includes(kw));
+
+        if (hasDentalSignals || hasEyeSignals) {
+            try {
+                const closeUpResult = await runCloseUpAssessment(
+                    genai, allProcessed[0], hasDentalSignals, hasEyeSignals
+                );
+                if (closeUpResult && closeUpResult.isCloseUp) {
+                    estimate.dentalGrade = closeUpResult.dentalGrade;
+                    estimate.tartarSeverity = closeUpResult.tartarSeverity;
+                    estimate.dentalNotes = closeUpResult.dentalNotes;
+                    estimate.cataractStage = closeUpResult.cataractStage;
+                    estimate.eyeNotes = closeUpResult.eyeNotes;
+                    console.log(`      🦷 Close-up: dental=${closeUpResult.dentalGrade ?? '?'}/4, eyes=${closeUpResult.cataractStage ?? 'n/a'}`);
+                }
+            } catch {
+                // Non-fatal — close-up is supplementary
+            }
+        }
+
+        return estimate;
+    }
+
+    /**
+     * Run focused dental/eye assessment on the primary photo.
+     * Uses MODEL_FAST since grading is a simpler task than full assessment.
+     */
+    async function runCloseUpAssessment(
+        ai: GoogleGenAI,
+        photo: { buffer: Buffer; mimeType: string },
+        checkDental: boolean,
+        checkEyes: boolean,
+    ): Promise<CloseUpAssessment | null> {
+        const CLOSE_UP_SCHEMA = {
+            type: Type.OBJECT,
+            properties: {
+                isCloseUp: { type: Type.BOOLEAN },
+                dentalGrade: { type: Type.NUMBER, nullable: true },
+                tartarSeverity: { type: Type.STRING, nullable: true, enum: ['none', 'mild', 'moderate', 'severe'] },
+                dentalNotes: { type: Type.STRING, nullable: true },
+                cataractStage: { type: Type.STRING, nullable: true, enum: ['none', 'early', 'moderate', 'advanced'] },
+                eyeNotes: { type: Type.STRING, nullable: true },
+            },
+            required: ['isCloseUp'],
+        };
+
+        const focus = [checkDental && 'dental health', checkEyes && 'eye health'].filter(Boolean).join(' and ');
+        const prompt = `Focus on assessing ${focus} in this photo.\n\n${CLOSE_UP_ASSESSMENT_PROMPT}`;
+
+        const response = await ai.models.generateContent({
+            model: MODEL_FAST,
+            contents: [{
+                role: 'user',
+                parts: [
+                    { inlineData: { mimeType: photo.mimeType, data: photo.buffer.toString('base64') } },
+                    { text: prompt },
+                ],
+            }],
+            config: {
+                responseMimeType: 'application/json',
+                responseSchema: CLOSE_UP_SCHEMA,
+            },
+        });
+
+        const text = response.text;
+        if (!text) return null;
+
+        try {
+            const parsed = JSON.parse(text);
+            return {
+                isCloseUp: Boolean(parsed.isCloseUp),
+                dentalGrade: typeof parsed.dentalGrade === 'number' ? Math.min(4, Math.max(1, Math.round(parsed.dentalGrade))) : null,
+                tartarSeverity: parsed.tartarSeverity || null,
+                dentalNotes: parsed.dentalNotes || null,
+                cataractStage: parsed.cataractStage || null,
+                eyeNotes: parsed.eyeNotes || null,
+            };
+        } catch {
             return null;
         }
     }

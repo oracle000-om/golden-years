@@ -1,6 +1,20 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  async headers() {
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          { key: 'X-Frame-Options', value: 'DENY' },
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+          { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
+          { key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains' },
+        ],
+      },
+    ];
+  },
   images: {
     remotePatterns: [
       // LA County DACC — Azure Blob Storage
@@ -15,6 +29,10 @@ const nextConfig: NextConfig = {
       { protocol: 'https', hostname: '**.shelterbuddy.com' },
       // ShelterLuv CDN
       { protocol: 'https', hostname: '**.shelterluv.com' },
+      // Petfinder CDN (S3 via CloudFront)
+      { protocol: 'https', hostname: 'dl5zpyw5k3jeb.cloudfront.net' },
+      { protocol: 'https', hostname: 'dbw3zep4prcju.cloudfront.net' },
+      { protocol: 'https', hostname: '**.petfinder.com' },
       // AdoptAPet CDN
       { protocol: 'https', hostname: 'photos.adoptapet.com' },
       // County shelter portals

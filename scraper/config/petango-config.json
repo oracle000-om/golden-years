@@ -68,5 +68,12 @@
         "authkey": "191o120xa9j1v30d5y401gs59u9djhhctdd5s4p7xed25tdl89",
         "city": "Unknown",
         "state": "US"
+    },
+    {
+        "id": "columbus-humane-oh-petango",
+        "shelterName": "Columbus Humane (PetPoint)",
+        "authkey": "49obkh935iqoei4no3v7w152773r80drz2d832hg5j087y81k8",
+        "city": "Columbus",
+        "state": "OH"
     }
 ]

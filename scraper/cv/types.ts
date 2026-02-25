@@ -65,6 +65,40 @@ export interface AnimalAssessment {
     // ── Cross-validation (v3) ──
     /** Discrepancies between CV findings and shelter-reported data */
     dataConflicts: string[];
+
+    // ── Model metadata (v4) ──
+    /** Which model produced this assessment (e.g. 'gemini-2.0-flash-lite', 'gemini-2.5-flash') */
+    modelUsed?: string;
+
+    // ── Close-up dental/eye assessment (v5) ──
+    /** Dental disease grade 1-4, null if not visible */
+    dentalGrade?: number | null;
+    /** Tartar severity */
+    tartarSeverity?: 'none' | 'mild' | 'moderate' | 'severe' | null;
+    /** Free-text dental observations */
+    dentalNotes?: string | null;
+    /** Cataract staging */
+    cataractStage?: 'none' | 'early' | 'moderate' | 'advanced' | null;
+    /** Free-text eye observations */
+    eyeNotes?: string | null;
+}
+
+/**
+ * Close-up assessment result from the secondary dental/eye prompt.
+ */
+export interface CloseUpAssessment {
+    /** Whether this photo is actually a close-up */
+    isCloseUp: boolean;
+    /** Dental disease grade: 1 = clean, 4 = severe disease */
+    dentalGrade: number | null;
+    /** Tartar buildup severity */
+    tartarSeverity: 'none' | 'mild' | 'moderate' | 'severe' | null;
+    /** Dental observation notes */
+    dentalNotes: string | null;
+    /** Cataract stage */
+    cataractStage: 'none' | 'early' | 'moderate' | 'advanced' | null;
+    /** Eye observation notes */
+    eyeNotes: string | null;
 }
 
 /** Backward compatibility alias */
@@ -93,10 +127,10 @@ export interface AssessmentContext {
  * Returns null if the image can't be assessed (bad photo, not an animal, etc.)
  */
 export interface AssessmentProvider {
-    assess(photoUrl: string, additionalPhotos?: string[], context?: AssessmentContext): Promise<AnimalAssessment | null>;
+    assess(photoUrl: string, additionalPhotos?: string[], context?: AssessmentContext, calibration?: import('./calibration-config').CalibrationConfig, videoFrames?: Buffer[]): Promise<AnimalAssessment | null>;
 }
 
 /** Backward compatibility alias */
 export type AgeEstimationProvider = AssessmentProvider & {
-    estimateAge(photoUrl: string, additionalPhotos?: string[], context?: AssessmentContext): Promise<AnimalAssessment | null>;
+    estimateAge(photoUrl: string, additionalPhotos?: string[], context?: AssessmentContext, calibration?: import('./calibration-config').CalibrationConfig, videoFrames?: Buffer[]): Promise<AnimalAssessment | null>;
 };

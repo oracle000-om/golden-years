@@ -13,8 +13,9 @@ export default function AboutPage() {
         <section className="about-minimal">
             <div className="container" style={{ textAlign: 'center', marginBottom: 'var(--space-2xl)' }}>
                 <span className="page-badge">📖 About</span>
+                {/* TODO: Update to 2025 figures once finalized (preliminary ~597k) */}
                 <p style={{ fontSize: 'var(--font-size-2xl)', color: 'var(--color-text)', lineHeight: 1.5, maxWidth: 680, margin: 'var(--space-lg) auto 0', fontWeight: 300 }}>
-                    In 2025, 607,000 animals were euthanized at shelters in the United States. That averages out to roughly 1,660 dogs and cats per day. Without collective action, that number is unlikely to change.
+                    In 2024, 607,000 animals were euthanized at shelters in the United States. That averages out to roughly 1,660 dogs and cats per day.
                 </p>
             </div>
             <div className="container about-minimal__content">
@@ -39,6 +40,9 @@ export default function AboutPage() {
                 <div className="about-minimal__text about-minimal__text--row2">
                     <p className="about-minimal__story">
                         Seniors are special. Even as they approach the rainbow bridge, they deserve a respectful passing, with an indulgent feast, whispers of praise, and gentle pets from those they love. Golden Years Club is dedicated to giving at-risk senior dogs and cats a final chance at living out their best golden years, with a family of their own to wait for at the rainbow bridge 🌈.
+                    </p>
+                    <p className="about-minimal__story" style={{ marginTop: 'var(--space-lg)' }}>
+                        Golden Years Club is more than a website. It uses a novel computer vision pipeline to assess the health and wellbeing of shelter animals from their listing photos. Each image is processed through a multi-stage model that estimates body condition score, coat quality, stress indicators, and overall health, surfacing insights that would otherwise require an in-person veterinary evaluation. Combined with data aggregated from shelters and rescue networks nationwide, the platform provides a comprehensive, continuously updated view of at-risk senior animals and the organizations working to save them.
                     </p>
                 </div>
                 <div className="about-minimal__image about-minimal__image--right">

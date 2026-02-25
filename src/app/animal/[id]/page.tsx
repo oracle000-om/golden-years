@@ -212,11 +212,11 @@ export default async function AnimalDetailPage({
                     <div className="animal-detail__photo">
                         {(() => {
                             const allPhotos = [animal.photoUrl, ...(animal.photoUrls || [])].filter(Boolean) as string[];
-                            if (allPhotos.length > 1) {
-                                return <PhotoGallery photos={allPhotos} name={animal.name || 'Unnamed animal'} />;
+                            if (allPhotos.length > 1 || animal.videoUrl) {
+                                return <PhotoGallery photos={allPhotos} name={animal.name || 'Unnamed animal'} videoUrl={animal.videoUrl} />;
                             }
                             return animal.photoUrl ? (
-                                <SafeImage src={animal.photoUrl} alt={animal.name || 'Unnamed animal'} fill sizes="(max-width: 768px) 100vw, 50vw" style={{ objectFit: 'cover' }} priority />
+                                <SafeImage src={animal.photoUrl} alt={animal.name || 'Unnamed animal'} fill sizes="(max-width: 768px) 100vw, 50vw" style={{ objectFit: 'contain' }} priority />
                             ) : (
                                 <div className="animal-detail__photo-placeholder">
                                     {animal.species === 'DOG' ? '🐕' : animal.species === 'CAT' ? '🐈' : '🐾'}

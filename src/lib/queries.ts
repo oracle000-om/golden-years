@@ -6,6 +6,7 @@ import { prisma } from './db';
 import type { AnimalWithShelter, AnimalWithShelterAndSources, ShelterWithAnimals } from './types';
 import { parseSearchQuery, type SearchIntent } from './search-parser';
 import { geocodeZip, geocodeZipFull, geocodeCounty, haversineDistance } from './geocode';
+import { buildShelterStoryInsights } from './utils';
 
 // ─── Data quality guards ─────────────────────────────────
 /** Names that indicate junk / placeholder records from shelter systems. */
@@ -231,9 +232,10 @@ export async function getFilteredAnimals(filters: AnimalFilters): Promise<Pagina
     const needsRadiusFilter = userCoords && filters.radius !== 'any';
     const needsInMemoryPagination = needsDistanceSort || needsRadiusFilter;
 
-    // When we need in-memory pagination, fetch a larger window from DB
-    // (up to 500 animals). Otherwise use standard DB-level pagination.
-    const DISTANCE_WINDOW = 500;
+    // When we need in-memory pagination, fetch a larger window from DB.
+    // Higher = more accurate radius pagination, but more memory. 2000 covers
+    // most metro areas while keeping response times under ~500ms.
+    const DISTANCE_WINDOW = 2000;
     const skip = needsInMemoryPagination ? 0 : (page - 1) * DEFAULT_PAGE_SIZE;
     const take = needsInMemoryPagination ? DISTANCE_WINDOW : DEFAULT_PAGE_SIZE;
 
@@ -693,7 +695,7 @@ export async function getAnimalForMetadata(id: string) {
 
 // ─── Shelter Queries ─────────────────────────────────────
 
-/** Fetch a shelter by ID with its available/urgent animals. */
+/** Fetch a shelter by ID with its available/urgent animals and financials. */
 export async function getShelterById(id: string): Promise<ShelterWithAnimals | null> {
     return prisma.shelter.findUnique({
         where: { id },
@@ -702,6 +704,7 @@ export async function getShelterById(id: string): Promise<ShelterWithAnimals | n
                 where: { status: { in: ['AVAILABLE', 'URGENT'] } },
                 orderBy: { createdAt: 'desc' },
             },
+            financials: true,
         },
     });
 }
@@ -758,6 +761,7 @@ export interface NoKillShelter {
     saveRate: number;       // 0–100
     yearsRunning: number;   // consecutive no-kill years (≥ 1)
     dataYear: number | null;
+    animalCount: number;    // available/urgent animals currently listed
 }
 
 /**
@@ -774,6 +778,7 @@ export async function getNoKillShelters(): Promise<{
     const allShelters = await prisma.shelter.findMany({
         where: {
             totalIntakeAnnual: { gt: 0 },
+            shelterType: 'MUNICIPAL',
         },
         select: {
             id: true,
@@ -788,6 +793,13 @@ export async function getNoKillShelters(): Promise<{
             priorYearIntake: true,
             priorYearEuthanized: true,
             priorDataYear: true,
+            _count: {
+                select: {
+                    animals: {
+                        where: { status: { in: ['AVAILABLE', 'URGENT'] } },
+                    },
+                },
+            },
         },
         orderBy: { name: 'asc' },
     });
@@ -822,6 +834,7 @@ export async function getNoKillShelters(): Promise<{
             saveRate,
             yearsRunning,
             dataYear: s.dataYear,
+            animalCount: s._count.animals,
         });
     }
 
@@ -870,4 +883,86 @@ export async function getBreedCommonConditions(breedNames: string[]): Promise<st
     });
     const conditions = profiles.flatMap(p => p.commonConditions);
     return [...new Set(conditions)];
+}
+
+/** Fetch state policy for report card (adopter-relevant fields only). */
+export async function getStatePolicyForShelter(state: string) {
+    return prisma.statePolicy.findUnique({
+        where: { state: state.toUpperCase() },
+        select: {
+            holdingPeriodDays: true,
+            spayNeuterRequired: true,
+            mandatoryReporting: true,
+            reportingBody: true,
+        },
+    });
+}
+
+/**
+ * Fetch enriched storytelling insights for the shelter detail page.
+ * Pulls from shelter stats, financials, state policy, and live inventory.
+ */
+export async function getShelterStoryInsights(shelterId: string): Promise<string[]> {
+    const shelter = await prisma.shelter.findUnique({
+        where: { id: shelterId },
+        select: {
+            shelterType: true,
+            state: true,
+            totalIntakeAnnual: true,
+            totalEuthanizedAnnual: true,
+            dataYear: true,
+            countyPopulation: true,
+            totalTransferred: true,
+            priorYearIntake: true,
+            priorYearEuthanized: true,
+            priorDataYear: true,
+        },
+    });
+    if (!shelter) return [];
+
+    // Fetch financials
+    const financials = await prisma.shelterFinancials.findUnique({
+        where: { shelterId },
+        select: {
+            taxPeriod: true,
+            totalRevenue: true,
+            totalExpenses: true,
+            contributions: true,
+            programRevenue: true,
+            fundraisingExpense: true,
+            officerCompensation: true,
+        },
+    });
+
+    // Fetch state policy
+    const statePolicy = await prisma.statePolicy.findUnique({
+        where: { state: shelter.state.toUpperCase() },
+        select: {
+            holdingPeriodDays: true,
+            mandatoryReporting: true,
+            reportingBody: true,
+        },
+    });
+
+    // Compute average days waiting for current animals
+    const animals = await prisma.animal.findMany({
+        where: { shelterId, status: { in: ['AVAILABLE', 'URGENT'] } },
+        select: { intakeDate: true },
+    });
+    let avgDaysWaiting: number | null = null;
+    const animalsWithDates = animals.filter(a => a.intakeDate);
+    if (animalsWithDates.length > 0) {
+        const now = Date.now();
+        const totalDays = animalsWithDates.reduce((sum, a) => {
+            return sum + Math.max(0, Math.floor((now - new Date(a.intakeDate!).getTime()) / 86_400_000));
+        }, 0);
+        avgDaysWaiting = Math.round(totalDays / animalsWithDates.length);
+    }
+
+    return buildShelterStoryInsights({
+        shelter,
+        financials,
+        statePolicy,
+        avgDaysWaiting,
+    });
 }

@@ -34,6 +34,7 @@ export function PhotoGallery({ photos, name, videoUrl }: PhotoGalleryProps) {
                     />
                 ) : (
                     <SafeImage
+                        key={photoIndex}
                         src={photos[photoIndex]}
                         alt={`${name} — photo ${photoIndex + 1}`}
                         fill

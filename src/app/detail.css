@@ -110,6 +110,12 @@
   width: 100%;
   height: 100%;
   object-fit: contain;
+  pointer-events: none;
+}
+
+/* Next.js Image with fill creates a wrapper span — prevent it from blocking arrow clicks */
+.photo-gallery__main>span {
+  pointer-events: none;
 }
 
 .photo-gallery__arrow {
@@ -117,8 +123,8 @@
   top: 50%;
   transform: translateY(-50%);
   z-index: 2;
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   border: none;
   background: rgba(0, 0, 0, 0.5);
@@ -130,8 +136,9 @@
   align-items: center;
   justify-content: center;
   transition: background var(--transition-fast), opacity var(--transition-fast);
-  opacity: 0.6;
+  opacity: 0.8;
   backdrop-filter: blur(4px);
+  pointer-events: auto;
 }
 
 .photo-gallery__arrow:hover {
@@ -1130,6 +1137,24 @@
 
 .animal-detail__shelter-cta {
   margin-top: var(--space-sm);
+}
+
+.animal-detail__shelter-cta-row {
+  display: flex;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.animal-detail__report-card-btn {
+  background: var(--color-gold-glow, rgba(255, 192, 75, 0.08)) !important;
+  border-color: rgba(255, 192, 75, 0.25) !important;
+  color: var(--color-gold) !important;
+}
+
+.animal-detail__report-card-btn:hover {
+  background: rgba(255, 192, 75, 0.15) !important;
+  border-color: var(--color-gold) !important;
+  color: var(--color-gold) !important;
 }
 
 .animal-detail__adopt-btn {

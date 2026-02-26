@@ -100,6 +100,33 @@ export interface AnimalWithShelterAndSources extends Animal {
     sources: Source[];
 }
 
+export interface ShelterFinancials {
+    id: string;
+    shelterId: string;
+    ein: string | null;
+    nteeCode: string | null;
+    taxPeriod: number | null;
+    totalRevenue: number | null;
+    totalExpenses: number | null;
+    totalAssets: number | null;
+    totalLiabilities: number | null;
+    netAssets: number | null;
+    contributions: number | null;
+    programRevenue: number | null;
+    fundraisingExpense: number | null;
+    officerCompensation: number | null;
+    filingHistory: unknown;
+    proPublicaUrl: string | null;
+}
+
 export interface ShelterWithAnimals extends Shelter {
     animals: Animal[];
+    financials?: ShelterFinancials | null;
+}
+
+export interface StatePolicy {
+    holdingPeriodDays: number | null;
+    spayNeuterRequired: boolean | null;
+    mandatoryReporting: boolean | null;
+    reportingBody: string | null;
 }

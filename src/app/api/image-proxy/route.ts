@@ -80,6 +80,8 @@ export async function GET(request: NextRequest) {
                 'Content-Type': contentType,
                 'Cache-Control': 'public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800',
                 'X-Proxy-Source': 'golden-years-image-proxy',
+                'Content-Security-Policy': "default-src 'none'",
+                'X-Content-Type-Options': 'nosniff',
             },
         });
     } catch (err) {

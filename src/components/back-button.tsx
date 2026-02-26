@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
  * so filters and scroll position are preserved when returning to the list.
  * Falls back to "/" if there's no history (e.g. direct link to animal page).
  */
-export function BackButton() {
+export function BackButton({ label }: { label?: string }) {
     const router = useRouter();
 
     return (
@@ -22,7 +22,7 @@ export function BackButton() {
                 }
             }}
         >
-            ← Back to the list
+            {label || '← Back to the list'}
         </button>
     );
 }

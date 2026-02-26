@@ -107,6 +107,14 @@ export default async function AnimalDetailPage({
     const saveRate = getSaveRate(animal.shelter.totalIntakeAnnual, animal.shelter.totalEuthanizedAnnual);
     const shelterInsights = await getShelterInsights(animal.shelterId);
     const intakeReasonDisplay = formatIntakeReason(animal.intakeReason, animal.intakeReasonDetail);
+    const yearsRemainingShort = formatYearsRemaining(
+        animal.ageKnownYears,
+        animal.ageEstimatedLow,
+        animal.ageEstimatedHigh,
+        animal.lifeExpectancyLow,
+        animal.lifeExpectancyHigh,
+        { short: true },
+    );
     const yearsRemaining = formatYearsRemaining(
         animal.ageKnownYears,
         animal.ageEstimatedLow,
@@ -215,7 +223,7 @@ export default async function AnimalDetailPage({
                 <div className="animal-detail__hero">
                     <div className="animal-detail__photo">
                         {(() => {
-                            const allPhotos = [animal.photoUrl, ...(animal.photoUrls || [])].filter(Boolean) as string[];
+                            const allPhotos = [...new Set([animal.photoUrl, ...(animal.photoUrls || [])].filter(Boolean))] as string[];
                             if (allPhotos.length > 1 || animal.videoUrl) {
                                 return <PhotoGallery photos={allPhotos} name={animal.name || 'Unnamed animal'} videoUrl={animal.videoUrl} />;
                             }
@@ -282,10 +290,10 @@ export default async function AnimalDetailPage({
                                     <span className="animal-detail__detail-value">{breedLifespan}</span>
                                 </div>
                             )}
-                            {yearsRemaining && (
+                            {yearsRemainingShort && (
                                 <div className="animal-detail__detail-row">
                                     <span className="animal-detail__detail-label">Golden Years remaining</span>
-                                    <span className="animal-detail__detail-value cv-estimated">{yearsRemaining}</span>
+                                    <span className="animal-detail__detail-value cv-estimated">{yearsRemainingShort}</span>
                                 </div>
                             )}
                             {sizeDisplay && (
@@ -567,21 +575,31 @@ export default async function AnimalDetailPage({
                                 || (animal.sources.length > 0 ? animal.sources[0].sourceUrl : null);
                             const isRescue = animal.shelter.shelterType === 'RESCUE' || animal.shelter.shelterType === 'NO_KILL' || animal.shelter.shelterType === 'FOSTER_BASED';
                             const ctaLabel = isRescue ? 'Go to rescue website →' : 'Go to shelter website →';
-                            return adoptUrl ? (
-                                <a
-                                    href={adoptUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="animal-detail__adopt-btn"
-                                >
-                                    {ctaLabel}
-                                </a>
-                            ) : animal.shelter.phone ? (
-                                <p className="animal-detail__shelter-fallback">Contact shelter by phone to inquire about adoption</p>
-                            ) : (
-                                <p className="animal-detail__shelter-fallback">
-                                    Search for &ldquo;{animal.shelter.name}&rdquo; online to find their contact information and adoption process
-                                </p>
+                            return (
+                                <div className="animal-detail__shelter-cta-row">
+                                    {adoptUrl ? (
+                                        <a
+                                            href={adoptUrl}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="animal-detail__adopt-btn"
+                                        >
+                                            {ctaLabel}
+                                        </a>
+                                    ) : animal.shelter.phone ? (
+                                        <p className="animal-detail__shelter-fallback">Contact shelter by phone to inquire about adoption</p>
+                                    ) : (
+                                        <p className="animal-detail__shelter-fallback">
+                                            Search for &ldquo;{animal.shelter.name}&rdquo; online to find their contact information and adoption process
+                                        </p>
+                                    )}
+                                    <Link
+                                        href={`/shelter/${animal.shelter.id}?from=${encodeURIComponent(animal.name || 'Unnamed')}`}
+                                        className="animal-detail__adopt-btn animal-detail__report-card-btn"
+                                    >
+                                        Go to Report Card →
+                                    </Link>
+                                </div>
                             );
                         })()}
                     </div>

@@ -4,7 +4,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { SafeImage } from '@/components/SafeImage';
 import { useState } from 'react';
-import { formatScheduledDate, formatIntakeDate, hoursUntil, getUrgencyLevel, getGoldenYearsConfidence, getSaveRate } from '@/lib/utils';
+import { formatScheduledDate, formatIntakeDate, hoursUntil, getUrgencyLevel, getGoldenYearsConfidence, getSaveRate, formatYearsRemaining } from '@/lib/utils';
 import type { AnimalResult } from '@/lib/queries';
 
 function CopyCardLink({ animalId }: { animalId: string }) {
@@ -90,22 +90,15 @@ export function AnimalGrid({ animals, totalCount, page, totalPages }: AnimalGrid
                         ? `${animal.lifeExpectancyLow}–${animal.lifeExpectancyHigh} yrs`
                         : '—';
 
-                    // Golden Years remaining: age range vs life expectancy
-                    let goldenYearsRemaining: string | null = null;
-                    if (animal.lifeExpectancyLow !== null && animal.lifeExpectancyHigh !== null) {
-                        const age = animal.ageEstimatedLow !== null && animal.ageEstimatedHigh !== null
-                            ? (animal.ageEstimatedLow + animal.ageEstimatedHigh) / 2
-                            : animal.ageKnownYears;
-                        if (age !== null) {
-                            const low = Math.max(0, Math.round(animal.lifeExpectancyLow - age));
-                            const high = Math.max(0, Math.round(animal.lifeExpectancyHigh - age));
-                            if (high > 0) {
-                                goldenYearsRemaining = low === high
-                                    ? `Up to ${high} yr${high !== 1 ? 's' : ''}`
-                                    : `Up to ${low}–${high} yrs`;
-                            }
-                        }
-                    }
+                    // Golden Years remaining: range-against-range (handles near-end-of-life)
+                    const goldenYearsRemaining = formatYearsRemaining(
+                        animal.ageKnownYears,
+                        animal.ageEstimatedLow,
+                        animal.ageEstimatedHigh,
+                        animal.lifeExpectancyLow,
+                        animal.lifeExpectancyHigh,
+                        { short: true },
+                    );
 
                     // Days in shelter
                     let daysInShelter: number | null = null;

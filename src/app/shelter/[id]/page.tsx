@@ -1,11 +1,16 @@
 import Link from 'next/link';
-import Image from 'next/image';
-import { SafeImage } from '@/components/SafeImage';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
-import { getShelterById, getShelterForMetadata } from '@/lib/queries';
-import { formatDeathMarker, hoursUntil, getUrgencyLevel, getSaveRate, formatAge, getPerCapitaIntake, getYoYTrend, getTransferRate } from '@/lib/utils';
+import { getShelterById, getShelterForMetadata, getStatePolicyForShelter, getShelterStoryInsights } from '@/lib/queries';
+import type { AnimalResult } from '@/lib/queries';
+import {
+    getSaveRate, getPerCapitaIntake, getYoYTrend, getTransferRate, toTitleCase,
+} from '@/lib/utils';
 import type { ShelterWithAnimals, Animal } from '@/lib/types';
+import { CopyLinkButton } from '@/components/copy-link-button';
+import { BackButton } from '@/components/back-button';
+import { ShelterAnimals } from '@/app/shelter/shelter-animals';
+import { SeniorCensus } from '@/app/shelter/senior-census';
 
 export const revalidate = 300;
 
@@ -24,8 +29,9 @@ export async function generateMetadata({
         }
 
         const saveRate = getSaveRate(shelter.totalIntakeAnnual, shelter.totalEuthanizedAnnual);
-        const title = `${shelter.name} | Golden Years Club`;
-        const description = `${shelter.name} in ${shelter.county} County, ${shelter.state}. ${shelter.animals.length} senior animals currently on the euthanasia list.${saveRate !== null ? ` ${saveRate}% live release rate.` : ''}`;
+        const displayName = toTitleCase(shelter.name);
+        const title = `${displayName} | Golden Years Club`;
+        const description = `${displayName} in ${toTitleCase(shelter.county)} County, ${shelter.state}. ${shelter.animals.length} senior animals currently listed.${saveRate !== null ? ` ${saveRate}% live release rate.` : ''}`;
 
         return {
             title,
@@ -47,12 +53,45 @@ export async function generateMetadata({
     }
 }
 
+/* ── Helpers ── */
+const TYPE_LABELS: Record<string, { label: string; icon: string }> = {
+    MUNICIPAL: { label: 'Municipal Shelter', icon: '🏛️' },
+    RESCUE: { label: 'Rescue Organization', icon: '🤝' },
+    NO_KILL: { label: 'No-Kill Shelter', icon: '💛' },
+    FOSTER_BASED: { label: 'Foster-Based Rescue', icon: '🏡' },
+};
+
+function buildMapUrl(shelter: ShelterWithAnimals): string | null {
+    if (shelter.latitude && shelter.longitude) {
+        return `https://www.google.com/maps/search/?api=1&query=${shelter.latitude},${shelter.longitude}`;
+    }
+    if (shelter.address) {
+        const q = encodeURIComponent(`${shelter.address}, ${shelter.county} County, ${shelter.state}`);
+        return `https://www.google.com/maps/search/?api=1&query=${q}`;
+    }
+    return null;
+}
+
+function computeAvgDaysInShelter(animals: Animal[]): number | null {
+    const withDays = animals.filter((a) => a.intakeDate);
+    if (withDays.length === 0) return null;
+    const now = Date.now();
+    const total = withDays.reduce((sum, a) => {
+        const days = Math.max(0, Math.floor((now - new Date(a.intakeDate!).getTime()) / 86_400_000));
+        return sum + days;
+    }, 0);
+    return Math.round(total / withDays.length);
+}
+
 export default async function ShelterDetailPage({
     params,
+    searchParams,
 }: {
     params: Promise<{ id: string }>;
+    searchParams: Promise<{ from?: string }>;
 }) {
     const { id } = await params;
+    const { from: fromAnimalName } = await searchParams;
 
     let shelter: ShelterWithAnimals | null = null;
     let error = false;
@@ -68,9 +107,7 @@ export default async function ShelterDetailPage({
         return (
             <div className="shelter-detail">
                 <div className="container">
-                    <Link href="/" className="animal-detail__back">
-                        ← Back to Listings
-                    </Link>
+                    <BackButton label={fromAnimalName ? `← Back to ${fromAnimalName}` : undefined} />
                     <div className="error-state">
                         <div className="error-state__icon">⚠️</div>
                         <h2 className="error-state__title">Unable to load shelter details</h2>
@@ -91,298 +128,302 @@ export default async function ShelterDetailPage({
         notFound();
     }
 
+    // ── Existing computations ──
     const saveRate = getSaveRate(shelter.totalIntakeAnnual, shelter.totalEuthanizedAnnual);
     const hasData = shelter.totalIntakeAnnual > 0;
     const perCapita = getPerCapitaIntake(shelter.totalIntakeAnnual, shelter.countyPopulation);
     const yoyTrend = getYoYTrend(shelter.totalIntakeAnnual, shelter.totalEuthanizedAnnual, shelter.priorYearIntake, shelter.priorYearEuthanized);
     const transferRate = getTransferRate(shelter.totalTransferred, shelter.totalIntakeAnnual);
+    const mapUrl = buildMapUrl(shelter);
+    const typeInfo = TYPE_LABELS[shelter.shelterType] || TYPE_LABELS.MUNICIPAL;
+    const avgDays = computeAvgDaysInShelter(shelter.animals);
+    const storyInsights = await getShelterStoryInsights(id);
+
+    // ── Report Card: State policy ──
+    const statePolicy = await getStatePolicyForShelter(shelter.state);
+    const hasPolicy = statePolicy && (
+        statePolicy.holdingPeriodDays !== null ||
+        statePolicy.spayNeuterRequired !== null ||
+        statePolicy.mandatoryReporting !== null
+    );
 
     return (
         <div className="shelter-detail">
             <div className="container">
-                <Link href="/" className="animal-detail__back">
-                    ← Back to Listings
-                </Link>
+                <BackButton label={fromAnimalName ? `← Back to ${fromAnimalName}` : undefined} />
 
-                <div className="shelter-detail__header">
-                    <h1 className="shelter-detail__name">
-                        {shelter.name}
-                    </h1>
-                    <p className="shelter-detail__location">
-                        {shelter.county} County, {shelter.state}
-                        {shelter.address && ` · ${shelter.address}`}
-                    </p>
+                {/* ═══════════════════ HERO HEADER ═══════════════════ */}
+                <div className="shelter-hero">
+                    <div className="shelter-hero__top">
+                        <div className="shelter-hero__identity">
+                            <span className="shelter-hero__type-badge">
+                                {typeInfo.icon} {typeInfo.label} ({shelter.animals.length})
+                            </span>
+                            <h1 className="shelter-hero__name">
+                                {toTitleCase(shelter.name)}
+                                <CopyLinkButton />
+                            </h1>
+                            <p className="shelter-hero__location">
+                                {toTitleCase(shelter.county)} County, {shelter.state}
+                                {shelter.zipCode && ` ${shelter.zipCode}`}
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* Contact row */}
+                    <div className="shelter-hero__contact">
+                        {shelter.address && (
+                            <div className="shelter-hero__contact-item">
+                                <span className="shelter-hero__contact-icon">📍</span>
+                                <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(shelter.address + ', ' + shelter.county + ' County, ' + shelter.state)}`}>
+                                    {shelter.address}
+                                </a>
+                            </div>
+                        )}
+                        {shelter.phone && (
+                            <div className="shelter-hero__contact-item">
+                                <span className="shelter-hero__contact-icon">📞</span>
+                                <span className="shelter-hero__phone-text">{shelter.phone}</span>
+                                <a href={`tel:${shelter.phone.replace(/\D/g, '')}`} className="shelter-hero__phone-link">{shelter.phone}</a>
+                            </div>
+                        )}
+                        {shelter.websiteUrl && (
+                            <div className="shelter-hero__contact-item">
+                                <span className="shelter-hero__contact-icon">🌐</span>
+                                <a href={shelter.websiteUrl} target="_blank" rel="noopener noreferrer">
+                                    Website
+                                </a>
+                            </div>
+                        )}
+                        {shelter.facebookUrl && (
+                            <div className="shelter-hero__contact-item">
+                                <span className="shelter-hero__contact-icon">📘</span>
+                                <a href={shelter.facebookUrl} target="_blank" rel="noopener noreferrer">
+                                    Facebook
+                                </a>
+                            </div>
+                        )}
+                    </div>
                 </div>
 
-                {/* Public Shelter Data Card */}
-                {hasData ? (
-                    <div className="shelter-data-card">
-                        <div className="shelter-data-card__header">
-                            <span className="shelter-data-card__title">
-                                📊 Public Shelter Data
-                                {shelter.dataYear && ` · ${shelter.dataYear}`}
-                            </span>
-                            {shelter.dataSourceName && (
-                                <span className="shelter-data-card__source">
-                                    Source:{' '}
-                                    {shelter.dataSourceUrl ? (
-                                        <a href={shelter.dataSourceUrl} target="_blank" rel="noopener noreferrer">
-                                            {shelter.dataSourceName} ↗
+                {/* ═══════════════════ REPORT CARD ═══════════════════ */}
+                {(hasData || shelter.animals.length > 0 || hasPolicy) && (
+                    <div className="report-card">
+
+                        {/* ─── AT A GLANCE: Storytelling Insights ─── */}
+                        {storyInsights.length > 0 && (
+                            <div className="shelter-story">
+                                <h3 className="shelter-story__title">At a Glance</h3>
+                                <ul className="shelter-story__list">
+                                    {storyInsights.map((insight, i) => (
+                                        <li key={i} className="shelter-story__item">{insight}</li>
+                                    ))}
+                                </ul>
+                                {shelter.financials?.proPublicaUrl && (
+                                    <p className="shelter-story__attribution">
+                                        Financial data via{' '}
+                                        <a href={shelter.financials.proPublicaUrl} target="_blank" rel="noopener noreferrer">
+                                            ProPublica Nonprofit Explorer ↗
                                         </a>
-                                    ) : (
-                                        shelter.dataSourceName
-                                    )}
-                                </span>
-                            )}
-                        </div>
-
-                        <div className="shelter-data-card__stats">
-                            <div className="shelter-data-card__stat">
-                                <div className="shelter-data-card__stat-label">Intake</div>
-                                <div className="shelter-data-card__stat-value">
-                                    {shelter.totalIntakeAnnual.toLocaleString()}
-                                </div>
-                            </div>
-                            <div className="shelter-data-card__stat">
-                                <div className="shelter-data-card__stat-label">Euthanized</div>
-                                <div className="shelter-data-card__stat-value shelter-data-card__stat-value--euth">
-                                    {shelter.totalEuthanizedAnnual.toLocaleString()}
-                                </div>
-                            </div>
-                            <div className="shelter-data-card__stat">
-                                <div className="shelter-data-card__stat-label">Currently Listed</div>
-                                <div className="shelter-data-card__stat-value">{shelter.animals.length}</div>
-                            </div>
-                        </div>
-
-                        {/* Save Rate Bar */}
-                        {saveRate !== null && (
-                            <div className="shelter-data-card__save-rate">
-                                <div className="shelter-data-card__save-rate-header">
-                                    <span className="shelter-data-card__save-rate-label">
-                                        Live Release Rate
-                                    </span>
-                                    <span className="shelter-data-card__save-rate-value">
-                                        {saveRate}%
-                                    </span>
-                                </div>
-                                <div className="shelter-data-card__bar">
-                                    <div
-                                        className="shelter-data-card__bar-fill"
-                                        style={{ width: `${Math.min(saveRate, 100)}%` }}
-                                    />
-                                    <div className="shelter-data-card__bar-benchmark" />
-                                </div>
-                                <div className="shelter-data-card__bar-legend">
-                                    <span>0%</span>
-                                    <span className="shelter-data-card__bar-benchmark-label">
-                                        90% No-Kill Benchmark
-                                    </span>
-                                    <span>100%</span>
-                                </div>
+                                    </p>
+                                )}
                             </div>
                         )}
 
-                        {/* Intake Bar Graph — always 2 bars */}
-                        {hasData && (() => {
-                            const hasPrior = shelter.priorYearIntake !== null && shelter.priorYearIntake > 0;
-                            const priorIntake = shelter.priorYearIntake ?? 0;
-                            const maxIntake = Math.max(shelter.totalIntakeAnnual, priorIntake, 1);
-                            const priorSaveRate = hasPrior
-                                ? Math.round(((priorIntake - (shelter.priorYearEuthanized ?? 0)) / priorIntake) * 1000) / 10
-                                : null;
-                            const yoyDelta = (saveRate !== null && priorSaveRate !== null)
-                                ? Math.round((saveRate - priorSaveRate) * 10) / 10
-                                : null;
-
-                            return (
-                                <div className="shelter-data-card__intake-bars">
-                                    <div className="shelter-data-card__intake-header">
-                                        <span className="shelter-data-card__intake-title">Annual Intake</span>
-                                        {yoyDelta !== null && (
-                                            <span className={`shelter-data-card__yoy ${yoyDelta >= 0 ? 'up' : 'down'}`}>
-                                                {yoyDelta >= 0 ? '↑' : '↓'} {Math.abs(yoyDelta)}% save rate
-                                            </span>
+                        {/* ─── SECTION 1: Operations Snapshot ─── */}
+                        {hasData && (
+                            <details className="report-card__section" open>
+                                <summary className="report-card__section-header">
+                                    <span className="report-card__section-icon">📊</span>
+                                    <span className="report-card__section-title">
+                                        Operations Snapshot
+                                        {shelter.dataYear && <span className="report-card__section-year"> · {shelter.dataYear}</span>}
+                                    </span>
+                                    <span className="report-card__chevron">▸</span>
+                                </summary>
+                                <div className="report-card__section-body">
+                                    {shelter.dataSourceName && (
+                                        <p className="report-card__source">
+                                            Source:{' '}
+                                            {shelter.dataSourceUrl ? (
+                                                <a href={shelter.dataSourceUrl} target="_blank" rel="noopener noreferrer">
+                                                    {shelter.dataSourceName} ↗
+                                                </a>
+                                            ) : shelter.dataSourceName}
+                                        </p>
+                                    )}
+                                    <div className="report-card__stats-grid">
+                                        <div className="report-card__stat">
+                                            <span className="report-card__stat-value">{shelter.totalIntakeAnnual.toLocaleString()}</span>
+                                            <span className="report-card__stat-label">Intake</span>
+                                        </div>
+                                        <div className="report-card__stat">
+                                            <span className="report-card__stat-value report-card__stat-value--euth">{shelter.totalEuthanizedAnnual.toLocaleString()}</span>
+                                            <span className="report-card__stat-label">Euthanized</span>
+                                        </div>
+                                        {shelter.totalReturnedToOwner !== null && shelter.totalReturnedToOwner > 0 && (
+                                            <div className="report-card__stat">
+                                                <span className="report-card__stat-value">{shelter.totalReturnedToOwner.toLocaleString()}</span>
+                                                <span className="report-card__stat-label">Returned to Owner</span>
+                                            </div>
+                                        )}
+                                        {shelter.totalTransferred !== null && shelter.totalTransferred > 0 && (
+                                            <div className="report-card__stat">
+                                                <span className="report-card__stat-value">{shelter.totalTransferred.toLocaleString()}</span>
+                                                <span className="report-card__stat-label">Transferred</span>
+                                            </div>
                                         )}
                                     </div>
-                                    <div className="shelter-data-card__intake-graph">
-                                        {/* Prior year bar */}
-                                        <div className="shelter-data-card__intake-col">
-                                            <div className="shelter-data-card__intake-track">
-                                                {hasPrior ? (
-                                                    <div
-                                                        className="shelter-data-card__intake-fill prior"
-                                                        style={{ height: `${(priorIntake / maxIntake) * 100}%` }}
-                                                    />
-                                                ) : (
-                                                    <div className="shelter-data-card__intake-fill unknown" />
-                                                )}
-                                            </div>
-                                            <span className="shelter-data-card__intake-count">
-                                                {hasPrior ? priorIntake.toLocaleString() : '—'}
-                                            </span>
-                                            <span className="shelter-data-card__intake-year">
-                                                {shelter.priorDataYear ?? (shelter.dataYear ? shelter.dataYear - 1 : '?')}
-                                            </span>
+
+                                    {/* Secondary Metrics */}
+                                    {(perCapita !== null || yoyTrend || transferRate !== null) && (
+                                        <div className="report-card__metrics">
+                                            {perCapita !== null && (
+                                                <div className="report-card__metric">
+                                                    <span className="report-card__metric-label">Per Capita Intake</span>
+                                                    <span className="report-card__metric-value">
+                                                        {perCapita} <small>per 100 residents</small>
+                                                    </span>
+                                                </div>
+                                            )}
+                                            {yoyTrend && (
+                                                <div className="report-card__metric">
+                                                    <span className="report-card__metric-label">
+                                                        Save Rate vs. {shelter.priorDataYear}
+                                                    </span>
+                                                    <span className={`report-card__metric-value report-card__metric-value--${yoyTrend.direction}`}>
+                                                        {yoyTrend.direction === 'up' ? '↑' : yoyTrend.direction === 'down' ? '↓' : '→'}
+                                                        {' '}{Math.abs(yoyTrend.delta)}%
+                                                    </span>
+                                                </div>
+                                            )}
+                                            {transferRate !== null && (
+                                                <div className="report-card__metric">
+                                                    <span className="report-card__metric-label">Transferred to Rescues</span>
+                                                    <span className="report-card__metric-value">{transferRate}%</span>
+                                                </div>
+                                            )}
                                         </div>
-                                        {/* Current year bar */}
-                                        <div className="shelter-data-card__intake-col">
-                                            <div className="shelter-data-card__intake-track">
+                                    )}
+                                </div>
+                            </details>
+                        )}
+
+                        {/* ─── SECTION 2: Senior Census & Health ─── */}
+                        {shelter.animals.length > 0 && (
+                            <SeniorCensus animals={shelter.animals} />
+                        )}
+
+                        {/* ─── SECTION 3: Live Release Rate Benchmark ─── */}
+                        {saveRate !== null && (
+                            <details className="report-card__section" open>
+                                <summary className="report-card__section-header">
+                                    <span className="report-card__section-icon">📈</span>
+                                    <span className="report-card__section-title">Live Release Rate</span>
+                                    <span className="report-card__chevron">▸</span>
+                                </summary>
+                                <div className="report-card__section-body">
+                                    <p className="report-card__explainer">
+                                        The percentage of animals that leave the shelter alive — adopted, transferred, or returned to their owner.
+                                    </p>
+                                    <div className="report-card__benchmark">
+                                        {/* This shelter */}
+                                        <div className="report-card__benchmark-row">
+                                            <span className="report-card__benchmark-label">This Shelter</span>
+                                            <div className="report-card__benchmark-track">
                                                 <div
-                                                    className="shelter-data-card__intake-fill current"
-                                                    style={{ height: `${(shelter.totalIntakeAnnual / maxIntake) * 100}%` }}
+                                                    className={`report-card__benchmark-fill ${saveRate >= 90 ? 'report-card__benchmark-fill--great' : saveRate >= 70 ? 'report-card__benchmark-fill--ok' : 'report-card__benchmark-fill--low'}`}
+                                                    style={{ width: `${Math.min(saveRate, 100)}%` }}
                                                 />
                                             </div>
-                                            <span className="shelter-data-card__intake-count">
-                                                {shelter.totalIntakeAnnual.toLocaleString()}
-                                            </span>
-                                            <span className="shelter-data-card__intake-year">
-                                                {shelter.dataYear ?? 'Current'}
-                                            </span>
+                                            <span className="report-card__benchmark-value">{saveRate}%</span>
+                                        </div>
+                                        {/* National median */}
+                                        <div className="report-card__benchmark-row report-card__benchmark-row--ref">
+                                            <span className="report-card__benchmark-label">National Median</span>
+                                            <div className="report-card__benchmark-track">
+                                                <div className="report-card__benchmark-fill report-card__benchmark-fill--ref" style={{ width: '78%' }} />
+                                            </div>
+                                            <span className="report-card__benchmark-value">~78%</span>
+                                        </div>
+                                        {/* No-Kill benchmark */}
+                                        <div className="report-card__benchmark-row report-card__benchmark-row--ref">
+                                            <span className="report-card__benchmark-label">No-Kill Standard</span>
+                                            <div className="report-card__benchmark-track">
+                                                <div className="report-card__benchmark-fill report-card__benchmark-fill--target" style={{ width: '90%' }} />
+                                            </div>
+                                            <span className="report-card__benchmark-value">90%</span>
                                         </div>
                                     </div>
                                 </div>
-                            );
-                        })()}
+                            </details>
+                        )}
 
-                        {/* Secondary Metrics */}
-                        {(perCapita !== null || yoyTrend || transferRate !== null) && (
-                            <div className="shelter-data-card__metrics">
-                                {perCapita !== null && (
-                                    <div className="shelter-data-card__metric">
-                                        <span className="shelter-data-card__metric-label">Per Capita Intake</span>
-                                        <span className="shelter-data-card__metric-value">
-                                            {perCapita} <small>per 100 residents</small>
-                                        </span>
-                                    </div>
-                                )}
-                                {yoyTrend && (
-                                    <div className="shelter-data-card__metric">
-                                        <span className="shelter-data-card__metric-label">
-                                            Save Rate vs. {shelter.priorDataYear}
-                                        </span>
-                                        <span className={`shelter-data-card__metric-value shelter-data-card__metric-value--${yoyTrend.direction}`}>
-                                            {yoyTrend.direction === 'up' ? '↑' : yoyTrend.direction === 'down' ? '↓' : '→'}
-                                            {' '}{Math.abs(yoyTrend.delta)}%
-                                        </span>
-                                    </div>
-                                )}
-
-                                {transferRate !== null && (
-                                    <div className="shelter-data-card__metric">
-                                        <span className="shelter-data-card__metric-label">Transferred to Rescues</span>
-                                        <span className="shelter-data-card__metric-value">{transferRate}%</span>
-                                    </div>
-                                )}
-                            </div>
+                        {/* ─── SECTION 4: Know Before You Visit ─── */}
+                        {hasPolicy && (
+                            <details className="report-card__section">
+                                <summary className="report-card__section-header">
+                                    <span className="report-card__section-icon">📋</span>
+                                    <span className="report-card__section-title">Know Before You Visit</span>
+                                    <span className="report-card__chevron">▸</span>
+                                </summary>
+                                <div className="report-card__section-body">
+                                    <ul className="report-card__policy-list">
+                                        {statePolicy!.holdingPeriodDays !== null && (
+                                            <li className="report-card__policy-item">
+                                                <span className="report-card__policy-icon">⏱️</span>
+                                                <div>
+                                                    <strong>{statePolicy!.holdingPeriodDays}-day hold period</strong>
+                                                    <p>Animals must be held at least {statePolicy!.holdingPeriodDays} days before they can be adopted or euthanized.</p>
+                                                </div>
+                                            </li>
+                                        )}
+                                        {statePolicy!.spayNeuterRequired !== null && (
+                                            <li className="report-card__policy-item">
+                                                <span className="report-card__policy-icon">✂️</span>
+                                                <div>
+                                                    <strong>Spay/neuter {statePolicy!.spayNeuterRequired ? 'required' : 'not required'} before adoption</strong>
+                                                    <p>{statePolicy!.spayNeuterRequired
+                                                        ? 'This state requires animals to be spayed or neutered before leaving the shelter.'
+                                                        : 'This state does not require spay/neuter before adoption — ask the shelter about their policy.'}
+                                                    </p>
+                                                </div>
+                                            </li>
+                                        )}
+                                        {statePolicy!.mandatoryReporting !== null && (
+                                            <li className="report-card__policy-item">
+                                                <span className="report-card__policy-icon">📝</span>
+                                                <div>
+                                                    <strong>
+                                                        {statePolicy!.mandatoryReporting
+                                                            ? `Reports to ${statePolicy!.reportingBody || 'the state'}`
+                                                            : 'No mandatory reporting'}
+                                                    </strong>
+                                                    <p>{statePolicy!.mandatoryReporting
+                                                        ? 'This shelter is required to publicly report intake and outcome data to the state.'
+                                                        : 'This state does not require shelters to publicly report their statistics.'}
+                                                    </p>
+                                                </div>
+                                            </li>
+                                        )}
+                                    </ul>
+                                </div>
+                            </details>
                         )}
                     </div>
-                ) : (
-                    <div className="shelter-data-card shelter-data-card--empty">
-                        <span className="shelter-data-card__title">📊 Public Shelter Data</span>
-                        <p className="shelter-data-card__empty-text">
-                            No public statistics available for this shelter yet.
-                        </p>
-                    </div>
                 )}
 
-                {shelter.phone && (
-                    <div className="animal-detail__notes" style={{ marginBottom: '2rem' }}>
-                        <h2>Contact</h2>
-                        <p>
-                            {shelter.phone}
-                            {shelter.websiteUrl && (
-                                <>
-                                    {' · '}
-                                    <a href={shelter.websiteUrl} target="_blank" rel="noopener noreferrer">
-                                        Website
-                                    </a>
-                                </>
-                            )}
-                        </p>
-                    </div>
-                )}
 
-                <h2 className="shelter-detail__animals-header">
-                    Animals on Euthanasia List ({shelter.animals.length})
-                </h2>
 
-                {shelter.animals.length === 0 ? (
-                    <div className="empty-state">
-                        <div className="empty-state__icon">✨</div>
-                        <p className="empty-state__text">
-                            No animals currently listed for euthanasia at this shelter.
-                        </p>
-                    </div>
-                ) : (
-                    <div className="card-grid">
-                        {shelter.animals.map((animal: Animal) => {
-                            const hours = hoursUntil(animal.euthScheduledAt);
-                            const urgency = getUrgencyLevel(hours);
-                            const ageDisplay = formatAge(
-                                animal.ageKnownYears,
-                                animal.ageEstimatedLow,
-                                animal.ageEstimatedHigh,
-                                animal.ageConfidence,
-                                animal.ageSource,
-                            );
+                {/* ═══════════════════ ANIMALS AT THIS SHELTER ═══════════════════ */}
+                <ShelterAnimals
+                    animals={shelter.animals.map((a: Animal) => ({ ...a, shelter } as AnimalResult))}
+                />
 
-                            return (
-                                <Link
-                                    key={animal.id}
-                                    href={`/animal/${animal.id}`}
-                                    className="animal-card"
-                                >
-                                    <div className="animal-card__image">
-                                        {animal.photoUrl ? (
-                                            <SafeImage src={animal.photoUrl} alt={animal.name || 'Unnamed animal'} fill sizes="(max-width: 768px) 100vw, 33vw" style={{ objectFit: 'cover' }} />
-                                        ) : (
-                                            <Image src="/no-photo.svg" alt="Photo not available" fill sizes="(max-width: 768px) 100vw, 33vw" style={{ objectFit: 'cover' }} />
-                                        )}
-                                        {urgency !== 'standard' && (
-                                            <span className={`animal-card__urgency-badge ${urgency}`}>
-                                                {urgency === 'critical' ? '< 24h' : urgency === 'urgent' ? '< 48h' : '< 72h'}
-                                            </span>
-                                        )}
-                                    </div>
-
-                                    <div className="animal-card__body">
-                                        <h2 className={`animal-card__name ${!animal.name ? 'unnamed' : ''}`}>
-                                            {animal.name || 'Unnamed'}
-                                        </h2>
-                                        <p className="animal-card__breed">
-                                            {animal.breed || 'Unknown breed'} · {animal.sex ? animal.sex.charAt(0) + animal.sex.slice(1).toLowerCase() : ''}
-                                        </p>
-
-                                        <div className="animal-card__details">
-                                            <div className="animal-card__detail">
-                                                <span className="animal-card__detail-label">Age</span>
-                                                <span className={`animal-card__detail-value ${animal.ageSource === 'CV_ESTIMATED' ? 'cv-estimated' : ''}`}>
-                                                    {ageDisplay}
-                                                </span>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="animal-card__footer">
-                                        <div className="animal-card__death-marker">
-                                            <span className="animal-card__death-marker-label">
-                                                {animal.euthScheduledAt ? 'Scheduled' : 'Status'}
-                                            </span>
-                                            <span className={`animal-card__death-marker-time ${animal.euthScheduledAt ? urgency : 'standard'}`}>
-                                                {animal.euthScheduledAt ? formatDeathMarker(animal.euthScheduledAt)
-                                                    : (shelter as any).shelterType === 'RESCUE' ? 'In Rescue'
-                                                        : (shelter as any).shelterType === 'NO_KILL' ? 'In No-Kill Shelter'
-                                                            : (shelter as any).shelterType === 'FOSTER_BASED' ? 'In Foster'
-                                                                : 'In Shelter'}
-                                            </span>
-                                        </div>
-                                    </div>
-                                </Link>
-                            );
-                        })}
-                    </div>
-                )}
+                {/* ═══════════════ FOOTER ═══════════════ */}
+                <p className="shelter-detail__updated">
+                    Last updated {new Date(shelter.updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                </p>
 
             </div>
         </div>

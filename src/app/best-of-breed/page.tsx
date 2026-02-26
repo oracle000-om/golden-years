@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
     title: 'Best of Breed | Golden Years Club',
-    description: 'Celebrating shelters that have achieved no-kill status — saving 90% or more of the animals in their care.',
+    description: 'Celebrating taxpayer-funded shelters that have achieved no-kill status — saving 90 %+ of the animals in their care.',
 };
 
 export default async function WallOfFamePage() {
@@ -19,7 +19,7 @@ export default async function WallOfFamePage() {
                 <header className="wof__header">
                     <span className="page-badge">🏆 Best of Breed</span>
                     <p className="wof__note">
-                        Celebrating shelters leading the no-kill movement.
+                        Celebrating taxpayer-funded shelters that have achieved no-kill status.
                     </p>
                 </header>
 
@@ -29,16 +29,16 @@ export default async function WallOfFamePage() {
                     <div className="empty-state">
                         <div className="empty-state__icon">🏛️</div>
                         <p className="empty-state__text">
-                            No shelters have achieved no-kill status in our dataset yet. As we expand coverage, this wall will grow.
+                            No public shelters have achieved no-kill status in our dataset yet. As we expand coverage, this wall will grow.
                         </p>
                     </div>
                 ) : (
                     <BestOfBreedList shelters={shelters} />
                 )}
                 <div className="wof__cta">
-                    <p className="wof__cta-text">Don&apos;t see your shelter here?</p>
-                    <a href="/join" className="wof__cta-btn">
-                        Request to be added →
+                    <p className="wof__cta-text">Does your shelter belong here?</p>
+                    <a href="/contact" className="wof__cta-btn">
+                        Submit a tip →
                     </a>
                 </div>
             </div>

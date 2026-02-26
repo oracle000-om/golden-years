@@ -12,6 +12,13 @@ import {
     computeHealthScore,
     cleanDisplayText,
     formatYearsRemaining,
+    getAvgBodyCondition,
+    getDentalDiseaseRate,
+    getCataractRate,
+    getCareLevelDistribution,
+    getYearsRemainingBuckets,
+    getLongestStay,
+    getReentryCount,
 } from '@/lib/utils';
 
 // ────────────────────────────────────────────
@@ -73,19 +80,20 @@ describe('getSaveRate', () => {
 // getBestAge
 // ────────────────────────────────────────────
 describe('getBestAge', () => {
-    test('prefers shelter-reported age', () => {
+    test('prefers known age over CV', () => {
         const result = getBestAge(10, 8, 12, 'SHELTER_REPORTED');
         expect(result).toEqual({ age: 10, source: 'shelter' });
     });
 
-    test('falls back to CV midpoint', () => {
-        const result = getBestAge(null, 8, 12, 'CV_ESTIMATED');
-        expect(result).toEqual({ age: 10, source: 'estimated' });
+    test('known age wins regardless of ageSource', () => {
+        // Even with CV_ESTIMATED source, knownYears takes priority
+        const result = getBestAge(10, 8, 12, 'CV_ESTIMATED');
+        expect(result).toEqual({ age: 10, source: 'shelter' });
     });
 
-    test('uses known years if age source is not shelter-reported but value exists', () => {
-        const result = getBestAge(9, null, null, 'UNKNOWN');
-        expect(result).toEqual({ age: 9, source: 'shelter' });
+    test('falls back to CV midpoint when no known age', () => {
+        const result = getBestAge(null, 8, 12, 'CV_ESTIMATED');
+        expect(result).toEqual({ age: 10, source: 'estimated' });
     });
 
     test('returns null when no age data', () => {
@@ -166,5 +174,138 @@ describe('cleanDisplayText', () => {
 
     test('decodes numeric HTML entities', () => {
         expect(cleanDisplayText('&#226;')).toBe('â');
+    });
+});
+
+// ────────────────────────────────────────────
+// Report Card Helpers
+// ────────────────────────────────────────────
+describe('getAvgBodyCondition', () => {
+    test('averages BCS values', () => {
+        expect(getAvgBodyCondition([
+            { bodyConditionScore: 4 },
+            { bodyConditionScore: 6 },
+            { bodyConditionScore: 5 },
+        ])).toBe(5);
+    });
+
+    test('ignores nulls', () => {
+        expect(getAvgBodyCondition([
+            { bodyConditionScore: 4 },
+            { bodyConditionScore: null },
+        ])).toBe(4);
+    });
+
+    test('returns null for empty array', () => {
+        expect(getAvgBodyCondition([])).toBeNull();
+    });
+
+    test('returns null when all null', () => {
+        expect(getAvgBodyCondition([{ bodyConditionScore: null }])).toBeNull();
+    });
+});
+
+describe('getDentalDiseaseRate', () => {
+    test('counts grade 2+ as diseased', () => {
+        const result = getDentalDiseaseRate([
+            { dentalGrade: 1 },
+            { dentalGrade: 2 },
+            { dentalGrade: 3 },
+        ]);
+        expect(result).toEqual({ count: 2, total: 3, pct: 67 });
+    });
+
+    test('returns null for empty array', () => {
+        expect(getDentalDiseaseRate([])).toBeNull();
+    });
+
+    test('returns null when all null', () => {
+        expect(getDentalDiseaseRate([{ dentalGrade: null }])).toBeNull();
+    });
+});
+
+describe('getCataractRate', () => {
+    test('counts non-none stages', () => {
+        const result = getCataractRate([
+            { cataractStage: 'none' },
+            { cataractStage: 'early' },
+            { cataractStage: 'mature' },
+        ]);
+        expect(result).toEqual({ count: 2, total: 3, pct: 67 });
+    });
+
+    test('returns null for no data', () => {
+        expect(getCataractRate([])).toBeNull();
+        expect(getCataractRate([{ cataractStage: null }])).toBeNull();
+    });
+});
+
+describe('getCareLevelDistribution', () => {
+    test('counts each level', () => {
+        const result = getCareLevelDistribution([
+            { estimatedCareLevel: 'low' },
+            { estimatedCareLevel: 'low' },
+            { estimatedCareLevel: 'moderate' },
+            { estimatedCareLevel: 'high' },
+        ]);
+        expect(result).toEqual({ low: 2, moderate: 1, high: 1, total: 4 });
+    });
+
+    test('ignores null/unknown values', () => {
+        const result = getCareLevelDistribution([
+            { estimatedCareLevel: 'low' },
+            { estimatedCareLevel: null },
+        ]);
+        expect(result).toEqual({ low: 1, moderate: 0, high: 0, total: 1 });
+    });
+});
+
+describe('getYearsRemainingBuckets', () => {
+    test('buckets animals by years remaining', () => {
+        const result = getYearsRemainingBuckets([
+            { ageKnownYears: 14, ageEstimatedLow: null, ageEstimatedHigh: null, lifeExpectancyLow: 12, lifeExpectancyHigh: 14 }, // 0 remaining
+            { ageKnownYears: 13, ageEstimatedLow: null, ageEstimatedHigh: null, lifeExpectancyLow: 12, lifeExpectancyHigh: 14.5 }, // 1.5 remaining
+            { ageKnownYears: 10, ageEstimatedLow: null, ageEstimatedHigh: null, lifeExpectancyLow: 12, lifeExpectancyHigh: 14 }, // 4 remaining
+        ]);
+        expect(result).toEqual({ under1: 1, oneToTwo: 1, twoToFour: 0, fourPlus: 1, total: 3 });
+    });
+
+    test('returns null when no animals have data', () => {
+        expect(getYearsRemainingBuckets([
+            { ageKnownYears: null, ageEstimatedLow: null, ageEstimatedHigh: null, lifeExpectancyLow: null, lifeExpectancyHigh: null },
+        ])).toBeNull();
+    });
+});
+
+describe('getLongestStay', () => {
+    test('returns max days from intakeDate', () => {
+        const now = new Date();
+        const daysAgo = (d: number) => new Date(now.getTime() - d * 86_400_000);
+        const result = getLongestStay([
+            { intakeDate: daysAgo(10) },
+            { intakeDate: daysAgo(30) },
+            { intakeDate: daysAgo(5) },
+        ]);
+        expect(result).toBe(30);
+    });
+
+    test('returns null when all null', () => {
+        expect(getLongestStay([{ intakeDate: null }])).toBeNull();
+    });
+});
+
+describe('getReentryCount', () => {
+    test('counts entries > 1', () => {
+        expect(getReentryCount([
+            { shelterEntryCount: 1 },
+            { shelterEntryCount: 2 },
+            { shelterEntryCount: 3 },
+        ])).toBe(2);
+    });
+
+    test('returns 0 when no re-entries', () => {
+        expect(getReentryCount([
+            { shelterEntryCount: 1 },
+        ])).toBe(0);
     });
 });

@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import Link from 'next/link';
+import { toTitleCase } from '@/lib/utils';
 
 interface Shelter {
     id: string;
@@ -11,11 +13,31 @@ interface Shelter {
     shelterType: string;
     saveRate: number;
     yearsRunning: number;
+    animalCount: number;
+}
+
+/**
+ * Extract a displayable location from the shelter name when county field is empty.
+ * Tries common patterns: "City of X", "X County ...", "X Co. ...", "X-Y Animal ..."
+ */
+function extractLocationFromName(name: string): string {
+    // "City of X [Animal ...]" → X
+    const cityOf = name.match(/\bCity\s+of\s+(.+?)(?:\s+(?:Animal|Public|Police)|$)/i);
+    if (cityOf) return cityOf[1].trim();
+    // "X County ..." → X
+    const county = name.match(/^(.+?)\s+County\b/i);
+    if (county) return county[1].trim();
+    // "X Co. ..." → X
+    const co = name.match(/^(.+?)\s+Co\.\s/i);
+    if (co) return co[1].trim();
+    // "X-Y Animal Service" → X-Y (multi-word prefix before Animal/Humane/Sheriff)
+    const prefix = name.match(/^(.+?)\s+(?:Animal|Humane|Sheriff)/i);
+    if (prefix) return prefix[1].trim();
+    return '';
 }
 
 export function BestOfBreedList({ shelters }: { shelters: Shelter[] }) {
     const [stateFilter, setStateFilter] = useState('');
-    const [sourceFilter, setSourceFilter] = useState('');
 
     // Derive unique states from the data
     const states = useMemo(() => {
@@ -26,11 +48,9 @@ export function BestOfBreedList({ shelters }: { shelters: Shelter[] }) {
     const filtered = useMemo(() => {
         return shelters.filter(s => {
             if (stateFilter && s.state !== stateFilter) return false;
-            if (sourceFilter === 'shelter' && (s.shelterType === 'RESCUE' || s.shelterType === 'FOSTER_BASED')) return false;
-            if (sourceFilter === 'rescue' && s.shelterType !== 'RESCUE' && s.shelterType !== 'FOSTER_BASED') return false;
             return true;
         });
-    }, [shelters, stateFilter, sourceFilter]);
+    }, [shelters, stateFilter]);
 
     return (
         <>
@@ -45,15 +65,6 @@ export function BestOfBreedList({ shelters }: { shelters: Shelter[] }) {
                         <option key={st} value={st}>{st}</option>
                     ))}
                 </select>
-                <select
-                    className="wof__filter-select"
-                    value={sourceFilter}
-                    onChange={e => setSourceFilter(e.target.value)}
-                >
-                    <option value="">All Sources</option>
-                    <option value="shelter">Shelters</option>
-                    <option value="rescue">Rescues</option>
-                </select>
                 <span className="wof__filter-count">{filtered.length} of {shelters.length}</span>
             </div>
 
@@ -64,15 +75,20 @@ export function BestOfBreedList({ shelters }: { shelters: Shelter[] }) {
             ) : (
                 <ul className="wof__list">
                     {filtered.map(s => {
-                        const href = s.websiteUrl || `https://www.perplexity.ai/search?q=${encodeURIComponent(s.name + ' ' + s.county + ' ' + s.state)}`;
+                        const county = toTitleCase(s.county) || toTitleCase(extractLocationFromName(s.name));
+                        const location = county
+                            ? `${county}, ${s.state}`
+                            : s.state;
+                        const displayName = toTitleCase(s.name);
                         return (
                             <li key={s.id} className="wof__item">
-                                <a href={href} target="_blank" rel="noopener noreferrer" className="wof__link">
-                                    {s.name}
-                                </a>
+                                <Link href={`/shelter/${s.id}`} className="wof__link">
+                                    {displayName}
+                                </Link>
                                 <span className="wof__detail">
-                                    {s.county}, {s.state} · {s.saveRate}% save rate
+                                    {location} · {s.saveRate}% save rate
                                     {s.yearsRunning >= 2 && ` · ${s.yearsRunning}+ yrs running`}
+                                    {s.animalCount > 0 && ` · ${s.animalCount} 🐾`}
                                 </span>
                             </li>
                         );

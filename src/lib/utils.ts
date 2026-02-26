@@ -1,4 +1,24 @@
 /**
+ * Normalize ALL-CAPS text to Title Case, preserving small words.
+ * Already mixed-case text (containing at least one lowercase letter) is left untouched.
+ */
+export function toTitleCase(str: string): string {
+    if (!str) return str;
+    // If string is already mixed-case, leave it as-is
+    if (str !== str.toUpperCase()) return str;
+    const small = new Set(['of', 'the', 'and', 'in', 'at', 'for', 'to', 'a', 'an', 'on']);
+    return str
+        .toLowerCase()
+        .split(/(\s+|-(?=[a-z]))/)
+        .map((word, i) => {
+            if (/^\s+$/.test(word) || word === '-') return word;
+            if (i > 0 && small.has(word)) return word;
+            return word.charAt(0).toUpperCase() + word.slice(1);
+        })
+        .join('');
+}
+
+/**
  * Clean text for display — decodes HTML entities, fixes mojibake, strips tags.
  * Use at render time for text already stored in the database.
  *
@@ -249,7 +269,7 @@ export function getGoldenYearsConfidence(
 /**
  * Determine if an animal qualifies as a senior.
  * Dogs: 7+ years. Cats: 10+ years.
- * Uses best available age (shelter-reported first, then CV midpoint).
+ * Uses best available age (known age first, then CV midpoint).
  * Returns null if age cannot be determined.
  */
 export function isSeniorAnimal(
@@ -257,10 +277,9 @@ export function isSeniorAnimal(
     ageKnownYears: number | null,
     cvLow: number | null,
     cvHigh: number | null,
-    ageSource: string,
 ): boolean | null {
     const threshold = species === 'CAT' ? 10 : 7;
-    const best = getBestAge(ageKnownYears, cvLow, cvHigh, ageSource);
+    const best = getBestAge(ageKnownYears, cvLow, cvHigh);
     if (!best) return null;
     return best.age >= threshold;
 }
@@ -292,7 +311,14 @@ export function formatIntakeReason(
 
 /**
  * Calculate estimated years remaining from age + breed life expectancy.
- * Returns a human-readable string like "2–4 years" or null if insufficient data.
+ *
+ * Uses range-against-range computation instead of collapsing to a
+ * midpoint. When both shelter age and CV estimates exist, takes the
+ * union (widest range) to be honest about uncertainty.
+ *
+ * Options:
+ *   short — true: abbreviate units as "yrs" (cards/detail grid)
+ *           false: spell out "years" (report card prose)
  */
 export function formatYearsRemaining(
     ageKnownYears: number | null,
@@ -300,29 +326,43 @@ export function formatYearsRemaining(
     ageEstimatedHigh: number | null,
     lifeExpLow: number | null,
     lifeExpHigh: number | null,
+    options?: { short?: boolean },
 ): string | null {
     if (lifeExpLow === null || lifeExpHigh === null) return null;
 
-    // Use known age, or midpoint of estimated range
-    let currentAge: number | null = null;
-    if (ageKnownYears !== null) {
-        currentAge = ageKnownYears;
+    // Build the best age range from all available data
+    let ageLow: number | null = null;
+    let ageHigh: number | null = null;
+
+    if (ageKnownYears !== null && ageEstimatedLow !== null && ageEstimatedHigh !== null) {
+        // Both sources: union (widest range) for maximum honesty
+        ageLow = Math.min(ageKnownYears, ageEstimatedLow);
+        ageHigh = Math.max(ageKnownYears, ageEstimatedHigh);
     } else if (ageEstimatedLow !== null && ageEstimatedHigh !== null) {
-        currentAge = Math.round((ageEstimatedLow + ageEstimatedHigh) / 2);
+        ageLow = ageEstimatedLow;
+        ageHigh = ageEstimatedHigh;
+    } else if (ageKnownYears !== null) {
+        ageLow = ageKnownYears;
+        ageHigh = ageKnownYears;
     }
-    if (currentAge === null) return null;
 
-    // Round to nearest 0.5
+    if (ageLow === null || ageHigh === null) return null;
+
+    // Range-against-range: best case vs worst case
     const roundHalf = (n: number) => Math.round(n * 2) / 2;
-    const remainingLow = roundHalf(Math.max(0, lifeExpLow - currentAge));
-    const remainingHigh = roundHalf(Math.max(0, lifeExpHigh - currentAge));
+    const remainingLow = roundHalf(Math.max(0, lifeExpLow - ageHigh));   // worst case
+    const remainingHigh = roundHalf(Math.max(0, lifeExpHigh - ageLow));  // best case
 
-    const fmt = (n: number) => Number.isInteger(n) ? `${n}` : `${n}`;
+    const fmt = (n: number) => `${n}`;
+    const short = options?.short ?? false;
+    const unit = (n: number) => short
+        ? (n === 1 ? 'yr' : 'yrs')
+        : (n === 1 ? 'year' : 'years');
 
     if (remainingHigh === 0) return 'near end of life';
-    if (remainingLow === remainingHigh) return `~${fmt(remainingLow)} year${remainingLow !== 1 ? 's' : ''}`;
-    if (remainingLow === 0) return `up to ~${fmt(remainingHigh)} year${remainingHigh !== 1 ? 's' : ''}`;
-    return `~${fmt(remainingLow)}–${fmt(remainingHigh)} years`;
+    if (remainingLow === remainingHigh) return `~${fmt(remainingLow)} ${unit(remainingLow)}`;
+    if (remainingLow === 0) return `~0–${fmt(remainingHigh)} ${unit(remainingHigh)}`;
+    return `~${fmt(remainingLow)}–${fmt(remainingHigh)} ${unit(remainingHigh)}`;
 }
 
 /**
@@ -441,23 +481,24 @@ export function formatIntakeDate(date: Date | string | null): string | null {
 }
 
 /**
- * Get the best available age estimate in years.
- * Priority: shelter-reported → CV midpoint → null
+ * Get the best available age as a single number.
+ * Known age is trusted first (it's a specific number someone attached
+ * to this animal). CV midpoint is the fallback.
+ *
+ * ageSource is no longer used — it's a pipeline artifact, not a
+ * quality signal.
  */
 export function getBestAge(
     knownYears: number | null,
     estimatedLow: number | null,
     estimatedHigh: number | null,
-    ageSource: string,
+    _ageSource?: string,
 ): { age: number; source: 'shelter' | 'estimated' } | null {
-    if (ageSource === 'SHELTER_REPORTED' && knownYears !== null) {
+    if (knownYears !== null) {
         return { age: knownYears, source: 'shelter' };
     }
     if (estimatedLow !== null && estimatedHigh !== null) {
         return { age: Math.round((estimatedLow + estimatedHigh) / 2), source: 'estimated' };
-    }
-    if (knownYears !== null) {
-        return { age: knownYears, source: 'shelter' };
     }
     return null;
 }
@@ -733,12 +774,12 @@ export function formatLifeCutShort(
     knownYears: number | null,
     estimatedLow: number | null,
     estimatedHigh: number | null,
-    ageSource: string,
+    _ageSource: string,
     lifeExpLow: number | null,
     lifeExpHigh: number | null,
     euthDate: Date | string | null,
 ): string | null {
-    const bestAge = getBestAge(knownYears, estimatedLow, estimatedHigh, ageSource);
+    const bestAge = getBestAge(knownYears, estimatedLow, estimatedHigh);
     if (!bestAge) return null;
     if (lifeExpLow === null || lifeExpHigh === null) return null;
 
@@ -767,4 +808,288 @@ export function formatLifeCutShort(
     if (years === 0) return `~${months} month${months !== 1 ? 's' : ''}`;
     if (months === 0) return `~${years} year${years !== 1 ? 's' : ''}`;
     return `~${years} year${years !== 1 ? 's' : ''}, ${months} month${months !== 1 ? 's' : ''}`;
+}
+
+// ─── Report Card Helpers ─────────────────────────────────
+// Aggregate CV data across a shelter's population for the
+// report card. All functions are pure and testable.
+
+interface ReportCardAnimal {
+    bodyConditionScore: number | null;
+    dentalGrade: number | null;
+    cataractStage: string | null;
+    estimatedCareLevel: string | null;
+    ageKnownYears: number | null;
+    ageEstimatedLow: number | null;
+    ageEstimatedHigh: number | null;
+    lifeExpectancyLow: number | null;
+    lifeExpectancyHigh: number | null;
+    intakeDate: Date | null;
+    shelterEntryCount: number;
+}
+
+/**
+ * Average body condition score across animals with BCS data.
+ * Returns null if no animals have BCS.
+ */
+export function getAvgBodyCondition(animals: Pick<ReportCardAnimal, 'bodyConditionScore'>[]): number | null {
+    const withBcs = animals.filter(a => a.bodyConditionScore !== null);
+    if (withBcs.length === 0) return null;
+    const sum = withBcs.reduce((s, a) => s + a.bodyConditionScore!, 0);
+    return Math.round((sum / withBcs.length) * 10) / 10;
+}
+
+/**
+ * What percentage of animals have dental disease (grade 2+)?
+ */
+export function getDentalDiseaseRate(animals: Pick<ReportCardAnimal, 'dentalGrade'>[]): { count: number; total: number; pct: number } | null {
+    const withGrade = animals.filter(a => a.dentalGrade !== null);
+    if (withGrade.length === 0) return null;
+    const diseased = withGrade.filter(a => a.dentalGrade! >= 2);
+    return {
+        count: diseased.length,
+        total: withGrade.length,
+        pct: Math.round((diseased.length / withGrade.length) * 100),
+    };
+}
+
+/**
+ * What percentage of animals have cataracts detected?
+ */
+export function getCataractRate(animals: Pick<ReportCardAnimal, 'cataractStage'>[]): { count: number; total: number; pct: number } | null {
+    const withStage = animals.filter(a => a.cataractStage !== null && a.cataractStage !== 'none');
+    const assessed = animals.filter(a => a.cataractStage !== null);
+    if (assessed.length === 0) return null;
+    return {
+        count: withStage.length,
+        total: assessed.length,
+        pct: Math.round((withStage.length / assessed.length) * 100),
+    };
+}
+
+/**
+ * Distribution of estimated care levels.
+ */
+export function getCareLevelDistribution(animals: Pick<ReportCardAnimal, 'estimatedCareLevel'>[]): { low: number; moderate: number; high: number; total: number } {
+    let low = 0, moderate = 0, high = 0;
+    for (const a of animals) {
+        if (a.estimatedCareLevel === 'low') low++;
+        else if (a.estimatedCareLevel === 'moderate') moderate++;
+        else if (a.estimatedCareLevel === 'high') high++;
+    }
+    return { low, moderate, high, total: low + moderate + high };
+}
+
+/**
+ * Bucket estimated years remaining into 4 groups.
+ * Uses lifeExpHigh - bestAge for optimistic estimate.
+ */
+export function getYearsRemainingBuckets(
+    animals: Pick<ReportCardAnimal, 'ageKnownYears' | 'ageEstimatedLow' | 'ageEstimatedHigh' | 'lifeExpectancyLow' | 'lifeExpectancyHigh'>[],
+): { under1: number; oneToTwo: number; twoToFour: number; fourPlus: number; total: number } | null {
+    const buckets = { under1: 0, oneToTwo: 0, twoToFour: 0, fourPlus: 0, total: 0 };
+    for (const a of animals) {
+        const best = getBestAge(a.ageKnownYears, a.ageEstimatedLow, a.ageEstimatedHigh);
+        if (!best || a.lifeExpectancyHigh === null) continue;
+        const remaining = Math.max(0, a.lifeExpectancyHigh - best.age);
+        buckets.total++;
+        if (remaining < 1) buckets.under1++;
+        else if (remaining < 2) buckets.oneToTwo++;
+        else if (remaining < 4) buckets.twoToFour++;
+        else buckets.fourPlus++;
+    }
+    return buckets.total > 0 ? buckets : null;
+}
+
+/**
+ * Longest current stay in days, computed from intakeDate.
+ */
+export function getLongestStay(animals: Pick<ReportCardAnimal, 'intakeDate'>[]): number | null {
+    let max = 0;
+    const now = Date.now();
+    for (const a of animals) {
+        if (!a.intakeDate) continue;
+        const days = Math.max(0, Math.floor((now - new Date(a.intakeDate).getTime()) / 86_400_000));
+        if (days > max) max = days;
+    }
+    return max > 0 ? max : null;
+}
+
+/**
+ * Count animals that are re-entries (shelterEntryCount > 1).
+ */
+export function getReentryCount(animals: Pick<ReportCardAnimal, 'shelterEntryCount'>[]): number {
+    return animals.filter(a => a.shelterEntryCount > 1).length;
+}
+
+// ─── Shelter Story Insights ──────────────────────────────
+// Fact-based, natural-language insights for the shelter
+// detail page. Pulls from shelter stats, financials, state
+// policy and live animal inventory.
+
+/** Compact format for dollar amounts: $2.4M, $180K, $950 */
+function fmtDollars(n: number): string {
+    const abs = Math.abs(n);
+    if (abs >= 1_000_000) return `$${(n / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`;
+    if (abs >= 1_000) return `$${Math.round(n / 1_000).toLocaleString()}K`;
+    return `$${n.toLocaleString()}`;
+}
+
+export interface StoryInsightsInput {
+    shelter: {
+        shelterType: string;
+        totalIntakeAnnual: number;
+        totalEuthanizedAnnual: number;
+        dataYear: number | null;
+        countyPopulation: number | null;
+        totalTransferred: number | null;
+        priorYearIntake: number | null;
+        priorYearEuthanized: number | null;
+        priorDataYear: number | null;
+        state: string;
+    };
+    financials?: {
+        taxPeriod: number | null;
+        totalRevenue: number | null;
+        totalExpenses: number | null;
+        contributions: number | null;
+        programRevenue: number | null;
+        fundraisingExpense: number | null;
+        officerCompensation: number | null;
+    } | null;
+    statePolicy?: {
+        holdingPeriodDays: number | null;
+        mandatoryReporting: boolean | null;
+        reportingBody: string | null;
+    } | null;
+    /** Average days current animals have been waiting */
+    avgDaysWaiting: number | null;
+}
+
+/**
+ * Generate enriched, fact-based storytelling insights for a shelter.
+ *
+ * Each insight is a plain string (emoji prefix + natural language).
+ * All data is objective — no scores, grades, or judgments.
+ * Returns up to 8 insights, ordered by editorial interest.
+ */
+export function buildShelterStoryInsights(input: StoryInsightsInput): string[] {
+    const { shelter, financials, statePolicy, avgDaysWaiting } = input;
+    const insights: string[] = [];
+
+    const yearLabel = shelter.dataYear ? ` in ${shelter.dataYear}` : '';
+
+    // ── 1. Save rate context ──
+    if (shelter.totalIntakeAnnual > 0 && shelter.totalEuthanizedAnnual >= 0) {
+        const saveRate = Math.round(
+            ((shelter.totalIntakeAnnual - shelter.totalEuthanizedAnnual) / shelter.totalIntakeAnnual) * 100,
+        );
+        if (saveRate >= 90) {
+            insights.push(`💚 ${saveRate}% live release rate${yearLabel} — above the 90% no-kill benchmark`);
+        } else if (saveRate >= 70) {
+            insights.push(`📊 ${saveRate}% live release rate${yearLabel}`);
+        } else {
+            insights.push(`⚠️ ${saveRate}% live release rate${yearLabel} — higher-risk environment for seniors`);
+        }
+    }
+
+    // ── 2. Intake trend ──
+    if (shelter.priorYearIntake && shelter.priorYearIntake > 0 && shelter.totalIntakeAnnual > 0) {
+        const delta = shelter.totalIntakeAnnual - shelter.priorYearIntake;
+        const pctChange = Math.round((delta / shelter.priorYearIntake) * 100);
+        if (pctChange <= -10) {
+            insights.push(`📉 Intake dropped ${Math.abs(pctChange)}% since ${shelter.priorDataYear ?? 'prior year'}`);
+        } else if (pctChange >= 10) {
+            insights.push(`📈 Intake rose ${pctChange}% since ${shelter.priorDataYear ?? 'prior year'}`);
+        }
+    }
+
+    // ── 3. Euthanasia trend ──
+    if (shelter.priorYearEuthanized && shelter.priorYearEuthanized > 0 && shelter.totalEuthanizedAnnual > 0) {
+        const delta = shelter.totalEuthanizedAnnual - shelter.priorYearEuthanized;
+        const pctChange = Math.round((delta / shelter.priorYearEuthanized) * 100);
+        if (pctChange <= -15) {
+            insights.push(`🕊️ Euthanasia down ${Math.abs(pctChange)}% year-over-year — positive trend`);
+        } else if (pctChange >= 15) {
+            insights.push(`⚠️ Euthanasia up ${pctChange}% year-over-year`);
+        }
+    }
+
+    // ── 4. Transfer partnerships ──
+    if (shelter.totalTransferred && shelter.totalIntakeAnnual > 0) {
+        const transferPct = Math.round((shelter.totalTransferred / shelter.totalIntakeAnnual) * 100);
+        if (transferPct >= 10) {
+            insights.push(`🤝 ${transferPct}% of animals are transferred to rescue partners`);
+        }
+    }
+
+    // ── 5. Per-capita context ──
+    if (shelter.countyPopulation && shelter.countyPopulation > 0 && shelter.totalIntakeAnnual > 0) {
+        const perCap = Math.round((shelter.totalIntakeAnnual / shelter.countyPopulation) * 100 * 100) / 100;
+        if (perCap >= 1.5) {
+            insights.push(`📍 Serves a high-intake area — ${perCap} animals per 100 county residents`);
+        }
+    }
+
+    // ── 6. Senior wait time ──
+    if (avgDaysWaiting !== null && avgDaysWaiting > 0) {
+        insights.push(`⏱️ Seniors here wait an average of ${avgDaysWaiting} days for adoption`);
+    }
+
+    // ── 7. Financial health (shelter detail page only) ──
+    if (financials) {
+        const { totalRevenue, totalExpenses, fundraisingExpense, contributions } = financials;
+        const filingYear = financials.taxPeriod ? ` (${financials.taxPeriod})` : '';
+
+        // Revenue + program spend ratio
+        if (totalRevenue && totalExpenses && totalRevenue > 0 && totalExpenses > 0) {
+            const programSpend = totalExpenses - (fundraisingExpense ?? 0) - (financials.officerCompensation ?? 0);
+            const programPct = Math.round((programSpend / totalExpenses) * 100);
+            if (programPct >= 75) {
+                insights.push(`💰 Annual revenue of ${fmtDollars(totalRevenue)} with ${programPct}% going to programs${filingYear}`);
+            } else {
+                insights.push(`💰 Annual revenue of ${fmtDollars(totalRevenue)}${filingYear}`);
+            }
+        } else if (totalRevenue && totalRevenue > 0) {
+            insights.push(`💰 Annual revenue of ${fmtDollars(totalRevenue)}${filingYear}`);
+        }
+
+        // Fundraising efficiency
+        if (fundraisingExpense && contributions && contributions > 0 && fundraisingExpense > 0) {
+            const costPerDollar = Math.round((fundraisingExpense / contributions) * 100);
+            if (costPerDollar <= 25) {
+                insights.push(`📋 Spends ${costPerDollar}¢ per dollar raised on fundraising`);
+            }
+        }
+    }
+
+    // ── 8. Shelter type context ──
+    if (shelter.shelterType === 'FOSTER_BASED') {
+        insights.push('🏡 Foster-based rescue — seniors here are living in homes, not kennels');
+    } else if (shelter.shelterType === 'NO_KILL') {
+        insights.push('💛 This is a no-kill organization');
+    } else if (shelter.shelterType === 'RESCUE') {
+        insights.push('🤝 This is a rescue — animals here were pulled from other shelters');
+    }
+
+    // ── 9. State holding period context ──
+    if (statePolicy?.holdingPeriodDays && statePolicy.holdingPeriodDays > 0) {
+        const stateNames: Record<string, string> = {
+            AL: 'Alabama', AK: 'Alaska', AZ: 'Arizona', AR: 'Arkansas', CA: 'California',
+            CO: 'Colorado', CT: 'Connecticut', DE: 'Delaware', FL: 'Florida', GA: 'Georgia',
+            HI: 'Hawaii', ID: 'Idaho', IL: 'Illinois', IN: 'Indiana', IA: 'Iowa',
+            KS: 'Kansas', KY: 'Kentucky', LA: 'Louisiana', ME: 'Maine', MD: 'Maryland',
+            MA: 'Massachusetts', MI: 'Michigan', MN: 'Minnesota', MS: 'Mississippi', MO: 'Missouri',
+            MT: 'Montana', NE: 'Nebraska', NV: 'Nevada', NH: 'New Hampshire', NJ: 'New Jersey',
+            NM: 'New Mexico', NY: 'New York', NC: 'North Carolina', ND: 'North Dakota', OH: 'Ohio',
+            OK: 'Oklahoma', OR: 'Oregon', PA: 'Pennsylvania', RI: 'Rhode Island', SC: 'South Carolina',
+            SD: 'South Dakota', TN: 'Tennessee', TX: 'Texas', UT: 'Utah', VT: 'Vermont',
+            VA: 'Virginia', WA: 'Washington', WV: 'West Virginia', WI: 'Wisconsin', WY: 'Wyoming',
+            DC: 'Washington D.C.',
+        };
+        const stateName = stateNames[shelter.state] || shelter.state;
+        insights.push(`⚖️ ${stateName} requires a ${statePolicy.holdingPeriodDays}-day holding period before euthanasia`);
+    }
+
+    return insights.slice(0, 8);
 }

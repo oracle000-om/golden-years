@@ -70,10 +70,40 @@ describe('formatYearsRemaining', () => {
         assert.strictEqual(formatYearsRemaining(10, null, null, null, null), null);
     });
 
-    it('calculates remaining years from known age', () => {
+    it('calculates remaining years (long format) from known age', () => {
         const result = formatYearsRemaining(10, null, null, 12, 15);
         assert.ok(result !== null, 'Should return a result');
-        assert.ok(result!.includes('2') || result!.includes('5'), `Expected years in "${result}"`);
+        assert.ok(result!.includes('years'), `Expected "years" in "${result}"`);
+    });
+
+    it('uses short format when requested', () => {
+        const result = formatYearsRemaining(10, null, null, 12, 15, { short: true });
+        assert.ok(result !== null, 'Should return a result');
+        assert.ok(result!.includes('yrs'), `Expected "yrs" in "${result}"`);
+    });
+
+    it('uses range-against-range with CV estimates', () => {
+        // CV 9-12, life exp 7-10
+        // remainingLow = max(0, 7 - 12) = 0, remainingHigh = max(0, 10 - 9) = 1
+        const result = formatYearsRemaining(null, 9, 12, 7, 10);
+        assert.ok(result !== null, 'Should return a result');
+        assert.ok(result !== 'near end of life', `Should NOT be "near end of life", got "${result}"`);
+    });
+
+    it('returns near end of life only when truly past', () => {
+        // CV 13-16, life exp 7-10
+        // remainingLow = max(0, 7 - 16) = 0, remainingHigh = max(0, 10 - 13) = 0
+        const result = formatYearsRemaining(null, 13, 16, 7, 10);
+        assert.strictEqual(result, 'near end of life');
+    });
+
+    it('uses union range when both ages present', () => {
+        // Shelter 10, CV 9-12, life exp 7-15
+        // Union: ageLow=9, ageHigh=12
+        // remainingLow = max(0, 7 - 12) = 0, remainingHigh = max(0, 15 - 9) = 6
+        const result = formatYearsRemaining(10, 9, 12, 7, 15);
+        assert.ok(result !== null);
+        assert.ok(result!.includes('6'), `Expected "6" in "${result}"`);
     });
 });
 

@@ -746,6 +746,7 @@
 .wof__item {
   break-inside: avoid;
   padding: var(--space-sm) 0;
+  min-width: 0;
 }
 
 .wof__link {
@@ -754,6 +755,7 @@
   font-weight: 500;
   text-decoration: none;
   transition: color var(--transition-fast);
+  overflow-wrap: anywhere;
 }
 
 .wof__link:hover {

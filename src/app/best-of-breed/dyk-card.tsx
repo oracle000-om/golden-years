@@ -13,14 +13,17 @@ export function DidYouKnowCard({ noKillPercent: _noKillPercent }: { noKillPercen
             aria-expanded={expanded}
         >
             <div className="wof__dyk-header">
-                <span className="wof__dyk-title"><strong>Did you know?</strong></span>
+                <span className="wof__dyk-title"><strong>Why only public shelters?</strong></span>
                 <span className="wof__dyk-chevron">{expanded ? '▲' : '▼'}</span>
             </div>
 
             {expanded && (
                 <div className="wof__dyk-body">
                     <p>
-                        Many believe no-kill to mean a shelter does not euthanize at all. No-kill designation is given if a shelter saves 90% or more of all animals in their care. 100% no-kill is rare. Euthanasia may still occur for animals suffering from irremediable medical conditions or severe behavioral issues. Senior animals are disproportionately affected — age-related health conditions are more likely to be deemed untreatable, and longer shelter stays can take a toll on their wellbeing.
+                        Most private rescues are no-kill by design. They choose which animals to accept and can limit intake. Publicly-funded shelters (municipal animal services, county shelters) are legally required to accept every animal that comes through their doors. Achieving no-kill status under those conditions is a remarkable accomplishment that reflects progressive shelter policy and strong community programs.
+                    </p>
+                    <p>
+                        &ldquo;No-kill&rdquo; means saving 90% or more of all animals in care. 100% no-kill is extremely rare. Euthanasia may still occur for animals suffering from irremediable medical conditions or severe behavioral issues. Senior animals are disproportionately affected.
                     </p>
                     <p>
                         If this kind of information interests you, check out the{' '}

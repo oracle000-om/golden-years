@@ -55,16 +55,22 @@ export async function middleware(request: NextRequest) {
     }
 
     // ─── Admin route protection ───────────────────────────────
-    if (pathname.startsWith('/admin')) {
+    // Protects both /admin/* pages AND /api/admin-* API routes
+    const isAdminPage = pathname.startsWith('/admin');
+    const isAdminApi = pathname.startsWith('/api/admin-');
+    if (isAdminPage || isAdminApi) {
         const adminPassword = process.env.ADMIN_PASSWORD;
 
         // Admin not configured — block all admin access
         if (!adminPassword) {
+            if (isAdminApi) {
+                return NextResponse.json({ error: 'Admin not configured' }, { status: 403 });
+            }
             return NextResponse.redirect(new URL('/', request.url));
         }
 
-        // Allow admin login page and API
-        if (pathname === '/admin/login' || pathname.startsWith('/api/admin-login')) {
+        // Allow admin login page and login API
+        if (pathname === '/admin/login' || pathname === '/api/admin-login') {
             return NextResponse.next();
         }
 
@@ -74,7 +80,10 @@ export async function middleware(request: NextRequest) {
             return NextResponse.next();
         }
 
-        // Redirect to admin login
+        // Unauthorized: redirect pages, return 401 for APIs
+        if (isAdminApi) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
         return NextResponse.redirect(new URL('/admin/login', request.url));
     }
 
@@ -86,7 +95,7 @@ export async function middleware(request: NextRequest) {
         return NextResponse.next();
     }
 
-    // Allow API routes and the login page itself
+    // Allow public API routes and the login page itself
     if (
         pathname.startsWith('/api/') ||
         pathname.startsWith('/login')

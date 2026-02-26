@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
 import { prisma } from '@/lib/db';
+import { createRateLimiter, getClientIp } from '@/lib/rate-limit';
+
+const chatLimiter = createRateLimiter('admin-chat', 10); // 10 req/min per IP
 
 const DB_SCHEMA = `
 Tables and columns (PostgreSQL):
@@ -117,9 +120,65 @@ breed_profiles (
   care_notes TEXT,
   source_api TEXT
 )
+
+shelter_financials (
+  id UUID PK,
+  shelter_id UUID FK -> shelters.id (UNIQUE — one row per shelter),
+  ein TEXT (IRS Employer Identification Number, e.g. '59-0624410'),
+  ntee_code TEXT (NTEE classification, e.g. 'D200' = Animal Protection),
+  tax_period INT (most recent tax year, e.g. 2023),
+  total_revenue INT,
+  total_expenses INT,
+  total_assets INT,
+  total_liabilities INT,
+  net_assets INT,
+  contributions INT (donations/grants received),
+  program_revenue INT (revenue from programs like adoptions, clinics),
+  fundraising_expense INT,
+  officer_compensation INT (top officer pay),
+  filing_history JSONB (array of {year, revenue, expenses, assets, liabilities, netAssets, contributions, programRevenue, fundraising, officerComp, staffWages, pdfUrl}),
+  propublica_url TEXT,
+  last_scraped_at TIMESTAMP,
+  created_at TIMESTAMP,
+  updated_at TIMESTAMP
+)
+
+state_policies (
+  id UUID PK,
+  state TEXT UNIQUE (2-letter code),
+  state_name TEXT,
+  aldf_rank INT (1-50, Animal Legal Defense Fund ranking),
+  aldf_tier TEXT ('Top Tier','Middle Tier','Bottom Tier'),
+  aldf_year INT,
+  aldf_url TEXT,
+  mandatory_reporting BOOLEAN,
+  reporting_body TEXT,
+  holding_period_days INT,
+  spay_neuter_required BOOLEAN,
+  breed_specific_legislation BOOLEAN,
+  vet_cruelty_reporting BOOLEAN,
+  cross_reporting BOOLEAN,
+  cat_declawing_ban BOOLEAN,
+  policy_notes TEXT,
+  last_scraped_at TIMESTAMP
+)
+
+scrape_runs (
+  id UUID PK,
+  pipeline TEXT (e.g. 'petfinder', 'socrata', 'shelterluv', 'petango', 'adoptapet', 'rescuegroups'),
+  status TEXT ('RUNNING','SUCCESS','PARTIAL','FAILED'),
+  started_at TIMESTAMP,
+  finished_at TIMESTAMP,
+  duration_ms INT,
+  animals_created INT,
+  animals_updated INT,
+  errors INT,
+  error_summary TEXT,
+  metadata JSONB
+)
 `;
 
-const SQL_SYSTEM_PROMPT = `You are a SQL expert. Given a natural language question about animal shelter data, generate a single PostgreSQL SELECT query to answer it.
+const SQL_SYSTEM_PROMPT = `You are an elite SQL engineer and statistician. Given a natural language question about animal shelter data, generate a single PostgreSQL SELECT query to answer it with ABSOLUTE mathematical precision.
 
 ${DB_SCHEMA}
 
@@ -131,7 +190,14 @@ Rules:
 - For "active" animals, filter: status IN ('AVAILABLE','URGENT','RESCUE_PULL')
 - LIMIT results to 100 rows max unless the user asks for a count/aggregate.
 - If the question mentions a shelter by name, use ILIKE for fuzzy matching.
-- For percentages, use ROUND(... * 100.0, 1).
+- MATHEMATICAL PRECISION IS CRITICAL:
+  - ALWAYS use NULLIF(denominator, 0) to prevent division-by-zero.
+  - ALWAYS use ROUND(..., 1) or ROUND(..., 2) for percentages and ratios.
+  - Use COALESCE for nullable fields in calculations.
+  - Use CAST(... AS NUMERIC) before division to avoid integer truncation.
+  - For percentages: ROUND(CAST(x AS NUMERIC) * 100.0 / NULLIF(y, 0), 1)
+  - For averages: ROUND(AVG(CAST(x AS NUMERIC)), 2)
+  - Double-check every arithmetic expression for correctness before outputting.
 
 Query Templates (use these patterns):
 -- Animals with shelter info:
@@ -151,10 +217,34 @@ SELECT a.name, snap.body_condition_score, snap.scraped_at
 FROM animal_snapshots snap
 JOIN animals a ON snap.animal_id = a.id
 
+-- With shelter financials (IRS Form 990 data):
+SELECT s.name, sf.total_revenue, sf.total_expenses, sf.net_assets, sf.tax_period
+FROM shelters s
+JOIN shelter_financials sf ON sf.shelter_id = s.id
+WHERE sf.total_revenue IS NOT NULL
+ORDER BY sf.total_revenue DESC
+
+-- With state policies / ALDF rankings:
+SELECT sp.state_name, sp.aldf_rank, sp.aldf_tier, sp.holding_period_days
+FROM state_policies sp
+ORDER BY sp.aldf_rank
+
+-- Scraper run history:
+SELECT pipeline, status, started_at, duration_ms, animals_created, animals_updated, errors
+FROM scrape_runs
+ORDER BY started_at DESC
+
 -- Location-based queries (use shelter state or county):
 -- "Southern California" → s.state = 'CA' AND s.county ILIKE '%los angeles%' (or similar SoCal counties)
 -- State names → use 2-letter abbreviation in s.state
 -- City/region names → match against s.county or s.name with ILIKE
+
+Financial Data Tips:
+- shelter_financials contains IRS Form 990 data from ProPublica. Only non-municipal shelters (RESCUE, NO_KILL, FOSTER_BASED) have this data.
+- "program spending ratio" = ROUND(CAST(program_revenue AS NUMERIC) * 100.0 / NULLIF(total_expenses, 0), 1)
+- "fundraising efficiency" = ROUND(CAST(fundraising_expense AS NUMERIC) * 100.0 / NULLIF(total_revenue, 0), 1) — lower is better
+- officer_compensation = top officer pay. Compare to total_expenses to see if it's reasonable.
+- filing_history is a JSONB array of past years' data — use jsonb_array_elements() to unnest.
 
 Health & Veterinary Tips:
 - body_condition_score: 1-9 scale (1=emaciated, 5=ideal, 9=obese). Scores 1-3 or 7-9 are concerning.
@@ -168,24 +258,51 @@ Health & Veterinary Tips:
 - size values: 'SMALL', 'MEDIUM', 'LARGE', 'XLARGE'.
 `;
 
-const ANSWER_SYSTEM_PROMPT = `You are a helpful data analyst for an animal shelter platform called Golden Years Club. Given a user's question and the query results, provide a clear, concise natural language answer. Use actual numbers from the data. If the result is empty, say so. Keep it to 1-3 sentences. Do not mention SQL or databases.`;
+const ANSWER_SYSTEM_PROMPT = `You are a senior data analyst for Golden Years Club, an animal shelter platform. You are obsessively precise about factual accuracy and mathematical correctness.
+
+Given a user's question and query results, provide a clear, data-backed answer. Follow these rules absolutely:
+- ONLY state facts directly supported by the data. NEVER guess, infer, or extrapolate beyond what the numbers show.
+- When presenting numbers, use exact values from the results. Format large numbers with commas (e.g., 1,234,567). Use dollar signs for financial data.
+- When computing percentages or ratios, show your math: "X out of Y (Z%)". Double-check the arithmetic.
+- If a result is empty or null, say so explicitly — do not fabricate an answer.
+- If the data is insufficient to fully answer the question, state what the data DOES show and what it CANNOT answer.
+- Do not mention SQL, databases, queries, or tables. Speak as if you simply know the data.
+- Be concise: 1-4 sentences. Lead with the key finding.`;
 
 function isSafeQuery(sql: string): boolean {
     const normalized = sql.trim().toUpperCase();
     // Must start with SELECT or WITH (for CTEs)
     if (!normalized.startsWith('SELECT') && !normalized.startsWith('WITH')) return false;
-    // Block dangerous keywords
-    const blocked = ['INSERT', 'UPDATE', 'DELETE', 'DROP', 'ALTER', 'TRUNCATE', 'CREATE', 'GRANT', 'REVOKE', 'EXEC', 'EXECUTE', 'COPY', 'PG_READ', 'PG_WRITE', 'PG_SLEEP', 'PG_LS', 'LO_IMPORT', 'LO_EXPORT', 'DBLINK'];
+    // Block dangerous DDL/DML keywords
+    const blocked = ['INSERT', 'UPDATE', 'DELETE', 'DROP', 'ALTER', 'TRUNCATE', 'CREATE', 'GRANT', 'REVOKE', 'EXEC', 'EXECUTE', 'COPY', 'PG_READ', 'PG_WRITE', 'PG_SLEEP', 'PG_LS', 'LO_IMPORT', 'LO_EXPORT', 'DBLINK', 'SET ', 'LISTEN', 'NOTIFY', 'VACUUM', 'REINDEX', 'CLUSTER'];
     for (const keyword of blocked) {
-        if (new RegExp(`\\b${keyword}\\b`, 'i').test(sql)) return false;
+        if (new RegExp(`\\b${keyword.trim()}\\b`, 'i').test(sql)) return false;
     }
+    // Block access to PostgreSQL system catalogs (credential/config exposure)
+    const blockedTables = ['PG_SHADOW', 'PG_AUTHID', 'PG_ROLES', 'PG_USER', 'PG_STAT_ACTIVITY', 'PG_SETTINGS', 'PG_FILE_READ', 'PG_READ_FILE', 'PG_STAT_FILE'];
+    for (const table of blockedTables) {
+        if (new RegExp(`\\b${table}\\b`, 'i').test(sql)) return false;
+    }
+    // Block information_schema and pg_catalog schema access
+    if (/\binformation_schema\b/i.test(sql)) return false;
+    if (/\bpg_catalog\b/i.test(sql)) return false;
     // Block semicolons (multi-statement) and comments (obfuscation)
     if (sql.includes(';') || sql.includes('--') || sql.includes('/*')) return false;
+    // Block current_setting / set_config (can read/write server config)
+    if (/\bcurrent_setting\b/i.test(sql)) return false;
+    if (/\bset_config\b/i.test(sql)) return false;
     return true;
 }
 
 export async function POST(request: NextRequest) {
     try {
+        // Rate limit
+        const ip = getClientIp(request);
+        const rlResult = await chatLimiter.check(ip);
+        if (!rlResult.allowed) {
+            return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
+        }
+
         const { question } = await request.json();
 
         if (!question || typeof question !== 'string' || question.trim().length === 0) {

@@ -84,7 +84,16 @@ export async function POST(request: Request) {
         return NextResponse.json({ success: false, error: 'Admin not configured' }, { status: 403 });
     }
 
-    if (password === adminPassword) {
+    // Constant-time comparison to prevent timing attacks
+    const encoder = new TextEncoder();
+    const a = encoder.encode(password);
+    const b = encoder.encode(adminPassword);
+    let isMatch = a.length === b.length;
+    const len = Math.max(a.length, b.length);
+    for (let i = 0; i < len; i++) {
+        isMatch &&= (a[i % a.length] === b[i % b.length]);
+    }
+    if (isMatch && password.length === adminPassword.length) {
         const token = await signAdminToken(adminPassword);
         const response = NextResponse.json({ success: true });
         response.cookies.set('gy_admin', token, {

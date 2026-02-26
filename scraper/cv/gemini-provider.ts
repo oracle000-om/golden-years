@@ -57,6 +57,11 @@ const ASSESSMENT_SCHEMA = {
         likelyCareNeeds: { type: Type.ARRAY, items: { type: Type.STRING } },
         estimatedCareLevel: { type: Type.STRING, enum: ['low', 'moderate', 'high'] },
         dataConflicts: { type: Type.ARRAY, items: { type: Type.STRING } },
+        estimatedWeightLbs: { type: Type.NUMBER, nullable: true },
+        mobilityAssessment: { type: Type.STRING, enum: ['normal', 'limited', 'impaired'], nullable: true },
+        mobilityNotes: { type: Type.STRING, nullable: true },
+        energyLevel: { type: Type.STRING, enum: ['low', 'moderate', 'high'], nullable: true },
+        groomingNeeds: { type: Type.STRING, enum: ['minimal', 'regular', 'extensive'], nullable: true },
     },
     required: [
         'species', 'estimatedAgeLow', 'estimatedAgeHigh', 'isSenior',
@@ -206,6 +211,21 @@ function validateResponse(parsed: Record<string, unknown>): AnimalAssessment | n
 
             // ── v3: cross-validation ──
             dataConflicts: Array.isArray(parsed.dataConflicts) ? parsed.dataConflicts : [],
+
+            // ── v8: physical assessment ──
+            estimatedWeightLbs: typeof parsed.estimatedWeightLbs === 'number' && parsed.estimatedWeightLbs > 0
+                ? Math.round(parsed.estimatedWeightLbs as number)
+                : null,
+            mobilityAssessment: ['normal', 'limited', 'impaired'].includes(parsed.mobilityAssessment as string)
+                ? parsed.mobilityAssessment as 'normal' | 'limited' | 'impaired'
+                : null,
+            mobilityNotes: typeof parsed.mobilityNotes === 'string' ? parsed.mobilityNotes : null,
+            energyLevel: ['low', 'moderate', 'high'].includes(parsed.energyLevel as string)
+                ? parsed.energyLevel as 'low' | 'moderate' | 'high'
+                : null,
+            groomingNeeds: ['minimal', 'regular', 'extensive'].includes(parsed.groomingNeeds as string)
+                ? parsed.groomingNeeds as 'minimal' | 'regular' | 'extensive'
+                : null,
         };
     } catch {
         return null;

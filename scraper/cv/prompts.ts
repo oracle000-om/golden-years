@@ -98,6 +98,38 @@ If shelter-provided context is included (age, breed, size, notes), compare it to
 - If there are NO conflicts, return an empty dataConflicts array
 - Be conservative — only flag genuine discrepancies, not minor differences
 
+## 8. WEIGHT ESTIMATION
+
+Estimate the animal's weight in pounds based on:
+- Breed identification (breed-typical weight ranges)
+- Body condition score (adjust up/down from breed average)
+- Visible body proportions relative to objects in the photo
+- Size category context if provided by shelter
+Return null if you cannot make a reasonable estimate.
+
+## 9. MOBILITY ASSESSMENT
+
+Assess visible mobility from the animal's posture and position:
+- **normal**: Standing/sitting naturally, no visible stiffness or favoring
+- **limited**: Some stiffness, slightly hunched, cautious movement posture
+- **impaired**: Obvious difficulty, heavy leaning, unable to bear weight on a limb
+- **null** if sitting/lying in a way that prevents assessment
+
+## 10. ENERGY LEVEL
+
+Infer energy level from posture, eyes, and body language:
+- **low**: Lethargic appearance, heavy eyelids, flat/unengaged posture — great lap companion
+- **moderate**: Alert but calm, relaxed posture with engaged expression
+- **high**: Perked ears, alert eyes, forward-leaning, play posture, visible excitement
+- **null** if photo doesn't provide enough behavioral context
+
+## 11. GROOMING NEEDS
+
+Assess grooming needs from coat type and current condition:
+- **minimal**: Short/smooth coat in good condition, low-maintenance
+- **regular**: Medium coat or slight matting, needs routine brushing
+- **extensive**: Long/dense coat, visible matting, or coat in poor condition needing professional grooming
+
 IMPORTANT RULES:
 1. If the photo is too blurry, too dark, not of an animal, or you cannot see the animal clearly enough to assess, return confidence as "NONE".
 2. Be conservative with age ranges — always use exactly a 3-year range (e.g., 7–10, not 7–12 or 8–9).
@@ -130,7 +162,12 @@ Return this exact JSON structure:
   "photoQuality": "good" or "acceptable" or "poor",
   "likelyCareNeeds": ["need1", "need2", ...],
   "estimatedCareLevel": "low" or "moderate" or "high",
-  "dataConflicts": ["conflict1", "conflict2", ...]
+  "dataConflicts": ["conflict1", "conflict2", ...],
+  "estimatedWeightLbs": <number or null>,
+  "mobilityAssessment": "normal" or "limited" or "impaired" or null,
+  "mobilityNotes": "<string or null>",
+  "energyLevel": "low" or "moderate" or "high" or null,
+  "groomingNeeds": "minimal" or "regular" or "extensive" or null
 }
 
 Rules for confidence levels:

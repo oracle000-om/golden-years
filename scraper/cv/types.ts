@@ -81,6 +81,18 @@ export interface AnimalAssessment {
     cataractStage?: 'none' | 'early' | 'moderate' | 'advanced' | null;
     /** Free-text eye observations */
     eyeNotes?: string | null;
+
+    // ── Physical assessment (v8) ──
+    /** Estimated weight in pounds from breed + BCS + photo */
+    estimatedWeightLbs?: number | null;
+    /** Mobility assessment from posture */
+    mobilityAssessment?: 'normal' | 'limited' | 'impaired' | null;
+    /** Free-text mobility observations */
+    mobilityNotes?: string | null;
+    /** Energy level from body language */
+    energyLevel?: 'low' | 'moderate' | 'high' | null;
+    /** Grooming needs from coat type and condition */
+    groomingNeeds?: 'minimal' | 'regular' | 'extensive' | null;
 }
 
 /**

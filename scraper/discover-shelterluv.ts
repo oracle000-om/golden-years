@@ -9,9 +9,10 @@
  *   - Invalid org → 404 + []
  *
  * Usage:
- *   npx tsx scraper/discover-shelterluv.ts --dry-run                 # batch 1 (1-500)
- *   npx tsx scraper/discover-shelterluv.ts --start=500 --end=5000    # batch 2
- *   npx tsx scraper/discover-shelterluv.ts --start=5000 --end=15000  # batch 3
+ *   npx tsx scraper/discover-shelterluv.ts --dry-run                 # probe 1-500
+ *   npx tsx scraper/discover-shelterluv.ts --start=15001 --end=50000 # batch 2
+ *   npx tsx scraper/discover-shelterluv.ts --enrich-existing         # fix "Unknown" orgs
+ *   npx tsx scraper/discover-shelterluv.ts --full                    # full sweep 1-100K
  */
 
 import { readFileSync, writeFileSync } from 'fs';
@@ -35,6 +36,7 @@ interface ExistingConfig {
     orgId: string;
     city: string;
     state: string;
+    savedQuery?: string;
 }
 
 interface ShelterLuvAnimal {
@@ -48,8 +50,58 @@ interface ShelterLuvAnimal {
 
 const CONFIG_PATH = join(__dirname, 'config/shelterluv-config.json');
 const API_BASE = 'https://new.shelterluv.com/api/v3/available-animals';
+const EMBED_BASE = 'https://www.shelterluv.com/available_pets';
 const CONCURRENCY = 10;
 const BATCH_DELAY_MS = 200;
+
+// ── Enrichment: Extract city/state from embed page ────
+
+async function enrichFromEmbed(orgId: string): Promise<{ city: string; state: string; name: string } | null> {
+    try {
+        const url = `${EMBED_BASE}/${orgId}?embedded=1`;
+        const response = await fetch(url, {
+            signal: AbortSignal.timeout(10_000),
+            headers: { 'User-Agent': 'GoldenYearsClub/1.0' },
+        });
+        if (!response.ok) return null;
+
+        const html = await response.text();
+
+        // Look for address patterns in the HTML
+        // ShelterLuv embeds often include org name and address in meta/header
+        let name = '';
+        let city = '';
+        let state = '';
+
+        // Try og:title or page title
+        const titleMatch = html.match(/<title>([^<]+)<\/title>/i)
+            || html.match(/og:title["\s]+content="([^"]+)"/i);
+        if (titleMatch) {
+            name = titleMatch[1].replace(/\s*[-|]\s*ShelterLuv.*$/i, '').trim();
+        }
+
+        // Try to find state abbreviation patterns in the HTML
+        // Common: "City, ST" or "City, ST 12345"
+        const addressMatch = html.match(/([A-Z][a-z]+(?:\s[A-Z][a-z]+)*),\s*([A-Z]{2})\s*\d{0,5}/);
+        if (addressMatch) {
+            city = addressMatch[1].trim();
+            state = addressMatch[2];
+        }
+
+        // Also check for structured address data
+        const stateMatch = html.match(/"state"\s*:\s*"([A-Z]{2})"/);
+        const cityMatch = html.match(/"city"\s*:\s*"([^"]+)"/);
+        if (stateMatch) state = stateMatch[1];
+        if (cityMatch) city = cityMatch[1];
+
+        if (state && state.length === 2) {
+            return { city: city || 'Unknown', state, name: name || '' };
+        }
+        return null;
+    } catch {
+        return null;
+    }
+}
 
 // ── Probe ──────────────────────────────────────────────
 
@@ -96,6 +148,18 @@ async function probeOrg(orgId: number): Promise<DiscoveredOrg | null> {
             state = cityStateMatch[2];
         }
 
+        // If state still unknown, try embed page enrichment
+        if (state === 'US') {
+            const enriched = await enrichFromEmbed(String(orgId));
+            if (enriched) {
+                city = enriched.city;
+                state = enriched.state;
+                if (enriched.name && shelterName === 'Unknown') {
+                    shelterName = enriched.name;
+                }
+            }
+        }
+
         // Count species
         const dogs = animals.filter(a => a.species?.toLowerCase() === 'dog').length;
         const cats = animals.filter(a => a.species?.toLowerCase() === 'cat').length;
@@ -114,27 +178,68 @@ async function probeOrg(orgId: number): Promise<DiscoveredOrg | null> {
     }
 }
 
+// ── Enrich existing unknown orgs ──────────────────────
+
+async function enrichExisting(existing: ExistingConfig[], dryRun: boolean): Promise<void> {
+    const unknowns = existing.filter(e => e.state === 'US' || e.city === 'Unknown');
+    console.log(`\n🔧 Enriching ${unknowns.length} orgs with unknown location...\n`);
+
+    let enriched = 0;
+    for (const org of unknowns) {
+        // Re-probe API for updated data
+        const result = await probeOrg(Number(org.orgId));
+        if (result && (result.state !== 'US' || result.shelterName !== 'Unknown')) {
+            if (result.state !== 'US') {
+                console.log(`   ✅ #${org.orgId}: ${org.shelterName} → ${result.shelterName} (${result.city}, ${result.state})`);
+                if (!dryRun) {
+                    org.shelterName = result.shelterName !== 'Unknown' ? result.shelterName : org.shelterName;
+                    org.city = result.city;
+                    org.state = result.state;
+                }
+                enriched++;
+            }
+        }
+        // Small delay to not overwhelm API
+        await new Promise(r => setTimeout(r, 300));
+    }
+
+    if (!dryRun && enriched > 0) {
+        writeFileSync(CONFIG_PATH, JSON.stringify(existing, null, 4) + '\n');
+    }
+    console.log(`\n   📊 Enriched: ${enriched}/${unknowns.length}`);
+}
+
 // ── Main ───────────────────────────────────────────────
 
 async function main() {
     const args = process.argv.slice(2);
     const dryRun = args.includes('--dry-run');
-
-    const startArg = args.find(a => a.startsWith('--start='));
-    const endArg = args.find(a => a.startsWith('--end='));
-    const start = startArg ? parseInt(startArg.split('=')[1], 10) : 1;
-    const end = endArg ? parseInt(endArg.split('=')[1], 10) : (dryRun ? 500 : 15000);
-
-    console.log(`🔍 ShelterLuv Org Discovery`);
-    console.log(`   Range: ${start} → ${end} (${end - start} IDs)`);
-    console.log(`   Concurrency: ${CONCURRENCY}`);
-    console.log(`   Dry run: ${dryRun}\n`);
+    const enrichMode = args.includes('--enrich-existing');
+    const fullMode = args.includes('--full');
 
     // Load existing
     const existingRaw = readFileSync(CONFIG_PATH, 'utf-8');
     const existing: ExistingConfig[] = JSON.parse(existingRaw);
     const existingIds = new Set(existing.map(e => e.orgId));
     console.log(`   Existing: ${existing.length} orgs\n`);
+
+    // Enrich mode
+    if (enrichMode) {
+        await enrichExisting(existing, dryRun);
+        process.exit(0);
+    }
+
+    const startArg = args.find(a => a.startsWith('--start='));
+    const endArg = args.find(a => a.startsWith('--end='));
+    const start = startArg ? parseInt(startArg.split('=')[1], 10) : 1;
+    const end = endArg
+        ? parseInt(endArg.split('=')[1], 10)
+        : fullMode ? 100000 : (dryRun ? 500 : 15000);
+
+    console.log(`🔍 ShelterLuv Org Discovery`);
+    console.log(`   Range: ${start} → ${end} (${end - start} IDs)`);
+    console.log(`   Concurrency: ${CONCURRENCY}`);
+    console.log(`   Dry run: ${dryRun}\n`);
 
     const discovered: DiscoveredOrg[] = [];
     let probed = 0;
@@ -152,16 +257,17 @@ async function main() {
             if (result && !existingIds.has(result.orgId)) {
                 discovered.push(result);
                 console.log(
-                    `   ✅ #${result.orgId}: ${result.shelterName} — ` +
+                    `   ✅ #${result.orgId}: ${result.shelterName} (${result.city}, ${result.state}) — ` +
                     `${result.animalCount} animals (${result.dogs}D/${result.cats}C)`,
                 );
             }
         }
 
         probed += batch.length;
-        if (probed % 500 === 0 || probed === total) {
+        if (probed % 1000 === 0 || probed === total) {
             const pct = Math.round((probed / total) * 100);
-            console.log(`   ... ${probed}/${total} probed (${pct}%), ${discovered.length} found`);
+            const rate = (probed / ((Date.now() - startTime) / 1000)).toFixed(0);
+            console.log(`   ... ${probed}/${total} probed (${pct}%), ${discovered.length} found, ${rate}/s`);
         }
 
         await new Promise(r => setTimeout(r, BATCH_DELAY_MS));
@@ -181,11 +287,18 @@ async function main() {
     const totalAnimals = discovered.reduce((s, d) => s + d.animalCount, 0);
     const totalDogs = discovered.reduce((s, d) => s + d.dogs, 0);
     const totalCats = discovered.reduce((s, d) => s + d.cats, 0);
-    console.log(`   Total animals across new orgs: ${totalAnimals} (${totalDogs}D/${totalCats}C)\n`);
+
+    // State breakdown
+    const stateCount = new Map<string, number>();
+    for (const d of discovered) stateCount.set(d.state, (stateCount.get(d.state) || 0) + 1);
+    const topStates = [...stateCount.entries()].sort((a, b) => b[1] - a[1]).slice(0, 15);
+
+    console.log(`   Total animals across new orgs: ${totalAnimals} (${totalDogs}D/${totalCats}C)`);
+    console.log(`   States: ${stateCount.size} — ${topStates.map(([s, c]) => `${s}(${c})`).join(', ')}\n`);
 
     console.log(`   Top 30 by animal count:`);
     for (const s of discovered.slice(0, 30)) {
-        console.log(`     #${s.orgId}: ${s.shelterName} — ${s.animalCount} (${s.dogs}D/${s.cats}C)`);
+        console.log(`     #${s.orgId}: ${s.shelterName} (${s.city}, ${s.state}) — ${s.animalCount} (${s.dogs}D/${s.cats}C)`);
     }
 
     if (dryRun) {
@@ -216,4 +329,5 @@ async function main() {
     process.exit(0);
 }
 
+const startTime = Date.now();
 main();

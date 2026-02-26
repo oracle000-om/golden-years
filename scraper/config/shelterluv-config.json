@@ -1085,5 +1085,243 @@
         "orgId": "5829",
         "city": "Unknown",
         "state": "US"
+    },
+    {
+        "id": "in-shelter-cooley-s-cottage-17075",
+        "shelterName": "In Shelter, Cooley's Cottage",
+        "orgId": "17075",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "foster-home-18707",
+        "shelterName": "Foster Home",
+        "orgId": "18707",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "kennels-kennel-a-20461",
+        "shelterName": "Kennels, Kennel A",
+        "orgId": "20461",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "shelter-l-building-18852",
+        "shelterName": "Shelter, L building",
+        "orgId": "18852",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "foster-home-20462",
+        "shelterName": "Foster Home",
+        "orgId": "20462",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "entities-lanett-15014",
+        "shelterName": "Entities, Lanett",
+        "orgId": "15014",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "foster-home-15220",
+        "shelterName": "Foster Home",
+        "orgId": "15220",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "foster-home-20335",
+        "shelterName": "Foster Home",
+        "orgId": "20335",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "foster-home-15536",
+        "shelterName": "Foster Home",
+        "orgId": "15536",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "kyle-campus-500-fm-150-east-kyle-tx-7864-15036",
+        "shelterName": "Kyle Campus (500 FM 150 East, Kyle, TX, 78640), Dog Kennels",
+        "orgId": "15036",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "foster-home-15643",
+        "shelterName": "Foster Home",
+        "orgId": "15643",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "feature-room-cats-mouser-s-den-18815",
+        "shelterName": "Feature Room - Cats, Mouser's Den",
+        "orgId": "18815",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "foster-home-15512",
+        "shelterName": "Foster Home",
+        "orgId": "15512",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "foster-home-20500",
+        "shelterName": "Foster Home",
+        "orgId": "20500",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "the-pet-place-dog-runs-17278",
+        "shelterName": "The Pet Place, Dog Runs",
+        "orgId": "17278",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "community-northeast-missouri-correctiona-18716",
+        "shelterName": "COMMUNITY, NORTHEAST MISSOURI CORRECTIONAL FACILITY",
+        "orgId": "18716",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "foster-home-18787",
+        "shelterName": "Foster Home",
+        "orgId": "18787",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "toledo-animal-rescue-cat-room-20372",
+        "shelterName": "Toledo Animal Rescue, Cat Room",
+        "orgId": "20372",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "foster-home-20549",
+        "shelterName": "Foster Home",
+        "orgId": "20549",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "foster-home-21877",
+        "shelterName": "Foster Home",
+        "orgId": "21877",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "pineville-animal-control-17345",
+        "shelterName": "Pineville Animal Control",
+        "orgId": "17345",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "foster-home-17236",
+        "shelterName": "Foster Home",
+        "orgId": "17236",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "dog-kennels-k-2-18871",
+        "shelterName": "Dog Kennels, K-2",
+        "orgId": "18871",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "foster-home-15565",
+        "shelterName": "Foster Home",
+        "orgId": "15565",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "foster-home-18776",
+        "shelterName": "Foster Home",
+        "orgId": "18776",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "animal-control-dog-kennels-15118",
+        "shelterName": "Animal Control Dog Kennels",
+        "orgId": "15118",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "foster-15046",
+        "shelterName": "Foster",
+        "orgId": "15046",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "foster-home-18843",
+        "shelterName": "Foster Home",
+        "orgId": "18843",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "foster-home-20371",
+        "shelterName": "Foster Home",
+        "orgId": "20371",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "kennels-15123",
+        "shelterName": "Kennels",
+        "orgId": "15123",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "medium-dog-kennels-medium-dog-kennel-6-15530",
+        "shelterName": "Medium Dog Kennels, Medium Dog Kennel 6",
+        "orgId": "15530",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "foster-home-20453",
+        "shelterName": "Foster Home",
+        "orgId": "20453",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "foster-home-17325",
+        "shelterName": "Foster Home",
+        "orgId": "17325",
+        "city": "Unknown",
+        "state": "US"
+    },
+    {
+        "id": "foster-home-17155",
+        "shelterName": "Foster Home",
+        "orgId": "17155",
+        "city": "Unknown",
+        "state": "US"
     }
 ]

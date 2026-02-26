@@ -24,6 +24,9 @@ import { scrapeSocrataListings, LISTING_CONFIGS } from './adapters/socrata-listi
 import { createAgeEstimationProvider, lookupLifeExpectancy, computeAssessmentDiff, type AgeEstimationProvider } from './cv';
 import { findDuplicate, computePhotoHash } from './dedup';
 import { sanitizeText } from './lib/sanitize-text';
+import { enqueueFailure } from './lib/retry-queue';
+import { checkScrapeHealth } from './lib/alert';
+import { startRun, finishRun, failRun } from './lib/scrape-run';
 import type { ScrapedAnimal } from './types';
 
 async function main() {
@@ -57,6 +60,7 @@ async function main() {
 
     // Init DB + CV
     const prisma = await createPrismaClient();
+    const runId = await startRun('socrata-listings', { shelterArg });
 
     let cvProvider: AgeEstimationProvider | null = null;
     if (!noCv) {
@@ -136,7 +140,7 @@ async function main() {
                     shelterSpecies: animal.species,
                     shelterAge: animal.ageKnownYears,
                     shelterBreed: animal.breed,
-                    shelterNotes: animal.notes,
+                    shelterNotes: animal.description || animal.notes,
                 });
                 if (cvEstimate) cvProcessed++;
             } catch {
@@ -172,6 +176,33 @@ async function main() {
                 intakeDate: animal.intakeDate,
                 notes: sanitizeText(animal.notes),
                 lastSeenAt: now,
+                // v6: Behavioral data
+                houseTrained: animal.houseTrained ?? null,
+                goodWithCats: animal.goodWithCats ?? null,
+                goodWithDogs: animal.goodWithDogs ?? null,
+                goodWithChildren: animal.goodWithChildren ?? null,
+                specialNeeds: animal.specialNeeds ?? null,
+                // v6: Coat & appearance
+                coatType: animal.coatType ?? null,
+                coatColors: animal.coatColors ?? [],
+                // v6: Description & environment
+                description: sanitizeText(animal.description),
+                environmentNeeds: animal.environmentNeeds ?? [],
+                // v7: Medical status
+                isAltered: animal.isAltered ?? null,
+                isMicrochipped: animal.isMicrochipped ?? null,
+                isVaccinated: animal.isVaccinated ?? null,
+                // v7: Adoption & listing
+                adoptionFee: animal.adoptionFee ?? null,
+                listingUrl: animal.listingUrl ?? null,
+                isCourtesyListing: animal.isCourtesyListing ?? null,
+                // v7: Physical details
+                weight: animal.weight ?? null,
+                birthday: animal.birthday ?? null,
+                coatPattern: animal.coatPattern ?? null,
+                isMixed: animal.isMixed ?? null,
+                // v7: Foster
+                isFosterHome: animal.isFosterHome ?? null,
             };
 
             if (cvEstimate) {
@@ -202,6 +233,11 @@ async function main() {
                     dentalNotes: cvEstimate.dentalNotes ?? null,
                     cataractStage: cvEstimate.cataractStage ?? null,
                     eyeNotes: cvEstimate.eyeNotes ?? null,
+                    estimatedWeightLbs: cvEstimate.estimatedWeightLbs ?? null,
+                    mobilityAssessment: cvEstimate.mobilityAssessment ?? null,
+                    mobilityNotes: cvEstimate.mobilityNotes ?? null,
+                    energyLevel: cvEstimate.energyLevel ?? null,
+                    groomingNeeds: cvEstimate.groomingNeeds ?? null,
                 });
             } else if (!hasExistingCv) {
                 data.ageSource = animal.ageSource || 'SHELTER_REPORTED';
@@ -209,10 +245,14 @@ async function main() {
             }
 
             if (existing) {
-                // Re-entry detection: animal was delisted but reappeared
+                // Re-entry detection: only count as re-entry if delisted 48+ hours ago
                 if (existing.status === 'DELISTED') {
-                    data.shelterEntryCount = (existing.shelterEntryCount || 1) + 1;
-                    console.log(`      🔄 Re-entry #${data.shelterEntryCount}: ${animal.name || animal.intakeId}`);
+                    const wasDelistedLongAgo = existing.delistedAt &&
+                        (now.getTime() - new Date(existing.delistedAt).getTime()) > 48 * 60 * 60 * 1000;
+                    if (wasDelistedLongAgo) {
+                        data.shelterEntryCount = (existing.shelterEntryCount || 1) + 1;
+                        console.log(`      🔄 Re-entry #${data.shelterEntryCount}: ${animal.name || animal.intakeId}`);
+                    }
                 }
                 await (prisma as any).animal.update({
                     where: { id: existing.id },
@@ -233,6 +273,7 @@ async function main() {
         } catch (err) {
             errors++;
             console.error(`   ❌ ${animal.intakeId}: ${(err as Error).message?.substring(0, 100)}`);
+            await enqueueFailure('socrata-listings', shelterId, animal.intakeId, (err as Error).message);
         }
 
         // Progress
@@ -270,7 +311,9 @@ async function main() {
     console.log(`   Animals: ${created} created, ${updated} updated, ${totalDelisted} delisted, ${errors} errors`);
     console.log(`   CV: ${cvProcessed} new estimates, ${cvSkipped} reused from previous run`);
     console.log(`   Shelters: ${sheltersUpserted}`);
-    process.exit(0);
+    checkScrapeHealth('socrata-listings', created + updated, errors, Date.now() - startTime);
+    await finishRun(runId, { created, updated, errors, errorSummary: errors > 0 ? `${errors} animal upsert failures` : undefined });
+    process.exit(errors > 0 ? 1 : 0);
 }
 
 main();

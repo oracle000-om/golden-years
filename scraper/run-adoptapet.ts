@@ -9,6 +9,7 @@
  *   npx tsx scraper/run-adoptapet.ts --dry-run     # preview only
  *   npx tsx scraper/run-adoptapet.ts --no-cv       # skip CV
  *   npx tsx scraper/run-adoptapet.ts --shelter=pasadena-humane  # single shelter
+ *   npx tsx scraper/run-adoptapet.ts --shard=0 --total-shards=4  # sharded
  */
 
 import 'dotenv/config';
@@ -17,6 +18,9 @@ import { scrapeAdoptaPet } from './adapters/adoptapet';
 import { createAgeEstimationProvider, lookupLifeExpectancy, computeAssessmentDiff, type AgeEstimationProvider } from './cv';
 import { findDuplicate, computePhotoHashFromBuffer, hammingDistance, PHASH_THRESHOLD } from './dedup';
 import { sanitizeText } from './lib/sanitize-text';
+import { enqueueFailure } from './lib/retry-queue';
+import { checkScrapeHealth } from './lib/alert';
+import { startRun, finishRun, failRun } from './lib/scrape-run';
 import type { ScrapedAnimal } from './types';
 
 const CONCURRENCY = 5;
@@ -41,13 +45,19 @@ async function main() {
     const dryRun = process.argv.includes('--dry-run');
     const noCv = process.argv.includes('--no-cv');
     const shelterArg = process.argv.find(a => a.startsWith('--shelter='))?.split('=')[1];
+    const shardArg = process.argv.find(a => a.startsWith('--shard='))?.split('=')[1];
+    const totalShardsArg = process.argv.find(a => a.startsWith('--total-shards='))?.split('=')[1];
+    const shard = shardArg != null ? parseInt(shardArg, 10) : undefined;
+    const totalShards = totalShardsArg != null ? parseInt(totalShardsArg, 10) : undefined;
 
-    console.log(`🐾 Golden Years Club — Adopt-a-Pet Sync${dryRun ? ' (DRY RUN)' : ''}${noCv ? ' (NO CV)' : ''}`);
+    console.log(`🐾 Golden Years Club — Adopt-a-Pet Sync${dryRun ? ' (DRY RUN)' : ''}${noCv ? ' (NO CV)' : ''}${shard != null ? ` (SHARD ${shard + 1}/${totalShards})` : ''}`);
     if (shelterArg) console.log(`   Shelter filter: ${shelterArg}`);
 
     // Step 1: Scrape from Adopt-a-Pet
     const { animals, shelters } = await scrapeAdoptaPet({
         shelterIds: shelterArg ? [shelterArg] : undefined,
+        shard,
+        totalShards,
     });
 
     console.log(`\n📊 Fetched ${animals.length} senior animals from ${shelters.size} shelters`);
@@ -69,6 +79,7 @@ async function main() {
     }
 
     const prisma = await createPrismaClient();
+    const runId = await startRun('adoptapet', { shard, totalShards, shelterArg });
 
     // Init CV provider
     let cvProvider: AgeEstimationProvider | null = null;
@@ -158,7 +169,7 @@ async function main() {
 
             if (hasExistingCv && photoUnchanged) { cvSkipped++; }
             else if (cvProvider && animal.photoUrl) {
-                try { cvEstimate = await cvProvider.estimateAge(animal.photoUrl, animal.photoUrls, { shelterSize: animal.size, shelterSpecies: animal.species, shelterAge: animal.ageKnownYears, shelterBreed: animal.breed, shelterNotes: animal.notes }); if (cvEstimate) cvProcessed++; } catch { /* skip */ }
+                try { cvEstimate = await cvProvider.estimateAge(animal.photoUrl, animal.photoUrls, { shelterSize: animal.size, shelterSpecies: animal.species, shelterAge: animal.ageKnownYears, shelterBreed: animal.breed, shelterNotes: animal.description || animal.notes }); if (cvEstimate) cvProcessed++; } catch { /* skip */ }
             }
 
             if (cvEstimate && cvEstimate.confidence === 'NONE') { skippedNonPhoto++; return; }
@@ -176,6 +187,33 @@ async function main() {
                 intakeReason: animal.intakeReason, intakeReasonDetail: sanitizeText(animal.intakeReasonDetail),
                 euthScheduledAt: animal.euthScheduledAt, intakeDate: animal.intakeDate,
                 notes: sanitizeText(animal.notes), lastSeenAt: now,
+                // v6: Behavioral data
+                houseTrained: animal.houseTrained ?? null,
+                goodWithCats: animal.goodWithCats ?? null,
+                goodWithDogs: animal.goodWithDogs ?? null,
+                goodWithChildren: animal.goodWithChildren ?? null,
+                specialNeeds: animal.specialNeeds ?? null,
+                // v6: Coat & appearance
+                coatType: animal.coatType ?? null,
+                coatColors: animal.coatColors ?? [],
+                // v6: Description & environment
+                description: sanitizeText(animal.description),
+                environmentNeeds: animal.environmentNeeds ?? [],
+                // v7: Medical status
+                isAltered: animal.isAltered ?? null,
+                isMicrochipped: animal.isMicrochipped ?? null,
+                isVaccinated: animal.isVaccinated ?? null,
+                // v7: Adoption & listing
+                adoptionFee: animal.adoptionFee ?? null,
+                listingUrl: animal.listingUrl ?? null,
+                isCourtesyListing: animal.isCourtesyListing ?? null,
+                // v7: Physical details
+                weight: animal.weight ?? null,
+                birthday: animal.birthday ?? null,
+                coatPattern: animal.coatPattern ?? null,
+                isMixed: animal.isMixed ?? null,
+                // v7: Foster
+                isFosterHome: animal.isFosterHome ?? null,
             };
 
             if (cvEstimate) {
@@ -188,7 +226,12 @@ async function main() {
                     bodyConditionScore: cvEstimate.bodyConditionScore ?? null,
                     coatCondition: cvEstimate.coatCondition ?? null,
                     visibleConditions: cvEstimate.visibleConditions ?? [],
-                    healthNotes: cvEstimate.healthNotes ?? null,
+                    eyeNotes: cvEstimate.eyeNotes ?? null,
+                    estimatedWeightLbs: cvEstimate.estimatedWeightLbs ?? null,
+                    mobilityAssessment: cvEstimate.mobilityAssessment ?? null,
+                    mobilityNotes: cvEstimate.mobilityNotes ?? null,
+                    energyLevel: cvEstimate.energyLevel ?? null,
+                    groomingNeeds: cvEstimate.groomingNeeds ?? null,
                     aggressionRisk: cvEstimate.aggressionRisk ?? null,
                     fearIndicators: cvEstimate.fearIndicators ?? [],
                     stressLevel: cvEstimate.stressLevel ?? null,
@@ -207,8 +250,17 @@ async function main() {
             if (existing) {
                 // Re-entry detection: animal was delisted but reappeared
                 if (existing.status === 'DELISTED') {
-                    data.shelterEntryCount = (existing.shelterEntryCount || 1) + 1;
-                    console.log(`      🔄 Re-entry #${data.shelterEntryCount}: ${animal.name || animal.intakeId}`);
+                    // Only count as genuine re-entry if delisted >48h ago
+                    // (avoids inflating count from false delistings due to partial scrape runs)
+                    const delistedAgo = existing.delistedAt
+                        ? Date.now() - new Date(existing.delistedAt).getTime()
+                        : Infinity;
+                    if (delistedAgo > 48 * 60 * 60 * 1000) {
+                        data.shelterEntryCount = (existing.shelterEntryCount || 1) + 1;
+                        console.log(`      🔄 Re-entry #${data.shelterEntryCount}: ${animal.name || animal.intakeId}`);
+                    } else {
+                        console.log(`      ↩️ Restoring falsely delisted: ${animal.name || animal.intakeId}`);
+                    }
                 }
                 await (prisma as any).animal.update({
                     where: { id: existing.id }, data: {
@@ -248,7 +300,11 @@ async function main() {
                         : null,
                 }
             });
-        } catch (err) { errors++; console.error(`   ❌ ${animal.intakeId}: ${(err as Error).message?.substring(0, 100)}`); }
+        } catch (err) {
+            errors++;
+            console.error(`   ❌ ${animal.intakeId}: ${(err as Error).message?.substring(0, 100)}`);
+            await enqueueFailure('adoptapet', shelterId, animal.intakeId, (err as Error).message);
+        }
     }
 
     for (let i = 0; i < withPhotos.length; i += CONCURRENCY) {
@@ -261,8 +317,8 @@ async function main() {
         }
     }
 
-    // Step 5: Reconciliation — delist stale animals per shelter
-    const runStart = new Date(startTime);
+    // Step 5: Reconciliation — delist stale animals per shelter (48h grace period)
+    const graceCutoff = new Date(Date.now() - 48 * 60 * 60 * 1000);
     let totalDelisted = 0;
     for (const [aapId] of shelters) {
         try {
@@ -270,7 +326,7 @@ async function main() {
                 where: {
                     shelterId: aapId,
                     status: { in: ['AVAILABLE', 'URGENT'] },
-                    lastSeenAt: { lt: runStart },
+                    lastSeenAt: { lt: graceCutoff },
                 },
                 data: {
                     status: 'DELISTED',
@@ -290,7 +346,9 @@ async function main() {
     console.log(`   Animals: ${created} created, ${updated} updated, ${totalDelisted} delisted, ${errors} errors`);
     console.log(`   CV: ${cvProcessed} new, ${cvSkipped} reused | Dedup: ${dedupMerged} | Non-photo: ${skippedNonPhoto}`);
     console.log(`   Shelters: ${sheltersCreated}`);
-    process.exit(0);
+    checkScrapeHealth('adoptapet', created + updated, errors, Date.now() - startTime);
+    await finishRun(runId, { created, updated, errors, errorSummary: errors > 0 ? `${errors} animal upsert failures` : undefined });
+    process.exit(errors > 0 ? 1 : 0);
 }
 
 main();

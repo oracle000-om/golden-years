@@ -17,6 +17,9 @@ import { scrapeShelterLuv } from './adapters/shelterluv';
 import { createAgeEstimationProvider, lookupLifeExpectancy, computeAssessmentDiff, type AgeEstimationProvider } from './cv';
 import { findDuplicate, computePhotoHashFromBuffer, hammingDistance, PHASH_THRESHOLD } from './dedup';
 import { sanitizeText } from './lib/sanitize-text';
+import { enqueueFailure } from './lib/retry-queue';
+import { checkScrapeHealth } from './lib/alert';
+import { startRun, finishRun, failRun } from './lib/scrape-run';
 import type { ScrapedAnimal } from './types';
 
 const CONCURRENCY = 5;
@@ -41,13 +44,20 @@ async function main() {
     const dryRun = process.argv.includes('--dry-run');
     const noCv = process.argv.includes('--no-cv');
     const shelterArg = process.argv.find(a => a.startsWith('--shelter='))?.split('=')[1];
+    const shardArg = process.argv.find(a => a.startsWith('--shard='))?.split('=')[1];
+    const totalShardsArg = process.argv.find(a => a.startsWith('--total-shards='))?.split('=')[1];
+    const shard = shardArg != null ? parseInt(shardArg, 10) : undefined;
+    const totalShards = totalShardsArg != null ? parseInt(totalShardsArg, 10) : undefined;
 
-    console.log(`🐾 Golden Years Club — ShelterLuv Sync${dryRun ? ' (DRY RUN)' : ''}${noCv ? ' (NO CV)' : ''}`);
+    const shardLabel = shard != null ? ` [shard ${shard + 1}/${totalShards}]` : '';
+    console.log(`🐾 Golden Years Club — ShelterLuv Sync${shardLabel}${dryRun ? ' (DRY RUN)' : ''}${noCv ? ' (NO CV)' : ''}`);
     if (shelterArg) console.log(`   Shelter filter: ${shelterArg}`);
 
     // Step 1: Fetch from ShelterLuv API
     const { animals, shelters } = await scrapeShelterLuv({
         shelterIds: shelterArg ? [shelterArg] : undefined,
+        shard,
+        totalShards,
     });
 
     console.log(`\n📊 Fetched ${animals.length} senior animals from ${shelters.size} shelters`);
@@ -69,6 +79,7 @@ async function main() {
     }
 
     const prisma = await createPrismaClient();
+    const runId = await startRun('shelterluv', { shelterArg, shard, totalShards });
 
     // Init CV provider
     let cvProvider: AgeEstimationProvider | null = null;
@@ -160,7 +171,7 @@ async function main() {
 
             if (hasExistingCv && photoUnchanged) { cvSkipped++; }
             else if (cvProvider && animal.photoUrl) {
-                try { cvEstimate = await cvProvider.estimateAge(animal.photoUrl, animal.photoUrls, { shelterSize: animal.size, shelterSpecies: animal.species, shelterAge: animal.ageKnownYears, shelterBreed: animal.breed, shelterNotes: animal.notes }); if (cvEstimate) cvProcessed++; } catch { /* skip */ }
+                try { cvEstimate = await cvProvider.estimateAge(animal.photoUrl, animal.photoUrls, { shelterSize: animal.size, shelterSpecies: animal.species, shelterAge: animal.ageKnownYears, shelterBreed: animal.breed, shelterNotes: animal.description || animal.notes }); if (cvEstimate) cvProcessed++; } catch { /* skip */ }
             }
 
             if (cvEstimate && cvEstimate.confidence === 'NONE') { skippedNonPhoto++; return; }
@@ -178,6 +189,33 @@ async function main() {
                 intakeReason: animal.intakeReason, intakeReasonDetail: sanitizeText(animal.intakeReasonDetail),
                 euthScheduledAt: animal.euthScheduledAt, intakeDate: animal.intakeDate,
                 notes: sanitizeText(animal.notes), lastSeenAt: now,
+                // v6: Behavioral data
+                houseTrained: animal.houseTrained ?? null,
+                goodWithCats: animal.goodWithCats ?? null,
+                goodWithDogs: animal.goodWithDogs ?? null,
+                goodWithChildren: animal.goodWithChildren ?? null,
+                specialNeeds: animal.specialNeeds ?? null,
+                // v6: Coat & appearance
+                coatType: animal.coatType ?? null,
+                coatColors: animal.coatColors ?? [],
+                // v6: Description & environment
+                description: sanitizeText(animal.description),
+                environmentNeeds: animal.environmentNeeds ?? [],
+                // v7: Medical status
+                isAltered: animal.isAltered ?? null,
+                isMicrochipped: animal.isMicrochipped ?? null,
+                isVaccinated: animal.isVaccinated ?? null,
+                // v7: Adoption & listing
+                adoptionFee: animal.adoptionFee ?? null,
+                listingUrl: animal.listingUrl ?? null,
+                isCourtesyListing: animal.isCourtesyListing ?? null,
+                // v7: Physical details
+                weight: animal.weight ?? null,
+                birthday: animal.birthday ?? null,
+                coatPattern: animal.coatPattern ?? null,
+                isMixed: animal.isMixed ?? null,
+                // v7: Foster
+                isFosterHome: animal.isFosterHome ?? null,
             };
 
             if (cvEstimate) {
@@ -204,6 +242,11 @@ async function main() {
                     dentalNotes: cvEstimate.dentalNotes ?? null,
                     cataractStage: cvEstimate.cataractStage ?? null,
                     eyeNotes: cvEstimate.eyeNotes ?? null,
+                    estimatedWeightLbs: cvEstimate.estimatedWeightLbs ?? null,
+                    mobilityAssessment: cvEstimate.mobilityAssessment ?? null,
+                    mobilityNotes: cvEstimate.mobilityNotes ?? null,
+                    energyLevel: cvEstimate.energyLevel ?? null,
+                    groomingNeeds: cvEstimate.groomingNeeds ?? null,
                 });
             } else if (!hasExistingCv) {
                 data.ageSource = animal.ageSource || 'SHELTER_REPORTED';
@@ -212,10 +255,14 @@ async function main() {
 
             let animalId: string;
             if (existing) {
-                // Re-entry detection: animal was delisted but reappeared
+                // Re-entry detection: only count as re-entry if delisted 48+ hours ago
                 if (existing.status === 'DELISTED') {
-                    data.shelterEntryCount = (existing.shelterEntryCount || 1) + 1;
-                    console.log(`      🔄 Re-entry #${data.shelterEntryCount}: ${animal.name || animal.intakeId}`);
+                    const wasDelistedLongAgo = existing.delistedAt &&
+                        (now.getTime() - new Date(existing.delistedAt).getTime()) > 48 * 60 * 60 * 1000;
+                    if (wasDelistedLongAgo) {
+                        data.shelterEntryCount = (existing.shelterEntryCount || 1) + 1;
+                        console.log(`      🔄 Re-entry #${data.shelterEntryCount}: ${animal.name || animal.intakeId}`);
+                    }
                 }
                 await (prisma as any).animal.update({
                     where: { id: existing.id }, data: {
@@ -255,7 +302,11 @@ async function main() {
                         : null,
                 }
             });
-        } catch (err) { errors++; console.error(`   ❌ ${animal.intakeId}: ${(err as Error).message?.substring(0, 100)}`); }
+        } catch (err) {
+            errors++;
+            console.error(`   ❌ ${animal.intakeId}: ${(err as Error).message?.substring(0, 100)}`);
+            await enqueueFailure('shelterluv', shelterId, animal.intakeId, (err as Error).message);
+        }
     }
 
     for (let i = 0; i < withPhotos.length; i += CONCURRENCY) {
@@ -297,7 +348,9 @@ async function main() {
     console.log(`   Animals: ${created} created, ${updated} updated, ${totalDelisted} delisted, ${errors} errors`);
     console.log(`   CV: ${cvProcessed} new, ${cvSkipped} reused | Dedup: ${dedupMerged} | Non-photo: ${skippedNonPhoto}`);
     console.log(`   Shelters: ${sheltersCreated}`);
-    process.exit(0);
+    checkScrapeHealth('shelterluv', created + updated, errors, Date.now() - startTime);
+    await finishRun(runId, { created, updated, errors, errorSummary: errors > 0 ? `${errors} animal upsert failures` : undefined });
+    process.exit(errors > 0 ? 1 : 0);
 }
 
 main();

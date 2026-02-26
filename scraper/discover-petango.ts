@@ -397,14 +397,141 @@ async function tryDirectPetConnect(target: ShelterTarget): Promise<{ authkey: st
     return keys;
 }
 
+// ── Bulk Discovery ─────────────────────────────────────
+
+/**
+ * Generates candidate authkeys by scanning the 24PetConnect partner
+ * directory and probing common org code patterns. This can discover
+ * 1,800+ PetPoint shelters beyond what website scraping finds.
+ */
+async function bulkDiscovery(existingKeys: Set<string>, limit: number): Promise<DiscoveredKey[]> {
+    console.log(`\n   🔎 Bulk Discovery Mode — scanning 24PetConnect partner space...`);
+    const discovered: DiscoveredKey[] = [];
+
+    // Strategy 1: Scan 24PetConnect partner search with 4-letter org codes
+    // PetPoint uses 4-character uppercase org codes (e.g., DNVR, SATX, FWTX)
+    const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const prefixes = [
+        // Common municipal patterns
+        ...['ACS', 'ACC', 'ANM', 'PET', 'HUM', 'SPC', 'SPK'].flatMap(p =>
+            alphabet.split('').map(c => p + c)
+        ),
+        // State abbreviation prefixes (top 20 states by shelter count)
+        ...['CA', 'TX', 'FL', 'NY', 'PA', 'OH', 'IL', 'GA', 'NC', 'MI',
+            'NJ', 'VA', 'WA', 'AZ', 'MA', 'TN', 'IN', 'MO', 'MD', 'CO'
+        ].flatMap(st =>
+            alphabet.split('').slice(0, 10).map(c => st + c + alphabet[Math.floor(Math.random() * 26)])
+        ),
+    ];
+
+    // Deduplicate and shuffle for better coverage distribution
+    const uniquePrefixes = [...new Set(prefixes)].sort(() => Math.random() - 0.5);
+    console.log(`   Will probe ${uniquePrefixes.length} org code patterns (limit: ${limit})`);
+
+    let probed = 0;
+    let found = 0;
+
+    for (const code of uniquePrefixes) {
+        if (found >= limit) break;
+
+        try {
+            const url = `https://www.24petconnect.com/partnersearch?p=${code}`;
+            const html = await fetchPage(url);
+
+            if (html && html.length > 2000) {
+                const keys = extractAuthkeys(html);
+                const newKeys = keys.filter(k => !existingKeys.has(k.authkey.toLowerCase()));
+
+                for (const key of newKeys) {
+                    if (found >= limit) break;
+                    const result = await validateAuthkey(key.authkey);
+                    if (result.valid && result.animalCount > 0) {
+                        discovered.push({
+                            id: `bulk-${code.toLowerCase()}-petango`,
+                            shelterName: `PetPoint Shelter (${code})`,
+                            authkey: key.authkey,
+                            city: 'Unknown',
+                            state: 'US',
+                            source: `24PetConnect partner: ${code}`,
+                            animalCount: result.animalCount,
+                        });
+                        existingKeys.add(key.authkey.toLowerCase());
+                        found++;
+                        console.log(`      ✅ ${code}: ${result.animalCount} animals (authkey: ${key.authkey.substring(0, 12)}...)`);
+                    }
+                    await new Promise(r => setTimeout(r, 1500));
+                }
+            }
+        } catch { /* skip failed probes */ }
+
+        probed++;
+        if (probed % 50 === 0) {
+            console.log(`      ... ${probed}/${uniquePrefixes.length} probed, ${found} found`);
+        }
+
+        // Rate limit: max 2 req/sec
+        await new Promise(r => setTimeout(r, 500));
+    }
+
+    // Strategy 2: Try incrementing numeric IDs on the Petango widget endpoint
+    console.log(`\n   🔢 Probing numeric widget IDs...`);
+    const widgetBase = 'https://ws.petango.com/webservices/adoptablesearch/wsAdoptableAnimals2.aspx';
+    let numericProbed = 0;
+
+    // Sample a range of widget page IDs
+    for (let id = 1; id <= 500 && found < limit; id += 3) {
+        try {
+            const url = `${widgetBase}?p=${id}`;
+            const html = await fetchPage(url);
+            if (html) {
+                const keys = extractAuthkeys(html);
+                const newKeys = keys.filter(k => !existingKeys.has(k.authkey.toLowerCase()));
+
+                for (const key of newKeys) {
+                    if (found >= limit) break;
+                    const result = await validateAuthkey(key.authkey);
+                    if (result.valid && result.animalCount > 0) {
+                        discovered.push({
+                            id: `bulk-widget-${id}-petango`,
+                            shelterName: `PetPoint Shelter (Widget #${id})`,
+                            authkey: key.authkey,
+                            city: 'Unknown',
+                            state: 'US',
+                            source: `Petango widget ID: ${id}`,
+                            animalCount: result.animalCount,
+                        });
+                        existingKeys.add(key.authkey.toLowerCase());
+                        found++;
+                        console.log(`      ✅ Widget #${id}: ${result.animalCount} animals`);
+                    }
+                    await new Promise(r => setTimeout(r, 1500));
+                }
+            }
+        } catch { /* skip */ }
+
+        numericProbed++;
+        if (numericProbed % 50 === 0) {
+            console.log(`      ... ${numericProbed}/167 widget IDs probed, ${found} total found`);
+        }
+        await new Promise(r => setTimeout(r, 500));
+    }
+
+    console.log(`\n   📊 Bulk discovery complete: ${discovered.length} new shelters found`);
+    return discovered;
+}
+
 // ── Main ───────────────────────────────────────────────
+
 
 async function main() {
     const dryRun = process.argv.includes('--dry-run');
     const validateExisting = process.argv.includes('--validate');
+    const bulkMode = process.argv.includes('--bulk');
+    const limitArg = process.argv.find(a => a.startsWith('--limit='));
+    const bulkLimit = limitArg ? parseInt(limitArg.split('=')[1], 10) : 2000;
 
-    console.log(`🔍 Golden Years Club — Petango Authkey Discovery${dryRun ? ' (DRY RUN)' : ''}`);
-    console.log(`   Scanning ${TARGETS.length} shelter websites for PetPoint/24PetConnect authkeys...\n`);
+    console.log(`🔍 Golden Years Club — Petango Authkey Discovery${dryRun ? ' (DRY RUN)' : ''}${bulkMode ? ' (BULK)' : ''}`);
+    console.log(`   Scanning ${bulkMode ? 'PetPoint API namespace' : `${TARGETS.length} shelter websites`} for PetPoint/24PetConnect authkeys...\n`);
 
     // Load existing config
     const existingConfig: ExistingConfig[] = JSON.parse(readFileSync(CONFIG_PATH, 'utf-8'));
@@ -501,10 +628,16 @@ async function main() {
         }
     }
 
+    // ── Bulk Discovery Mode ─────────────────────────────
+    if (bulkMode) {
+        const bulkResults = await bulkDiscovery(existingKeys, bulkLimit);
+        discovered.push(...bulkResults);
+    }
+
     // Summary
     console.log('═══════════════════════════════════════════');
     console.log(`🏁 Discovery Complete`);
-    console.log(`   Scanned: ${scanned} shelters`);
+    console.log(`   Scanned: ${scanned} shelters${bulkMode ? ' + bulk PetPoint API' : ''}`);
     console.log(`   Discovered: ${discovered.length} new authkeys`);
     console.log('');
 

@@ -22,26 +22,27 @@ const nextConfig: NextConfig = {
       // OC Animal Care — Pet Adoption Portal
       { protocol: 'https', hostname: 'petadoption.ocpetinfo.com' },
       // RescueGroups CDN
-      { protocol: 'https', hostname: '**.rescuegroups.org' },
-      // Petango (used by some shelters)
-      { protocol: 'https', hostname: '**.petango.com' },
-      // Shelter Buddy (used by some shelters)
-      { protocol: 'https', hostname: '**.shelterbuddy.com' },
-      // ShelterLuv CDN
-      { protocol: 'https', hostname: '**.shelterluv.com' },
-      // Petfinder CDN (S3 via CloudFront)
+      { protocol: 'https', hostname: 'cdn.rescuegroups.org' },
       { protocol: 'https', hostname: 'dl5zpyw5k3jeb.cloudfront.net' },
+      // Petango (used by some shelters)
+      { protocol: 'https', hostname: 'g.petango.com' },
+      { protocol: 'https', hostname: 'images.petango.com' },
+      // ShelterLuv CDN
+      { protocol: 'https', hostname: 'www.shelterluv.com' },
+      { protocol: 'https', hostname: 'cdn.shelterluv.com' },
+      // Petfinder CDN (S3 via CloudFront)
       { protocol: 'https', hostname: 'dbw3zep4prcju.cloudfront.net' },
-      { protocol: 'https', hostname: '**.petfinder.com' },
+      { protocol: 'https', hostname: 'psl.petfinder.com' },
+      { protocol: 'https', hostname: 'photos.petfinder.com' },
       // AdoptAPet CDN
       { protocol: 'https', hostname: 'photos.adoptapet.com' },
-      { protocol: 'https', hostname: '**.adoptapet.com' },
+      { protocol: 'https', hostname: 'media.adoptapet.com' },
       // Adopt-a-Pet PDP media (S3)
       { protocol: 'https', hostname: 'npus-pr-petfusbbc-pdp-media-service-public-use1-sss.s3.amazonaws.com' },
       // County shelter portals
-      { protocol: 'https', hostname: '**.sanantonio.gov' },
-      { protocol: 'https', hostname: '**.animalfoundation.com' },
-      { protocol: 'https', hostname: '**.sdhumane.org' },
+      { protocol: 'https', hostname: 'www.sanantonio.gov' },
+      { protocol: 'https', hostname: 'www.animalfoundation.com' },
+      { protocol: 'https', hostname: 'www.sdhumane.org' },
     ],
     deviceSizes: [640, 828, 1080, 1200, 1920],
     imageSizes: [256, 384, 640],

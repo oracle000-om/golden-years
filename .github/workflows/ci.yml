@@ -1,0 +1,36 @@
+# Golden Years Club — CI Pipeline
+#
+# Runs build + unit tests on every push and PR.
+# Prevents broken builds from deploying to Railway.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npx prisma generate
+
+      - name: Type check + build
+        run: npm run build
+        env:
+          # Build needs DATABASE_URL shape but won't connect
+          DATABASE_URL: "postgresql://placeholder:placeholder@localhost:5432/placeholder"
+
+      - name: Unit tests
+        run: npx vitest run

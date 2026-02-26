@@ -47,3 +47,4 @@ next-env.d.ts
 # .gitignore additions
 src/generated/
 docs/
+backups/

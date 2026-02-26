@@ -1,0 +1,66 @@
+# Golden Years Club — Health Check
+#
+# Runs twice daily to detect stale data. If the health endpoint
+# reports a stale data warning or the site is down, this job FAILS
+# and GitHub sends an email notification.
+#
+# This is the alerting layer — scrapers can fail silently at 2am,
+# but this ensures someone knows within 12 hours.
+
+name: Health Check
+
+on:
+  schedule:
+    # Twice daily: 6am and 6pm UTC (offset from scraper runs at 2/10/18 UTC)
+    - cron: '0 6,18 * * *'
+  workflow_dispatch: {}
+
+jobs:
+  check-health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    env:
+      SITE_URL: https://goldenyears.club
+      HEALTH_API_KEY: ${{ secrets.HEALTH_API_KEY }}
+    steps:
+      - name: Check site health
+        run: |
+          echo "Checking health at $SITE_URL/api/health..."
+
+          # Build headers
+          HEADERS=(-H "Accept: application/json")
+          if [ -n "$HEALTH_API_KEY" ]; then
+            HEADERS+=(-H "x-api-key: $HEALTH_API_KEY")
+          fi
+
+          # Fetch health endpoint
+          RESPONSE=$(curl -sf "${HEADERS[@]}" "$SITE_URL/api/health" 2>&1) || {
+            echo "❌ Site is DOWN or unreachable"
+            echo "Response: $RESPONSE"
+            exit 1
+          }
+
+          echo "Response: $RESPONSE"
+
+          # Check for error status
+          STATUS=$(echo "$RESPONSE" | python3 -c "import sys,json; print(json.load(sys.stdin).get('status','unknown'))")
+          if [ "$STATUS" != "ok" ]; then
+            echo "❌ Health check returned status: $STATUS"
+            exit 1
+          fi
+
+          # Check for stale data warning
+          STALE=$(echo "$RESPONSE" | python3 -c "import sys,json; print(json.load(sys.stdin).get('staleDataWarning') or '')")
+          if [ -n "$STALE" ]; then
+            echo "⚠️  STALE DATA: $STALE"
+            exit 1
+          fi
+
+          # Check unresolved failures
+          FAILURES=$(echo "$RESPONSE" | python3 -c "import sys,json; print(json.load(sys.stdin).get('unresolvedFailures', 0))")
+          if [ "$FAILURES" -gt 50 ]; then
+            echo "⚠️  HIGH FAILURE COUNT: $FAILURES unresolved scrape failures"
+            exit 1
+          fi
+
+          echo "✅ All clear — status=$STATUS, failures=$FAILURES"

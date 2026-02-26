@@ -31,11 +31,20 @@ model Shelter {
   priorDataYear           Int?     @map("prior_data_year")
   latitude              Float?
   longitude             Float?
+  // ── v8: Derived metrics (computed, not scraped) ──
+  liveReleaseRate       Float?      @map("live_release_rate")       // (intake - euthanized) / intake, 0.0–1.0
+  perCapitaIntake       Float?      @map("per_capita_intake")       // intake per 1,000 residents
+  transferRate          Float?      @map("transfer_rate")           // transferred / intake, 0.0–1.0
+  returnToOwnerRate     Float?      @map("return_to_owner_rate")    // RTO / intake, 0.0–1.0
+  intakeTrendPct        Float?      @map("intake_trend_pct")        // (current - prior) / prior, e.g. -0.12 = 12% decrease
+  medianDaysToOutcome   Int?        @map("median_days_to_outcome")  // median days animals stay
+  seniorCount           Int?        @map("senior_count")            // count of senior animals at this shelter
   lastScrapedAt         DateTime? @map("last_scraped_at")
   createdAt          DateTime @default(now()) @map("created_at")
   updatedAt          DateTime @updatedAt @map("updated_at")
 
   animals Animal[]
+  financials ShelterFinancials?
 
   @@map("shelters")
 }
@@ -101,6 +110,47 @@ model Animal {
   cataractStage         String?     @map("cataract_stage")
   eyeNotes              String?     @map("eye_notes")
 
+  // ── v8: Physical assessment from CV ──
+  estimatedWeightLbs    Int?        @map("estimated_weight_lbs")
+  mobilityAssessment    String?     @map("mobility_assessment")  // normal, limited, impaired
+  mobilityNotes         String?     @map("mobility_notes")
+  energyLevel           String?     @map("energy_level")          // low, moderate, high
+  groomingNeeds         String?     @map("grooming_needs")        // minimal, regular, extensive
+
+  // ── v6: Structured behavioral data ──
+  houseTrained          Boolean?    @map("house_trained")
+  goodWithCats          Boolean?    @map("good_with_cats")
+  goodWithDogs          Boolean?    @map("good_with_dogs")
+  goodWithChildren      Boolean?    @map("good_with_children")
+  specialNeeds          Boolean?    @map("special_needs")
+
+  // ── v6: Coat & appearance ──
+  coatType              String?     @map("coat_type")       // e.g., "Short", "Long", "Wire"
+  coatColors            String[]    @default([]) @map("coat_colors")  // e.g., ["Black", "White"]
+
+  // ── v6: Description & environment ──
+  description           String?                              // Full bio/description text
+  environmentNeeds      String[]    @default([]) @map("environment_needs") // e.g., ["No cats", "Fenced yard"]
+
+  // ── v7: Medical status ──
+  isAltered             Boolean?    @map("is_altered")        // Spayed/neutered
+  isMicrochipped        Boolean?    @map("is_microchipped")
+  isVaccinated          Boolean?    @map("is_vaccinated")     // Current on vaccinations
+
+  // ── v7: Adoption & listing ──
+  adoptionFee           String?     @map("adoption_fee")      // e.g., "$150", "Waived"
+  listingUrl            String?     @map("listing_url")       // Direct URL to original listing
+  isCourtesyListing     Boolean?    @map("is_courtesy_listing") // Not at this shelter
+
+  // ── v7: Physical details ──
+  weight                String?                               // e.g., "55 lbs", "Large (60-99)"
+  birthday              DateTime?                             // Exact or estimated birthdate
+  coatPattern           String?     @map("coat_pattern")      // e.g., "Tabby", "Tuxedo", "Brindle"
+  isMixed               Boolean?    @map("is_mixed")          // Mixed breed flag
+
+  // ── v7: Location / foster ──
+  isFosterHome          Boolean?    @map("is_foster_home")    // Currently in foster (not at shelter)
+
   intakeReason          IntakeReason @default(UNKNOWN) @map("intake_reason")
   intakeReasonDetail    String?     @map("intake_reason_detail")
   notes                 String?
@@ -117,6 +167,13 @@ model Animal {
   shelterEntryCount     Int         @default(1) @map("shelter_entry_count")
   outcomeDate           DateTime?   @map("outcome_date")
   outcomeNotes          String?     @map("outcome_notes")
+
+  // ── v8: Derived / computed fields ──
+  adoptionUrgency       String?     @map("adoption_urgency")       // LOW, MODERATE, HIGH, CRITICAL
+  adoptionReadiness     String?     @map("adoption_readiness")     // GREAT, GOOD, NEEDS_WORK, CHALLENGING
+  breedHealthRisk       Int?        @map("breed_health_risk")      // 1-10 from BreedProfile
+  breedCommonConditions String[]    @default([]) @map("breed_common_conditions")
+  estimatedAnnualCost   String?     @map("estimated_annual_cost")  // e.g. "$800–$1,200"
 
   createdAt             DateTime    @default(now()) @map("created_at")
   updatedAt             DateTime    @updatedAt @map("updated_at")
@@ -336,6 +393,30 @@ model ScrapeFailure {
   @@map("scrape_failures")
 }
 
+model ScrapeRun {
+  id             String    @id @default(uuid())
+  pipeline       String
+  status         RunStatus @default(RUNNING)
+  startedAt      DateTime  @default(now()) @map("started_at")
+  finishedAt     DateTime? @map("finished_at")
+  durationMs     Int?      @map("duration_ms")
+  animalsCreated Int       @default(0) @map("animals_created")
+  animalsUpdated Int       @default(0) @map("animals_updated")
+  errors         Int       @default(0)
+  errorSummary   String?   @map("error_summary")
+  metadata       Json?
+
+  @@index([pipeline, startedAt])
+  @@map("scrape_runs")
+}
+
+enum RunStatus {
+  RUNNING
+  SUCCESS
+  PARTIAL
+  FAILED
+}
+
 model StatePolicy {
   id                    String   @id @default(uuid())
   state                 String   @unique  // 2-letter code (e.g., "TX")
@@ -367,6 +448,38 @@ model StatePolicy {
   updatedAt             DateTime  @updatedAt @map("updated_at")
 
   @@map("state_policies")
+}
+
+model ShelterFinancials {
+  id                  String   @id @default(uuid())
+  shelterId           String   @unique @map("shelter_id")
+  ein                 String?                              // IRS EIN (e.g., "59-0624410")
+  nteeCode            String?  @map("ntee_code")           // NTEE classification (e.g., "D200")
+  taxPeriod           Int?     @map("tax_period")           // Most recent tax year (e.g., 2022)
+
+  // ── Latest Filing Summary ──
+  totalRevenue        Int?     @map("total_revenue")
+  totalExpenses       Int?     @map("total_expenses")
+  totalAssets         Int?     @map("total_assets")
+  totalLiabilities    Int?     @map("total_liabilities")
+  netAssets           Int?     @map("net_assets")
+  contributions       Int?                                  // Donations/grants received
+  programRevenue      Int?     @map("program_revenue")      // Revenue from programs (adoptions, clinic, etc.)
+  fundraisingExpense  Int?     @map("fundraising_expense")
+  officerCompensation Int?     @map("officer_compensation")
+
+  // ── Full Filing History (all available years) ──
+  filingHistory       Json?    @map("filing_history")       // Array of {year, revenue, expenses, assets, ...}
+
+  // ── Metadata ──
+  proPublicaUrl       String?  @map("propublica_url")
+  lastScrapedAt       DateTime? @map("last_scraped_at")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  shelter Shelter @relation(fields: [shelterId], references: [id])
+
+  @@map("shelter_financials")
 }
 
 model Feedback {

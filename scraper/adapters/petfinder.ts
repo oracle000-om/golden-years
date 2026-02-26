@@ -51,6 +51,7 @@ interface PfAnimalResponse {
     distance: number | null;
     behavior?: {
         houseTrained: boolean | null;
+        specialNeeds: boolean | null;
         interactions?: {
             cats: boolean | null;
             dogs: boolean | null;
@@ -65,11 +66,24 @@ interface PfAnimalResponse {
         age?: { value: string; label: string; rangeLabel: string };
         sex?: string;    // "Male", "Female"
         size?: { label: string };
+        coat?: string;   // "Short", "Medium", "Long", "Wire", etc.
+        colors?: { primary: string | null; secondary: string | null; tertiary: string | null };
+    };
+    description?: string | null;
+    environment?: {
+        cats: boolean | null;
+        dogs: boolean | null;
+        children: boolean | null;
     };
     meta?: {
         publishTime: string;
         update?: { time: string };
     };
+    attributes?: {
+        spayedNeutered: boolean | null;
+        shotsCurrent: boolean | null;
+    };
+    tags?: string[];
     _media?: Array<{ s3Url: string }>;
 }
 
@@ -117,14 +131,21 @@ query SearchAnimal(
             animalType
             primaryPhotoId
             distance
+            description
             behavior {
                 houseTrained
+                specialNeeds
                 interactions {
                     cats
                     dogs
                     childrenUnder8
                     children8AndUp
                 }
+            }
+            environment {
+                cats
+                dogs
+                children
             }
             publicUrl { url }
             organization {
@@ -138,11 +159,18 @@ query SearchAnimal(
                 age { value label rangeLabel }
                 sex
                 size { label }
+                coat
+                colors { primary secondary tertiary }
             }
             meta {
                 publishTime
                 update { time }
             }
+            attributes {
+                spayedNeutered
+                shotsCurrent
+            }
+            tags
             _media { s3Url }
         }
     }
@@ -278,14 +306,43 @@ async function fetchOrgAnimals(
             ].filter(Boolean);
             const breed = breedParts.length > 0 ? breedParts.join(' / ') : null;
 
-            // Build behavioral notes
-            const behaviorParts: string[] = [];
-            if (pf.behavior?.houseTrained) behaviorParts.push('House trained');
+            // Extract structured behavioral data
             const inter = pf.behavior?.interactions;
-            if (inter?.cats === true) behaviorParts.push('Good with cats');
-            if (inter?.dogs === true) behaviorParts.push('Good with dogs');
-            if (inter?.children8AndUp === true || inter?.childrenUnder8 === true) behaviorParts.push('Good with children');
+            const env = pf.environment;
+            const houseTrained = pf.behavior?.houseTrained ?? null;
+            const goodWithCats = inter?.cats ?? env?.cats ?? null;
+            const goodWithDogs = inter?.dogs ?? env?.dogs ?? null;
+            const goodWithChildren = (inter?.children8AndUp === true || inter?.childrenUnder8 === true)
+                ? true
+                : (inter?.children8AndUp === false && inter?.childrenUnder8 === false)
+                    ? false
+                    : env?.children ?? null;
+            const specialNeeds = pf.behavior?.specialNeeds ?? null;
+
+            // Build environment needs from negative signals
+            const envNeeds: string[] = [];
+            if (env?.cats === false || inter?.cats === false) envNeeds.push('No cats');
+            if (env?.dogs === false || inter?.dogs === false) envNeeds.push('No dogs');
+            if (env?.children === false) envNeeds.push('No children');
+
+            // Extract coat data
+            const coatType = pf.physical?.coat || null;
+            const colorParts = [
+                pf.physical?.colors?.primary,
+                pf.physical?.colors?.secondary,
+                pf.physical?.colors?.tertiary,
+            ].filter(Boolean) as string[];
+
+            // Build behavioral notes (backward compat for notes field)
+            const behaviorParts: string[] = [];
+            if (houseTrained) behaviorParts.push('House trained');
+            if (goodWithCats) behaviorParts.push('Good with cats');
+            if (goodWithDogs) behaviorParts.push('Good with dogs');
+            if (goodWithChildren) behaviorParts.push('Good with children');
             const behaviorNote = behaviorParts.length > 0 ? behaviorParts.join('. ') + '.' : null;
+
+            // Full description from Petfinder listing
+            const description = pf.description?.trim() || null;
 
             const org = pf.organization;
             const orgName = org?.organizationName || config.shelterName;
@@ -310,6 +367,25 @@ async function fetchOrgAnimals(
                 notes: behaviorNote,
                 intakeReason: 'UNKNOWN',
                 intakeReasonDetail: null,
+                // v6: Structured behavioral data
+                houseTrained,
+                goodWithCats,
+                goodWithDogs,
+                goodWithChildren,
+                specialNeeds,
+                // v6: Coat & appearance
+                coatType,
+                coatColors: colorParts,
+                // v6: Description & environment
+                description,
+                environmentNeeds: envNeeds,
+                // v7: Medical status
+                isAltered: pf.attributes?.spayedNeutered ?? null,
+                isVaccinated: pf.attributes?.shotsCurrent ?? null,
+                // v7: Listing & physical
+                listingUrl: pf.publicUrl?.url || null,
+                isMixed: pf.physical?.breed?.mixed ?? null,
+                // Internal
                 _shelterId: `petfinder-${config.id}`,
                 _shelterName: orgName,
                 _shelterCity: orgCity,

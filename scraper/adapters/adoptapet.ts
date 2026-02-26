@@ -24,6 +24,54 @@ import { safeFetchText, isSenior, mapSex, mapSpecies, mapSize, parseAge, validat
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
+// ── Breed → Size Inference ─────────────────────────────
+// Adopt-a-Pet doesn't provide size, so infer from breed string
+const BREED_SIZE_MAP: Record<string, 'SMALL' | 'MEDIUM' | 'LARGE' | 'XLARGE'> = {
+    // Small dogs
+    chihuahua: 'SMALL', dachshund: 'SMALL', 'yorkshire terrier': 'SMALL', yorkie: 'SMALL',
+    pomeranian: 'SMALL', 'shih tzu': 'SMALL', maltese: 'SMALL', papillon: 'SMALL',
+    'toy poodle': 'SMALL', 'miniature pinscher': 'SMALL', 'italian greyhound': 'SMALL',
+    havanese: 'SMALL', 'bichon frise': 'SMALL', 'cavalier king charles': 'SMALL',
+    pekingese: 'SMALL', 'lhasa apso': 'SMALL', 'japanese chin': 'SMALL',
+    affenpinscher: 'SMALL', 'brussels griffon': 'SMALL', 'chinese crested': 'SMALL',
+    // Medium dogs
+    beagle: 'MEDIUM', 'cocker spaniel': 'MEDIUM', 'border collie': 'MEDIUM',
+    'australian shepherd': 'MEDIUM', bulldog: 'MEDIUM', 'french bulldog': 'MEDIUM',
+    'shetland sheepdog': 'MEDIUM', 'springer spaniel': 'MEDIUM', corgi: 'MEDIUM',
+    'basset hound': 'MEDIUM', 'american staffordshire': 'MEDIUM', 'pit bull': 'MEDIUM',
+    'staffordshire': 'MEDIUM', whippet: 'MEDIUM', brittany: 'MEDIUM',
+    'miniature schnauzer': 'MEDIUM', 'standard poodle': 'MEDIUM',
+    // Large dogs
+    labrador: 'LARGE', 'golden retriever': 'LARGE', 'german shepherd': 'LARGE',
+    rottweiler: 'LARGE', boxer: 'LARGE', doberman: 'LARGE', husky: 'LARGE',
+    'siberian husky': 'LARGE', 'belgian malinois': 'LARGE', collie: 'LARGE',
+    'rhodesian ridgeback': 'LARGE', weimaraner: 'LARGE', vizsla: 'LARGE',
+    'chesapeake bay': 'LARGE', pointer: 'LARGE', setter: 'LARGE',
+    coonhound: 'LARGE', bluetick: 'LARGE', bloodhound: 'LARGE',
+    akita: 'LARGE', 'chow chow': 'LARGE', dalmatian: 'LARGE',
+    // XLarge dogs
+    'great dane': 'XLARGE', 'saint bernard': 'XLARGE', 'st. bernard': 'XLARGE',
+    mastiff: 'XLARGE', 'great pyrenees': 'XLARGE', newfoundland: 'XLARGE',
+    'bernese mountain': 'XLARGE', 'irish wolfhound': 'XLARGE', leonberger: 'XLARGE',
+    anatolian: 'XLARGE', 'tibetan mastiff': 'XLARGE',
+    // Cats
+    'maine coon': 'LARGE', ragdoll: 'LARGE', 'norwegian forest': 'LARGE',
+    'british shorthair': 'MEDIUM', siamese: 'MEDIUM', persian: 'MEDIUM',
+    'domestic shorthair': 'MEDIUM', 'domestic longhair': 'MEDIUM',
+    'domestic medium': 'MEDIUM', tabby: 'MEDIUM', calico: 'MEDIUM', tuxedo: 'MEDIUM',
+    bengal: 'MEDIUM', abyssinian: 'MEDIUM', 'russian blue': 'MEDIUM',
+    'devon rex': 'SMALL', 'cornish rex': 'SMALL', singapura: 'SMALL', munchkin: 'SMALL',
+};
+
+function inferSizeFromBreed(breed: string | null): 'SMALL' | 'MEDIUM' | 'LARGE' | 'XLARGE' | null {
+    if (!breed) return null;
+    const lower = breed.toLowerCase();
+    for (const [key, size] of Object.entries(BREED_SIZE_MAP)) {
+        if (lower.includes(key)) return size;
+    }
+    return null;
+}
+
 // ── Types ──────────────────────────────────────────────
 
 export interface AdoptaPetConfig {
@@ -286,7 +334,7 @@ async function fetchShelterAnimals(config: AdoptaPetConfig): Promise<ScrapedAnim
             species: resolvedSpecies,
             breed: detail.breed || null,
             sex: mapSex(detail.sex),
-            size: null,
+            size: inferSizeFromBreed(detail.breed),
             photoUrl: detail.photoUrl,
             status: 'AVAILABLE',
             ageKnownYears: ageYears,
@@ -296,6 +344,12 @@ async function fetchShelterAnimals(config: AdoptaPetConfig): Promise<ScrapedAnim
             notes: detail.description || null,
             intakeReason: 'UNKNOWN',
             intakeReasonDetail: null,
+            // v6: Description
+            description: detail.description || null,
+            // v7: Listing & physical
+            listingUrl: petUrl,
+            isMixed: detail.breed ? (detail.breed.toLowerCase().includes('mix') || detail.breed.includes('/')) : null,
+            // Internal
             _shelterId: `adoptapet-${config.id}`,
             _shelterName: config.shelterName,
             _shelterCity: config.city,
@@ -321,11 +375,23 @@ export interface AdoptaPetScrapeResult {
 
 export async function scrapeAdoptaPet(opts?: {
     shelterIds?: string[];
+    /** 0-indexed shard number for parallel execution */
+    shard?: number;
+    /** Total number of shards */
+    totalShards?: number;
 }): Promise<AdoptaPetScrapeResult> {
     const configs = loadConfig();
-    const filtered = opts?.shelterIds
+    let filtered = opts?.shelterIds
         ? configs.filter(c => opts.shelterIds!.includes(c.id))
         : configs;
+
+    // Shard support: split org list into N chunks for parallel execution
+    if (opts?.shard != null && opts?.totalShards && opts.totalShards > 1) {
+        const chunkSize = Math.ceil(filtered.length / opts.totalShards);
+        const start = opts.shard * chunkSize;
+        filtered = filtered.slice(start, start + chunkSize);
+        console.log(`   📦 Shard ${opts.shard + 1}/${opts.totalShards}: orgs ${start + 1}–${start + filtered.length} of ${configs.length}`);
+    }
 
     if (filtered.length === 0) {
         console.warn('   ⚠ No Adopt-a-Pet shelters configured. Check adoptapet-config.json');

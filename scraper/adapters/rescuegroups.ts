@@ -54,6 +54,7 @@ interface RGAnimal {
         breedPrimary: string | null;
         breedSecondary: string | null;
         breedString: string | null;
+        breedsMixed: boolean;
         sex: string;              // "Male", "Female", "Unknown"
         ageGroup: string;         // "Baby", "Young", "Adult", "Senior"
         ageString: string | null; // e.g., "10 years"
@@ -65,6 +66,15 @@ interface RGAnimal {
         foundDate: string | null;
         isSpecialNeeds: boolean;
         isSenior: boolean;
+        // v7 fields
+        isHouseTrained: boolean | null;
+        isAltered: boolean | null;       // spayed/neutered
+        isMicrochipped: boolean | null;
+        isCurrentVaccinations: boolean | null;
+        adoptionFeeString: string | null;
+        colorDetails: string | null;
+        pattern: string | null;
+        isCourtesyListing: boolean | null;
     };
     relationships: {
         orgs: { data: Array<{ type: string; id: string }> };
@@ -206,7 +216,7 @@ export async function scrapeRescueGroups(options: ScrapeOptions = {}): Promise<{
             url.searchParams.set('page', page.toString());
             url.searchParams.set('include', 'orgs,pictures');
             url.searchParams.set('fields[animals]',
-                'name,species,breedPrimary,breedSecondary,breedString,sex,ageGroup,ageString,sizeGroup,descriptionText,pictureThumbnailUrl,birthDate,foundDate,isSpecialNeeds,isSenior'
+                'name,species,breedPrimary,breedSecondary,breedString,breedsMixed,sex,ageGroup,ageString,sizeGroup,descriptionText,pictureThumbnailUrl,birthDate,foundDate,isSpecialNeeds,isSenior,isHouseTrained,isAltered,isMicrochipped,isCurrentVaccinations,adoptionFeeString,colorDetails,pattern,isCourtesyListing'
             );
             url.searchParams.set('fields[orgs]', 'name,citystate,state,city,postalcode,phone,url');
 
@@ -301,6 +311,23 @@ export async function scrapeRescueGroups(options: ScrapeOptions = {}): Promise<{
                         : species === 'cats' ? 'CAT'
                             : mapSpecies(attrs.species);
 
+                    // Compute age from birthDate if available (more precise than ageString)
+                    let finalAge = ageYears;
+                    if (attrs.birthDate) {
+                        const bd = new Date(attrs.birthDate);
+                        if (!isNaN(bd.getTime())) {
+                            const ageMsFromBirth = Date.now() - bd.getTime();
+                            const calcAge = Math.floor(ageMsFromBirth / (365.25 * 24 * 60 * 60 * 1000));
+                            if (calcAge >= 0 && calcAge <= 30) finalAge = calcAge;
+                        }
+                    }
+
+                    // Extract coat colors from colorDetails
+                    const coatColors: string[] = [];
+                    if (attrs.colorDetails) {
+                        coatColors.push(...attrs.colorDetails.split(/[,\/]/).map(c => c.trim()).filter(Boolean));
+                    }
+
                     const scraped: ScrapedAnimal = {
                         intakeId: animal.id,
                         name: attrs.name || null,
@@ -311,14 +338,30 @@ export async function scrapeRescueGroups(options: ScrapeOptions = {}): Promise<{
                         photoUrl,
                         photoUrls,
                         status: attrs.isSpecialNeeds ? 'URGENT' : 'AVAILABLE',
-                        ageKnownYears: ageYears,
-                        ageSource: ageYears !== null ? 'SHELTER_REPORTED' : 'UNKNOWN',
+                        ageKnownYears: finalAge,
+                        ageSource: finalAge !== null ? 'SHELTER_REPORTED' : 'UNKNOWN',
                         euthScheduledAt: null,
                         intakeDate: attrs.foundDate ? new Date(attrs.foundDate) : null,
                         notes: attrs.descriptionText || null,
                         intakeReason: 'UNKNOWN',
                         intakeReasonDetail: null,
-                        // Shelter info for dynamic shelter creation
+                        // v6: Structured fields
+                        description: attrs.descriptionText || null,
+                        specialNeeds: attrs.isSpecialNeeds || null,
+                        houseTrained: attrs.isHouseTrained ?? null,
+                        coatColors,
+                        coatPattern: attrs.pattern || null,
+                        // v7: Medical status
+                        isAltered: attrs.isAltered ?? null,
+                        isMicrochipped: attrs.isMicrochipped ?? null,
+                        isVaccinated: attrs.isCurrentVaccinations ?? null,
+                        // v7: Adoption & listing
+                        adoptionFee: attrs.adoptionFeeString || null,
+                        isCourtesyListing: attrs.isCourtesyListing ?? null,
+                        // v7: Physical details
+                        birthday: attrs.birthDate ? new Date(attrs.birthDate) : null,
+                        isMixed: attrs.breedsMixed ?? null,
+                        // Shelter info
                         _shelterId: org ? `rg-${org.id}` : null,
                         _shelterName: org?.attributes.name || null,
                         _shelterCity: org?.attributes.city || null,

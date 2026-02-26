@@ -58,7 +58,7 @@ export async function fetchAgencyList(year: number, category = 'AL'): Promise<Ar
     try {
         const url = `${BASE_URL}/Reports06/fnFacilityDD?year=${year}&vCategory=${category}`;
         const resp = await fetch(url, {
-            signal: AbortSignal.timeout(10000),
+            signal: AbortSignal.timeout(20000),
             headers: { 'User-Agent': 'GoldenYearsClub/1.0 (animal welfare research)' },
         });
         if (resp.ok) {
@@ -89,7 +89,7 @@ export async function fetchAgencyReport(
     const url = `${REPORT_URL}?SysFacNo=${sysFacNo}&Calendar_Year=${year}`;
 
     const resp = await fetch(url, {
-        signal: AbortSignal.timeout(15000),
+        signal: AbortSignal.timeout(30000),
         headers: { 'User-Agent': 'GoldenYearsClub/1.0 (animal welfare research)' },
     });
     if (!resp.ok) return null;

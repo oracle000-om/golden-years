@@ -54,6 +54,60 @@ export interface ScrapedAnimal {
     /** Free-text intake reason detail */
     intakeReasonDetail: string | null;
 
+    // ── Behavioral data ──
+    /** Is this animal house trained? */
+    houseTrained?: boolean | null;
+    /** Good with cats? */
+    goodWithCats?: boolean | null;
+    /** Good with dogs? */
+    goodWithDogs?: boolean | null;
+    /** Good with children? */
+    goodWithChildren?: boolean | null;
+    /** Has special needs? */
+    specialNeeds?: boolean | null;
+
+    // ── Coat & appearance ──
+    /** Coat type (e.g., "Short", "Long", "Wire") */
+    coatType?: string | null;
+    /** Coat colors */
+    coatColors?: string[];
+
+    // ── Description & environment ──
+    /** Full bio/description text from the listing */
+    description?: string | null;
+    /** Environment requirements (e.g., ["No cats", "Fenced yard"]) */
+    environmentNeeds?: string[];
+
+    // ── v7: Medical status ──
+    /** Spayed/neutered */
+    isAltered?: boolean | null;
+    /** Has microchip */
+    isMicrochipped?: boolean | null;
+    /** Current on vaccinations */
+    isVaccinated?: boolean | null;
+
+    // ── v7: Adoption & listing ──
+    /** Adoption fee (e.g., "$150", "Waived") */
+    adoptionFee?: string | null;
+    /** Direct URL to original listing */
+    listingUrl?: string | null;
+    /** Courtesy listing (not physically at this shelter) */
+    isCourtesyListing?: boolean | null;
+
+    // ── v7: Physical details ──
+    /** Weight (e.g., "55 lbs") */
+    weight?: string | null;
+    /** Exact or estimated birthdate */
+    birthday?: Date | null;
+    /** Coat pattern (e.g., "Tabby", "Tuxedo", "Brindle") */
+    coatPattern?: string | null;
+    /** Mixed breed flag */
+    isMixed?: boolean | null;
+
+    // ── v7: Location / foster ──
+    /** Currently in foster home */
+    isFosterHome?: boolean | null;
+
     // ── Internal: shelter metadata (populated by aggregator adapters) ──
     /** Internal shelter ID from the data source */
     _shelterId?: string | null;

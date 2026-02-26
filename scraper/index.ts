@@ -26,6 +26,7 @@ import { findDuplicate, computePhotoHash } from './dedup';
 import { sanitizeText } from './lib/sanitize-text';
 import { enqueueFailure } from './lib/retry-queue';
 import { checkScrapeHealth } from './lib/alert';
+import { startRun, finishRun } from './lib/scrape-run';
 
 
 
@@ -60,7 +61,10 @@ async function main() {
         prisma = await createPrismaClient();
     }
 
+    const runId = !dryRun ? await startRun('shelters', { shelterArg }) : '';
+
     console.log(`🐾 Golden Years Club — Scraper${dryRun ? ' (DRY RUN)' : ''}${noCv ? ' (NO CV)' : ''}`);
+
     console.log(`   Shelters: ${shelters.map(s => s.id).join(', ')}\n`);
 
     let grandTotalCreated = 0;
@@ -252,10 +256,14 @@ async function main() {
 
                 let animalId: string;
                 if (existing) {
-                    // Re-entry detection: animal was delisted but reappeared
+                    // Re-entry detection: only count as re-entry if delisted 48+ hours ago
                     if (existing.status === 'DELISTED') {
-                        data.shelterEntryCount = ((existing as any).shelterEntryCount || 1) + 1;
-                        console.log(`      🔄 Re-entry #${data.shelterEntryCount}: ${animal.name || animal.intakeId}`);
+                        const wasDelistedLongAgo = (existing as any).delistedAt &&
+                            (now.getTime() - new Date((existing as any).delistedAt).getTime()) > 48 * 60 * 60 * 1000;
+                        if (wasDelistedLongAgo) {
+                            data.shelterEntryCount = ((existing as any).shelterEntryCount || 1) + 1;
+                            console.log(`      🔄 Re-entry #${data.shelterEntryCount}: ${animal.name || animal.intakeId}`);
+                        }
                     }
                     await prisma.animal.update({
                         where: { id: existing.id },
@@ -345,7 +353,8 @@ async function main() {
     const totalAnimals = grandTotalCreated + grandTotalUpdated;
     console.log(`🏁 Done. Total: ${grandTotalCreated} created, ${grandTotalUpdated} updated, ${grandTotalDedupMerged} deduped, ${grandTotalCvProcessed} CV estimates, ${grandTotalErrors} errors.`);
     checkScrapeHealth('shelters', totalAnimals, grandTotalErrors, Date.now());
-    process.exit(0);
+    await finishRun(runId, { created: grandTotalCreated, updated: grandTotalUpdated, errors: grandTotalErrors, errorSummary: grandTotalErrors > 0 ? `${grandTotalErrors} animal upsert failures` : undefined });
+    process.exit(grandTotalErrors > 0 ? 1 : 0);
 }
 
 main();

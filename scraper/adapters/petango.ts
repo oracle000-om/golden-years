@@ -44,6 +44,12 @@ interface PetangoAnimal {
     onHold: boolean;
     specialNeeds: boolean;
     memo: string;
+    color: string;
+    noDogs: boolean;
+    noCats: boolean;
+    noKids: boolean;
+    altered: boolean;
+    isMixed: boolean;
 }
 
 // ── Config Loading ─────────────────────────────────────
@@ -90,6 +96,14 @@ function parseAnimalFromXml(animalXml: string): PetangoAnimal | null {
     const onHold = extractTag(animalXml, 'OnHold')?.toLowerCase() === 'yes';
     const specialNeeds = extractTag(animalXml, 'SpecialNeeds')?.toLowerCase() === 'yes';
     const memo = extractTag(animalXml, 'Memo') || extractTag(animalXml, 'BehaviorResult') || '';
+    const color = extractTag(animalXml, 'Color') || extractTag(animalXml, 'PrimaryColor') || '';
+    const noDogs = extractTag(animalXml, 'NoDogs')?.toLowerCase() === 'yes';
+    const noCats = extractTag(animalXml, 'NoCats')?.toLowerCase() === 'yes';
+    const noKids = extractTag(animalXml, 'NoKids')?.toLowerCase() === 'yes';
+    const altered = extractTag(animalXml, 'Altered')?.toLowerCase() === 'yes'
+        || extractTag(animalXml, 'SpayedNeutered')?.toLowerCase() === 'yes';
+    const isMixed = extractTag(animalXml, 'IsMixedBreed')?.toLowerCase() === 'yes'
+        || (secondaryBreed.length > 0);
 
     // Photo URL — Petango uses different field names
     const rawPhotoCandidates = [
@@ -134,7 +148,7 @@ function parseAnimalFromXml(animalXml: string): PetangoAnimal | null {
     const photoUrl = allPhotos[0] || null;
     const photoUrls = allPhotos.slice(1);
 
-    return { id, name, species, breed, sex, age, size, photoUrl, photoUrls, location, onHold, specialNeeds, memo };
+    return { id, name, species, breed, sex, age, size, photoUrl, photoUrls, location, onHold, specialNeeds, memo, color, noDogs, noCats, noKids, altered, isMixed };
 }
 
 // ── API Calls ──────────────────────────────────────────
@@ -210,11 +224,23 @@ export interface PetangoScrapeResult {
  */
 export async function scrapePetango(opts?: {
     shelterIds?: string[];
+    /** 0-indexed shard number for parallel execution */
+    shard?: number;
+    /** Total number of shards */
+    totalShards?: number;
 }): Promise<PetangoScrapeResult> {
     const configs = loadConfig();
-    const filtered = opts?.shelterIds
+    let filtered = opts?.shelterIds
         ? configs.filter(c => opts.shelterIds!.includes(c.id))
         : configs;
+
+    // Shard support: split org list into N chunks for parallel execution
+    if (opts?.shard != null && opts?.totalShards && opts.totalShards > 1) {
+        const chunkSize = Math.ceil(filtered.length / opts.totalShards);
+        const start = opts.shard * chunkSize;
+        filtered = filtered.slice(start, start + chunkSize);
+        console.log(`   📦 Shard ${opts.shard + 1}/${opts.totalShards}: orgs ${start + 1}–${start + filtered.length} of ${configs.length}`);
+    }
 
     if (filtered.length === 0) {
         console.warn('   ⚠ No Petango shelters configured. Check petango-config.json');
@@ -257,6 +283,22 @@ export async function scrapePetango(opts?: {
                     if (!isSenior(ageYears, species)) continue;
                     seniorCount++;
 
+                    // Detect foster from location field
+                    const locationLower = (animal.location || '').toLowerCase();
+                    const isFoster = locationLower.includes('foster') || locationLower.includes('offsite');
+
+                    // Extract coat colors
+                    const coatColors: string[] = [];
+                    if (animal.color) {
+                        coatColors.push(...animal.color.split(/[,\/]/).map(c => c.trim()).filter(Boolean));
+                    }
+
+                    // Build environment needs from behavioral flags
+                    const envNeeds: string[] = [];
+                    if (animal.noDogs) envNeeds.push('No dogs');
+                    if (animal.noCats) envNeeds.push('No cats');
+                    if (animal.noKids) envNeeds.push('No children');
+
                     const scraped: ScrapedAnimal = {
                         intakeId: `PT-${config.id}-${animal.id}`,
                         name: animal.name || null,
@@ -274,6 +316,19 @@ export async function scrapePetango(opts?: {
                         notes: animal.memo || null,
                         intakeReason: 'UNKNOWN',
                         intakeReasonDetail: animal.location || null,
+                        // v6: Structured fields
+                        description: animal.memo || null,
+                        specialNeeds: animal.specialNeeds || null,
+                        goodWithDogs: animal.noDogs ? false : null,
+                        goodWithCats: animal.noCats ? false : null,
+                        goodWithChildren: animal.noKids ? false : null,
+                        coatColors,
+                        environmentNeeds: envNeeds,
+                        // v7: Medical & physical
+                        isAltered: animal.altered || null,
+                        isMixed: animal.isMixed || null,
+                        isFosterHome: isFoster || null,
+                        // Internal
                         _shelterId: `petango-${config.id}`,
                         _shelterName: config.shelterName,
                         _shelterCity: config.city,

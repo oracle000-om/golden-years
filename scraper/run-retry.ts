@@ -2,7 +2,9 @@
  * Run Retry Queue — Process Failed Scraper Upserts
  *
  * Standalone script to retry unresolved scrape failures.
- * Can be run manually or added to CI schedule.
+ * The retry handler deserializes the stored failure payload and
+ * re-attempts the Prisma upsert. Most failures are transient
+ * (DB timeout, connection reset) so the same payload works on retry.
  *
  * Usage:
  *   npx tsx scraper/run-retry.ts                  # all pipelines
@@ -12,6 +14,8 @@
 import 'dotenv/config';
 import { getFailureSummary, processRetryQueue } from './lib/retry-queue';
 import { sendAlert } from './lib/alert';
+import { createPrismaClient } from './lib/prisma';
+import { startRun, finishRun } from './lib/scrape-run';
 
 async function main() {
     const pipelineArg = process.argv.find(a => a.startsWith('--pipeline='))?.split('=')[1];
@@ -43,25 +47,80 @@ async function main() {
         process.exit(0);
     }
 
+    const runId = await startRun('retry-queue', { pipelineArg });
+
+    // Initialize Prisma for retry upserts
+    const prisma = await createPrismaClient();
+
     let totalResolved = 0;
     let totalExhausted = 0;
+    let totalProcessed = 0;
 
     for (const [pipeline] of pipelines) {
         console.log(`   Processing ${pipeline}...`);
         const result = await processRetryQueue(pipeline, 3, async (failure) => {
-            // Generic retry: re-attempt the upsert using the stored payload
-            // This is a placeholder — each pipeline can implement specific retry logic
-            console.log(`      Retrying ${failure.animalIntakeId ?? 'unknown'} from ${failure.shelterId ?? 'unknown'}...`);
-            // For now, just log that we'd retry. Real retry logic would be pipeline-specific.
-            throw new Error('Generic retry not yet implemented — pipeline-specific handlers needed');
+            // Generic retry: re-attempt the animal upsert using stored identifiers.
+            // Most failures are transient DB issues (timeout, connection reset, lock contention).
+            // Re-doing the upsert with the same shelter/animal ID resolves most of these.
+            const shelterId = failure.shelterId;
+            const intakeId = failure.animalIntakeId;
+
+            if (!shelterId || !intakeId) {
+                throw new Error(`Missing shelterId or intakeId — cannot retry`);
+            }
+
+            // Check if the animal was already successfully upserted in a later run
+            const existing = await (prisma as any).animal.findFirst({
+                where: {
+                    shelterId,
+                    intakeId,
+                },
+                select: { id: true, updatedAt: true },
+            });
+
+            if (existing) {
+                // Animal exists — failure was already resolved by a subsequent scrape run
+                console.log(`      ✅ ${intakeId} already exists (updated ${existing.updatedAt.toISOString()}) — marking resolved`);
+                return; // Success — processRetryQueue will mark as resolved
+            }
+
+            // If the failure has a stored payload, attempt to re-create the record
+            if (failure.payload && typeof failure.payload === 'object') {
+                const payload = failure.payload as Record<string, any>;
+                if (payload.data) {
+                    // Attempt the upsert with the stored data
+                    await (prisma as any).animal.create({
+                        data: {
+                            shelterId,
+                            intakeId,
+                            ...payload.data,
+                            firstSeenAt: new Date(),
+                            daysInShelter: 0,
+                        },
+                    });
+                    console.log(`      ✅ ${intakeId} re-created from stored payload`);
+                    return;
+                }
+            }
+
+            // No payload and no existing record — can't do anything useful
+            throw new Error(`No existing record and no stored payload for ${intakeId}`);
         });
 
         console.log(`      Processed: ${result.processed}, Resolved: ${result.resolved}, Exhausted: ${result.exhausted}`);
         totalResolved += result.resolved;
         totalExhausted += result.exhausted;
+        totalProcessed += result.processed;
     }
 
     console.log(`\n🏁 Done. Resolved: ${totalResolved}, Exhausted: ${totalExhausted}`);
+
+    await finishRun(runId, {
+        created: 0,
+        updated: totalResolved,
+        errors: totalExhausted,
+        errorSummary: totalExhausted > 0 ? `${totalExhausted} failures exhausted max retries` : undefined,
+    });
 
     if (totalExhausted > 0) {
         sendAlert('WARNING', `Retry queue: ${totalExhausted} failures exhausted max retries`, {
@@ -69,7 +128,7 @@ async function main() {
         });
     }
 
-    process.exit(0);
+    process.exit(totalExhausted > 0 ? 1 : 0);
 }
 
 main();

@@ -38,6 +38,14 @@ interface SocrataListingConfig {
         recordType?: string;
         /** Optional: size field */
         size?: string;
+        /** Optional: color field */
+        color?: string;
+        /** Optional: intake type (stray, surrender, transfer) */
+        intakeType?: string;
+        /** Optional: outcome type (adopted, transferred, euthanized) */
+        outcomeType?: string;
+        /** Optional: outcome date */
+        outcomeDate?: string;
     };
     /** Optional: URL template for constructing photo URLs from animal ID.
      *  Use {id} as placeholder, e.g. 'https://petharbor.com/get_image.asp?ID={id}' */
@@ -62,6 +70,7 @@ const LISTING_CONFIGS: SocrataListingConfig[] = [
             age: 'age',
             image: 'image',
             recordType: 'record_type',
+            color: 'animal_color',
         },
     },
     {
@@ -78,6 +87,7 @@ const LISTING_CONFIGS: SocrataListingConfig[] = [
             breed: 'animal_breed',
             sex: 'sex',
             age: 'age',
+            color: 'animal_color',
         },
         photoUrlTemplate: 'https://24petconnect.com/image/DLLS/{id}',
     },
@@ -96,6 +106,8 @@ const LISTING_CONFIGS: SocrataListingConfig[] = [
             breed: 'breed',
             sex: 'sex_upon_intake',
             age: 'age_upon_intake',
+            color: 'color',
+            intakeType: 'intake_type',
         },
         photoUrlTemplate: 'https://24petconnect.com/image/ASTN/{id}',
     },
@@ -212,6 +224,8 @@ async function fetchSocrataListings(config: SocrataListingConfig): Promise<Scrap
         const breed = r[fields.breed] ? String(r[fields.breed]).trim() : null;
         const sex = mapSex(r[fields.sex] ? String(r[fields.sex]) : '');
         const size = fields.size ? mapSize(r[fields.size] ? String(r[fields.size]) : '') : null;
+        const color = fields.color && r[fields.color] ? String(r[fields.color]).trim() : null;
+        const intakeType = fields.intakeType && r[fields.intakeType] ? String(r[fields.intakeType]).trim() : null;
 
         animals.push({
             intakeId: `SOC-${config.id}-${id}`,
@@ -227,8 +241,9 @@ async function fetchSocrataListings(config: SocrataListingConfig): Promise<Scrap
             euthScheduledAt: null,
             intakeDate: null,
             notes: null,
-            intakeReason: 'UNKNOWN',
-            intakeReasonDetail: null,
+            intakeReason: intakeType ? intakeType.toUpperCase() as any : 'UNKNOWN',
+            intakeReasonDetail: intakeType,
+            coatColors: color ? [color] : [],
             _shelterId: `socrata-${config.id}`,
             _shelterName: config.shelterName,
             _shelterCity: config.city,

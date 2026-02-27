@@ -425,31 +425,81 @@ export async function scrapePetfinder(opts?: {
     const allAnimals: ScrapedAnimal[] = [];
     const shelterMap = new Map<string, { name: string; city: string; state: string }>();
 
-    for (let i = 0; i < filtered.length; i++) {
-        const config = filtered[i];
+    // Pre-populate shelter map (cheap, no I/O)
+    for (const config of filtered) {
         shelterMap.set(`petfinder-${config.id}`, {
             name: config.shelterName,
             city: config.city,
             state: config.state,
         });
+    }
 
-        if (i % 100 === 0 || i === filtered.length - 1) {
-            console.log(`   🏠 [${i + 1}/${filtered.length}] ${config.shelterName} (${config.city}, ${config.state})...`);
+    // Process shelters concurrently with a semaphore
+    const SHELTER_CONCURRENCY = 5;
+    const SHELTER_TIMEOUT_MS = 60_000;
+    let completed = 0;
+    let active = 0;
+    let timedOut = 0;
+    const queue = [...filtered];
+    const startMs = Date.now();
+
+    async function processShelter(config: PetfinderConfig): Promise<void> {
+        try {
+            const shelterAnimals = await Promise.race([
+                (async () => {
+                    const results: ScrapedAnimal[] = [];
+                    for (const type of ['Dog', 'Cat'] as const) {
+                        try {
+                            const animals = await fetchOrgAnimals(config, type);
+                            results.push(...animals);
+                        } catch (err) {
+                            console.error(`   ❌ ${config.shelterName} ${type}s: ${(err as Error).message?.substring(0, 150)}`);
+                        }
+                    }
+                    return results;
+                })(),
+                new Promise<ScrapedAnimal[]>((_, reject) =>
+                    setTimeout(() => reject(new Error(`Shelter timeout (${SHELTER_TIMEOUT_MS / 1000}s)`)), SHELTER_TIMEOUT_MS)
+                ),
+            ]);
+            allAnimals.push(...shelterAnimals);
+        } catch (err) {
+            const msg = (err as Error).message?.substring(0, 100) || 'unknown error';
+            if (msg.includes('timeout')) timedOut++;
+            console.error(`   ❌ ${config.shelterName}: ${msg}`);
+        } finally {
+            completed++;
+            if (completed % 50 === 0 || completed === filtered.length) {
+                const elapsed = ((Date.now() - startMs) / 1000).toFixed(0);
+                console.log(`   📈 Progress: ${completed}/${filtered.length} shelters (${allAnimals.length} seniors, ${timedOut} timeouts) — ${elapsed}s`);
+            }
         }
+    }
 
-        for (const type of ['Dog', 'Cat'] as const) {
-            try {
-                const animals = await fetchOrgAnimals(config, type);
-                allAnimals.push(...animals);
-            } catch (err) {
-                console.error(`   ❌ ${config.shelterName} ${type}s: ${(err as Error).message?.substring(0, 150)}`);
+    // Semaphore: run up to SHELTER_CONCURRENCY shelters at a time
+    await new Promise<void>((resolve) => {
+        let idx = 0;
+
+        function scheduleNext(): void {
+            while (active < SHELTER_CONCURRENCY && idx < queue.length) {
+                const config = queue[idx++];
+                active++;
+                processShelter(config).finally(() => {
+                    active--;
+                    if (idx >= queue.length && active === 0) {
+                        resolve();
+                    } else {
+                        // Small stagger between launches to avoid request bursts
+                        setTimeout(scheduleNext, 400);
+                    }
+                });
             }
         }
 
-        await new Promise(r => setTimeout(r, 300));
-    }
+        scheduleNext();
+    });
 
-    console.log(`   Total Petfinder seniors: ${allAnimals.length} from ${shelterMap.size} shelters`);
+    console.log(`   Total Petfinder seniors: ${allAnimals.length} from ${shelterMap.size} shelters (${timedOut} timed out)`);
     return { animals: allAnimals, shelters: shelterMap };
 }
 

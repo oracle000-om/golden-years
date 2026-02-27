@@ -1,7 +1,8 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import Link from "next/link";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { FactBubbles } from "@/components/fact-bubbles";
+import { AdminToolbar } from "@/components/admin-toolbar";
 import "./globals.css";
 import "./listings.css";
 import "./detail.css";
@@ -9,12 +10,13 @@ import "./shelter.css";
 import "./components.css";
 import "./poll.css";
 import "./give.css";
+import "./admin.css";
 
 export const metadata: Metadata = {
   title: "Golden Years Club",
   description: "Surfacing senior animals on shelter euthanasia lists — giving them visibility, dignity, and a last chance.",
   manifest: "/manifest.json",
-  themeColor: "#c8a55a",
+
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
@@ -23,6 +25,10 @@ export const metadata: Metadata = {
   other: {
     "mobile-web-app-capable": "yes",
   },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#c8a55a",
 };
 
 export default function RootLayout({
@@ -69,6 +75,7 @@ export default function RootLayout({
         </footer>
 
         <FactBubbles />
+        <AdminToolbar />
         <script
           dangerouslySetInnerHTML={{
             __html: `if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').catch(()=>{})}`,

@@ -65,6 +65,7 @@ export interface Animal {
     healthNotes: string | null;
     stressLevel: string | null;
     fearIndicators: string[];
+    aggressionRisk: number | null;
     likelyCareNeeds: string[];
     estimatedCareLevel: string | null;
     dentalGrade: number | null;
@@ -72,6 +73,17 @@ export interface Animal {
     dentalNotes: string | null;
     cataractStage: string | null;
     eyeNotes: string | null;
+    // v8: Physical assessment from CV
+    estimatedWeightLbs: number | null;
+    mobilityAssessment: string | null;
+    mobilityNotes: string | null;
+    energyLevel: string | null;
+    groomingNeeds: string | null;
+    goodWithChildren: boolean | null;
+    goodWithDogs: boolean | null;
+    goodWithCats: boolean | null;
+    photoQuality: string | null;
+
     intakeReason: 'OWNER_SURRENDER' | 'STRAY' | 'OWNER_DECEASED' | 'CONFISCATE' | 'RETURN' | 'TRANSFER' | 'INJURED' | 'OTHER' | 'UNKNOWN';
     intakeReasonDetail: string | null;
     notes: string | null;

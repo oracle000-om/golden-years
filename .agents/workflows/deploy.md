@@ -6,11 +6,18 @@ description: How to deploy the application to production
 
 ## Steps
 
-1. Push to `main` branch — Railway auto-deploys on push.
+1. **Take a pre-deploy backup** (especially if schema migrations are pending):
+```bash
+./scripts/backup-db.sh
+```
+   Or trigger via GitHub Actions: run the **Scrape** workflow manually with pipeline = `backup`.
 
-2. If schema changes are pending, Railway runs `prisma migrate deploy` during the build step via `npm run build`.
+2. Push to `main` branch — Railway auto-deploys on push.
 
-3. Verify the deployment:
+3. If schema changes are pending, Railway runs `prisma migrate deploy` during the build step via `npm run build`.
+
+4. Verify the deployment:
+
    - Visit [goldenyears.club](https://goldenyears.club)
    - Check that the homepage loads with animal cards
    - Spot-check an animal detail page

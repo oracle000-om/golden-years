@@ -6,6 +6,7 @@ import { prisma } from './db';
 import type { AnimalWithShelter, AnimalWithShelterAndSources, ShelterWithAnimals } from './types';
 import { parseSearchQuery, type SearchIntent } from './search-parser';
 import { geocodeZip, geocodeZipFull, geocodeCounty, haversineDistance } from './geocode';
+import { zipToState } from './zip-to-state';
 import { buildShelterStoryInsights } from './utils';
 
 // ─── Data quality guards ─────────────────────────────────
@@ -152,7 +153,14 @@ export async function getFilteredAnimals(filters: AnimalFilters): Promise<Pagina
     }
 
     if (filters.source && filters.source !== 'all') {
-        shelterWhere.shelterType = filters.source.toUpperCase();
+        // "Shelters" = municipal + no-kill; "Rescues" = rescue + foster-based
+        if (filters.source === 'municipal') {
+            shelterWhere.shelterType = { in: ['MUNICIPAL', 'NO_KILL'] };
+        } else if (filters.source === 'rescue') {
+            shelterWhere.shelterType = { in: ['RESCUE', 'FOSTER_BASED'] };
+        } else {
+            shelterWhere.shelterType = filters.source.toUpperCase();
+        }
     }
 
     // Timeframe filter
@@ -187,19 +195,20 @@ export async function getFilteredAnimals(filters: AnimalFilters): Promise<Pagina
     // Resolve user location for distance sorting/filtering
     const userZip = filters.zip?.trim() || searchIntent?.zip || null;
     let userCoords: { lat: number; lng: number } | null = null;
-    let userState: string | null = null;
-    if (userZip) {
-        const fullGeo = await geocodeZipFull(userZip);
-        if (fullGeo) {
-            userCoords = { lat: fullGeo.lat, lng: fullGeo.lng };
-            userState = fullGeo.state;
+    if (userZip && userZip.length >= 3) {
+        // Primary filter: instantly resolve state from zip (bundled lookup, no API)
+        const zipState = zipToState(userZip);
+        if (zipState && !shelterWhere.state) {
+            shelterWhere.state = { equals: zipState, mode: 'insensitive' };
         }
-    }
 
-    // If user provided a zip and we know their state, add state-level DB filter
-    // (unless a state dropdown is already set — don't override explicit choice)
-    if (userState && !shelterWhere.state) {
-        shelterWhere.state = { equals: userState, mode: 'insensitive' };
+        // Secondary: try geocoding for distance sort/radius features
+        if (userZip.length === 5) {
+            const fullGeo = await geocodeZipFull(userZip);
+            if (fullGeo) {
+                userCoords = { lat: fullGeo.lat, lng: fullGeo.lng };
+            }
+        }
     }
 
     if (Object.keys(shelterWhere).length > 0) {

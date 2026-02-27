@@ -50,7 +50,7 @@ async function throttledFetch(url: string, init: RequestInit): Promise<Response>
         await new Promise(resolve => setTimeout(resolve, MIN_INTERVAL_MS - elapsed));
     }
     lastNominatimCall = Date.now();
-    return fetch(url, init);
+    return fetch(url, { ...init, signal: AbortSignal.timeout(5000) });
 }
 
 // US state name → abbreviation map for Nominatim display_name parsing

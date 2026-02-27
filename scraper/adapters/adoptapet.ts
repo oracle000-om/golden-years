@@ -24,6 +24,11 @@ import { safeFetchText, isSenior, mapSex, mapSpecies, mapSize, parseAge, validat
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
+// ── Concurrency & Timeout Tuning ──────────────────────
+const SHELTER_CONCURRENCY = 5;       // max shelters fetched in parallel
+const PET_DETAIL_CONCURRENCY = 3;    // max pet detail pages fetched in parallel per shelter
+const SHELTER_TIMEOUT_MS = 60_000;   // 60s hard cap per shelter before skipping
+
 // ── Breed → Size Inference ─────────────────────────────
 // Adopt-a-Pet doesn't provide size, so infer from breed string
 const BREED_SIZE_MAP: Record<string, 'SMALL' | 'MEDIUM' | 'LARGE' | 'XLARGE'> = {
@@ -288,77 +293,84 @@ async function fetchShelterAnimals(config: AdoptaPetConfig): Promise<ScrapedAnim
     const ageInfoPattern = /(\d+)\s*(?:yrs?|years?)\s*(?:\d+\s*mos?)?/gi;
     const textBlocks = html.match(/(?:Male|Female)[^<]{0,30}(?:\d+\s*(?:yrs?|years?))/gi) || [];
 
-    // Fetch details for each pet (with rate limiting)
+    // Fetch details for each pet (batched with concurrency)
     const animals: ScrapedAnimal[] = [];
     const petEntries = Array.from(allPetLinks.entries());
     let detailsFetched = 0;
 
-    for (const [petId, petUrl] of petEntries) {
-        // Rate limit: 500ms between requests
-        if (detailsFetched > 0) {
-            await new Promise(r => setTimeout(r, 500));
+    for (let i = 0; i < petEntries.length; i += PET_DETAIL_CONCURRENCY) {
+        const batch = petEntries.slice(i, i + PET_DETAIL_CONCURRENCY);
+        const results = await Promise.allSettled(
+            batch.map(([petId, petUrl]) => fetchPetDetail(petUrl).then(detail => ({ petId, petUrl, detail })))
+        );
+
+        for (const result of results) {
+            detailsFetched++;
+            if (result.status !== 'fulfilled') continue;
+            const { petId, petUrl, detail } = result.value;
+
+            if (!detail || !detail.photoUrl) continue;
+
+            // Parse age
+            const ageYears = parseAge(detail.age);
+
+            // Better species detection from breed string
+            const breedLower = (detail.breed || '').toLowerCase();
+            const resolvedSpecies: 'DOG' | 'CAT' | 'OTHER' =
+                breedLower.includes('shorthair') || breedLower.includes('longhair') ||
+                    breedLower.includes('siamese') || breedLower.includes('tabby') ||
+                    breedLower.includes('persian') || breedLower.includes('calico') ||
+                    breedLower.includes('domestic') && breedLower.includes('hair') ? 'CAT'
+                    : breedLower.includes('terrier') || breedLower.includes('retriever') ||
+                        breedLower.includes('shepherd') || breedLower.includes('bulldog') ||
+                        breedLower.includes('poodle') || breedLower.includes('husky') ||
+                        breedLower.includes('beagle') || breedLower.includes('chihuahua') ||
+                        breedLower.includes('pit bull') || breedLower.includes('labrador') ||
+                        breedLower.includes('dachshund') || breedLower.includes('corgi') ||
+                        breedLower.includes('collie') || breedLower.includes('hound') ||
+                        breedLower.includes('boxer') || breedLower.includes('mastiff') ||
+                        breedLower.includes('rottweiler') || breedLower.includes('malinois') ? 'DOG'
+                        : 'OTHER';
+
+            if (!isSenior(ageYears, resolvedSpecies)) continue;
+
+            animals.push({
+                intakeId: `AAP-${config.id}-${petId}`,
+                name: detail.name || null,
+                species: resolvedSpecies,
+                breed: detail.breed || null,
+                sex: mapSex(detail.sex),
+                size: inferSizeFromBreed(detail.breed),
+                photoUrl: detail.photoUrl,
+                status: 'AVAILABLE',
+                ageKnownYears: ageYears,
+                ageSource: ageYears !== null ? 'SHELTER_REPORTED' : 'UNKNOWN',
+                euthScheduledAt: null,
+                intakeDate: null,
+                notes: detail.description || null,
+                intakeReason: 'UNKNOWN',
+                intakeReasonDetail: null,
+                // v6: Description
+                description: detail.description || null,
+                // v7: Listing & physical
+                listingUrl: petUrl,
+                isMixed: detail.breed ? (detail.breed.toLowerCase().includes('mix') || detail.breed.includes('/')) : null,
+                // Internal
+                _shelterId: `adoptapet-${config.id}`,
+                _shelterName: config.shelterName,
+                _shelterCity: config.city,
+                _shelterState: config.state,
+            });
         }
 
-        const detail = await fetchPetDetail(petUrl);
-        detailsFetched++;
-
-        if (!detail || !detail.photoUrl) continue;
-
-        // Parse age
-        const ageYears = parseAge(detail.age);
-        const species = mapSpecies(detail.breed); // Infer from breed if no explicit species
-
-        // Better species detection from breed string
-        const breedLower = (detail.breed || '').toLowerCase();
-        const resolvedSpecies: 'DOG' | 'CAT' | 'OTHER' =
-            breedLower.includes('shorthair') || breedLower.includes('longhair') ||
-                breedLower.includes('siamese') || breedLower.includes('tabby') ||
-                breedLower.includes('persian') || breedLower.includes('calico') ||
-                breedLower.includes('domestic') && breedLower.includes('hair') ? 'CAT'
-                : breedLower.includes('terrier') || breedLower.includes('retriever') ||
-                    breedLower.includes('shepherd') || breedLower.includes('bulldog') ||
-                    breedLower.includes('poodle') || breedLower.includes('husky') ||
-                    breedLower.includes('beagle') || breedLower.includes('chihuahua') ||
-                    breedLower.includes('pit bull') || breedLower.includes('labrador') ||
-                    breedLower.includes('dachshund') || breedLower.includes('corgi') ||
-                    breedLower.includes('collie') || breedLower.includes('hound') ||
-                    breedLower.includes('boxer') || breedLower.includes('mastiff') ||
-                    breedLower.includes('rottweiler') || breedLower.includes('malinois') ? 'DOG'
-                    : 'OTHER';
-
-        if (!isSenior(ageYears, resolvedSpecies)) continue;
-
-        animals.push({
-            intakeId: `AAP-${config.id}-${petId}`,
-            name: detail.name || null,
-            species: resolvedSpecies,
-            breed: detail.breed || null,
-            sex: mapSex(detail.sex),
-            size: inferSizeFromBreed(detail.breed),
-            photoUrl: detail.photoUrl,
-            status: 'AVAILABLE',
-            ageKnownYears: ageYears,
-            ageSource: ageYears !== null ? 'SHELTER_REPORTED' : 'UNKNOWN',
-            euthScheduledAt: null,
-            intakeDate: null,
-            notes: detail.description || null,
-            intakeReason: 'UNKNOWN',
-            intakeReasonDetail: null,
-            // v6: Description
-            description: detail.description || null,
-            // v7: Listing & physical
-            listingUrl: petUrl,
-            isMixed: detail.breed ? (detail.breed.toLowerCase().includes('mix') || detail.breed.includes('/')) : null,
-            // Internal
-            _shelterId: `adoptapet-${config.id}`,
-            _shelterName: config.shelterName,
-            _shelterCity: config.city,
-            _shelterState: config.state,
-        });
-
         // Progress indicator for large shelters
-        if (detailsFetched % 25 === 0) {
+        if (detailsFetched % 25 < PET_DETAIL_CONCURRENCY) {
             console.log(`      ... ${detailsFetched}/${petEntries.length} details fetched, ${animals.length} seniors found`);
+        }
+
+        // Rate limit between batches (500ms)
+        if (i + PET_DETAIL_CONCURRENCY < petEntries.length) {
+            await new Promise(r => setTimeout(r, 500));
         }
     }
 
@@ -401,25 +413,68 @@ export async function scrapeAdoptaPet(opts?: {
     const allAnimals: ScrapedAnimal[] = [];
     const shelterMap = new Map<string, { name: string; city: string; state: string }>();
 
+    // Pre-populate shelter map (cheap, no I/O)
     for (const config of filtered) {
         shelterMap.set(`adoptapet-${config.id}`, {
             name: config.shelterName,
             city: config.city,
             state: config.state,
         });
-
-        try {
-            const animals = await fetchShelterAnimals(config);
-            allAnimals.push(...animals);
-        } catch (err) {
-            console.error(`   ❌ ${config.shelterName}: ${(err as Error).message?.substring(0, 100)}`);
-        }
-
-        // Rate limit between shelters (2s — be polite)
-        await new Promise(r => setTimeout(r, 2000));
     }
 
-    console.log(`   Total Adopt-a-Pet seniors: ${allAnimals.length} from ${shelterMap.size} shelters`);
+    // Process shelters concurrently with a semaphore
+    let completed = 0;
+    let active = 0;
+    let timedOut = 0;
+    const queue = [...filtered];
+    const startMs = Date.now();
+
+    async function processShelter(config: AdoptaPetConfig): Promise<void> {
+        try {
+            const animals = await Promise.race([
+                fetchShelterAnimals(config),
+                new Promise<ScrapedAnimal[]>((_, reject) =>
+                    setTimeout(() => reject(new Error(`Shelter timeout (${SHELTER_TIMEOUT_MS / 1000}s)`)), SHELTER_TIMEOUT_MS)
+                ),
+            ]);
+            allAnimals.push(...animals);
+        } catch (err) {
+            const msg = (err as Error).message?.substring(0, 100) || 'unknown error';
+            if (msg.includes('timeout')) timedOut++;
+            console.error(`   ❌ ${config.shelterName}: ${msg}`);
+        } finally {
+            completed++;
+            if (completed % 25 === 0 || completed === filtered.length) {
+                const elapsed = ((Date.now() - startMs) / 1000).toFixed(0);
+                console.log(`   📈 Progress: ${completed}/${filtered.length} shelters (${allAnimals.length} seniors, ${timedOut} timeouts) — ${elapsed}s`);
+            }
+        }
+    }
+
+    // Semaphore: run up to SHELTER_CONCURRENCY shelters at a time
+    await new Promise<void>((resolve) => {
+        let idx = 0;
+
+        function scheduleNext(): void {
+            while (active < SHELTER_CONCURRENCY && idx < queue.length) {
+                const config = queue[idx++];
+                active++;
+                processShelter(config).finally(() => {
+                    active--;
+                    if (idx >= queue.length && active === 0) {
+                        resolve();
+                    } else {
+                        // Small stagger between launches to avoid request bursts
+                        setTimeout(scheduleNext, 400);
+                    }
+                });
+            }
+        }
+
+        scheduleNext();
+    });
+
+    console.log(`   Total Adopt-a-Pet seniors: ${allAnimals.length} from ${shelterMap.size} shelters (${timedOut} timed out)`);
     return { animals: allAnimals, shelters: shelterMap };
 }
 

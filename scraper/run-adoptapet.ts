@@ -327,27 +327,33 @@ async function main() {
     }
 
     // Step 5: Reconciliation — delist stale animals per shelter (48h grace period)
-    const graceCutoff = new Date(Date.now() - 48 * 60 * 60 * 1000);
+    // CIRCUIT BREAKER: skip reconciliation if scraper returned 0 animals.
     let totalDelisted = 0;
-    for (const [aapId] of shelters) {
-        try {
-            const delisted = await (prisma as any).animal.updateMany({
-                where: {
-                    shelterId: aapId,
-                    status: { in: ['AVAILABLE', 'URGENT'] },
-                    lastSeenAt: { lt: graceCutoff },
-                },
-                data: {
-                    status: 'DELISTED',
-                    delistedAt: new Date(),
-                },
-            });
-            if (delisted.count > 0) {
-                console.log(`   🔄 Delisted ${delisted.count} stale animals from ${aapId}`);
-                totalDelisted += delisted.count;
+    if (created + updated === 0) {
+        console.log('\n   ⚠️  CIRCUIT BREAKER: Skipping reconciliation — scraper returned 0 animals.');
+        console.log('      This likely means the upstream API is down or has changed.');
+    } else {
+        const graceCutoff = new Date(Date.now() - 48 * 60 * 60 * 1000);
+        for (const [aapId] of shelters) {
+            try {
+                const delisted = await (prisma as any).animal.updateMany({
+                    where: {
+                        shelterId: aapId,
+                        status: { in: ['AVAILABLE', 'URGENT'] },
+                        lastSeenAt: { lt: graceCutoff },
+                    },
+                    data: {
+                        status: 'DELISTED',
+                        delistedAt: new Date(),
+                    },
+                });
+                if (delisted.count > 0) {
+                    console.log(`   🔄 Delisted ${delisted.count} stale animals from ${aapId}`);
+                    totalDelisted += delisted.count;
+                }
+            } catch (err) {
+                console.error(`   ⚠ Reconciliation failed for ${aapId}: ${(err as Error).message?.substring(0, 80)}`);
             }
-        } catch (err) {
-            console.error(`   ⚠ Reconciliation failed for ${aapId}: ${(err as Error).message?.substring(0, 80)}`);
         }
     }
 

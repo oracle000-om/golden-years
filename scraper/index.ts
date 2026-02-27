@@ -326,21 +326,25 @@ async function main() {
         }
 
         // Step 6: Reconciliation — delist stale animals (48h grace period)
-        // Only delist animals not seen for 2+ scrape cycles to avoid transient failures
-        const graceCutoff = new Date(Date.now() - 48 * 60 * 60 * 1000);
-        const delisted = await prisma.animal.updateMany({
-            where: {
-                shelterId: shelter.id,
-                status: { in: ['AVAILABLE', 'URGENT'] },
-                lastSeenAt: { lt: graceCutoff },
-            },
-            data: {
-                status: 'DELISTED',
-                delistedAt: new Date(),
-            },
-        });
-        if (delisted.count > 0) {
-            console.log(`   🔄 Delisted ${delisted.count} animals not seen for 48+ hours`);
+        // CIRCUIT BREAKER: skip if no animals were processed for this shelter
+        if (created + updated === 0) {
+            console.log(`   ⚠️  Skipping reconciliation — no animals processed (possible adapter failure)`);
+        } else {
+            const graceCutoff = new Date(Date.now() - 48 * 60 * 60 * 1000);
+            const delisted = await prisma.animal.updateMany({
+                where: {
+                    shelterId: shelter.id,
+                    status: { in: ['AVAILABLE', 'URGENT'] },
+                    lastSeenAt: { lt: graceCutoff },
+                },
+                data: {
+                    status: 'DELISTED',
+                    delistedAt: new Date(),
+                },
+            });
+            if (delisted.count > 0) {
+                console.log(`   🔄 Delisted ${delisted.count} animals not seen for 48+ hours`);
+            }
         }
 
         grandTotalCreated += created;

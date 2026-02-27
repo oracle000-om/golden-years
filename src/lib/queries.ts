@@ -742,6 +742,16 @@ export async function hasEuthScheduledAnimals(): Promise<boolean> {
     return found !== null;
 }
 
+// Valid US states + DC + territories (excludes Canadian provinces like ON, BC, AB, etc.)
+const VALID_US_STATES = new Set([
+    'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA',
+    'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD',
+    'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ',
+    'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC',
+    'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY',
+    'DC', 'PR',
+]);
+
 /** Fetch distinct states that have shelters with active (AVAILABLE/URGENT) animals. */
 export async function getDistinctStates(): Promise<string[]> {
     const shelters = await prisma.shelter.findMany({
@@ -753,7 +763,7 @@ export async function getDistinctStates(): Promise<string[]> {
         select: { state: true },
     });
     const unique = [...new Set(shelters.map((s) => s.state.toUpperCase()))]
-        .filter((s) => /^[A-Z]{2}$/.test(s))
+        .filter((s) => VALID_US_STATES.has(s))
         .sort();
     return unique;
 }

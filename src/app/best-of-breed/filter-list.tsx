@@ -36,12 +36,21 @@ function extractLocationFromName(name: string): string {
     return '';
 }
 
+const VALID_US_STATES = new Set([
+    'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA',
+    'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD',
+    'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ',
+    'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC',
+    'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY',
+    'DC', 'PR',
+]);
+
 export function BestOfBreedList({ shelters }: { shelters: Shelter[] }) {
     const [stateFilter, setStateFilter] = useState('');
 
-    // Derive unique states from the data
+    // Derive unique US states from the data (excludes Canadian provinces)
     const states = useMemo(() => {
-        const set = new Set(shelters.map(s => s.state));
+        const set = new Set(shelters.map(s => s.state).filter(s => VALID_US_STATES.has(s)));
         return Array.from(set).sort();
     }, [shelters]);
 

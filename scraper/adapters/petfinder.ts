@@ -134,18 +134,12 @@ query SearchAnimal(
             description
             behavior {
                 houseTrained
-                specialNeeds
                 interactions {
                     cats
                     dogs
                     childrenUnder8
                     children8AndUp
                 }
-            }
-            environment {
-                cats
-                dogs
-                children
             }
             publicUrl { url }
             organization {
@@ -159,16 +153,11 @@ query SearchAnimal(
                 age { value label rangeLabel }
                 sex
                 size { label }
-                coat
-                colors { primary secondary tertiary }
+                color { primary secondary tertiary }
             }
             meta {
                 publishTime
                 update { time }
-            }
-            attributes {
-                spayedNeutered
-                shotsCurrent
             }
             tags
             _media { s3Url }
@@ -308,29 +297,28 @@ async function fetchOrgAnimals(
 
             // Extract structured behavioral data
             const inter = pf.behavior?.interactions;
-            const env = pf.environment;
             const houseTrained = pf.behavior?.houseTrained ?? null;
-            const goodWithCats = inter?.cats ?? env?.cats ?? null;
-            const goodWithDogs = inter?.dogs ?? env?.dogs ?? null;
+            const goodWithCats = inter?.cats ?? null;
+            const goodWithDogs = inter?.dogs ?? null;
             const goodWithChildren = (inter?.children8AndUp === true || inter?.childrenUnder8 === true)
                 ? true
                 : (inter?.children8AndUp === false && inter?.childrenUnder8 === false)
                     ? false
-                    : env?.children ?? null;
-            const specialNeeds = pf.behavior?.specialNeeds ?? null;
+                    : null;
+            const specialNeeds = null; // Removed from Petfinder schema 2026-02
 
             // Build environment needs from negative signals
             const envNeeds: string[] = [];
-            if (env?.cats === false || inter?.cats === false) envNeeds.push('No cats');
-            if (env?.dogs === false || inter?.dogs === false) envNeeds.push('No dogs');
-            if (env?.children === false) envNeeds.push('No children');
+            if (inter?.cats === false) envNeeds.push('No cats');
+            if (inter?.dogs === false) envNeeds.push('No dogs');
+            if (inter?.childrenUnder8 === false && inter?.children8AndUp === false) envNeeds.push('No children');
 
             // Extract coat data
-            const coatType = pf.physical?.coat || null;
+            const coatType = null; // Removed from Petfinder schema 2026-02
             const colorParts = [
-                pf.physical?.colors?.primary,
-                pf.physical?.colors?.secondary,
-                pf.physical?.colors?.tertiary,
+                (pf.physical as any)?.color?.primary,
+                (pf.physical as any)?.color?.secondary,
+                (pf.physical as any)?.color?.tertiary,
             ].filter(Boolean) as string[];
 
             // Build behavioral notes (backward compat for notes field)
@@ -380,8 +368,8 @@ async function fetchOrgAnimals(
                 description,
                 environmentNeeds: envNeeds,
                 // v7: Medical status
-                isAltered: pf.attributes?.spayedNeutered ?? null,
-                isVaccinated: pf.attributes?.shotsCurrent ?? null,
+                isAltered: null, // attributes removed from Petfinder schema 2026-02
+                isVaccinated: null,
                 // v7: Listing & physical
                 listingUrl: pf.publicUrl?.url || null,
                 isMixed: pf.physical?.breed?.mixed ?? null,

@@ -288,25 +288,31 @@ async function main() {
     }
 
     // Step 4: Reconciliation — delist stale animals per shelter (48h grace period)
-    const graceCutoff = new Date(Date.now() - 48 * 60 * 60 * 1000);
+    // CIRCUIT BREAKER: skip reconciliation if scraper returned 0 animals.
     let totalDelisted = 0;
-    for (const config of configs) {
-        const dbId = `socrata-${config.id}`;
-        try {
-            const delisted = await (prisma as any).animal.updateMany({
-                where: {
-                    shelterId: dbId,
-                    status: { in: ['AVAILABLE', 'URGENT'] },
-                    lastSeenAt: { lt: graceCutoff },
-                },
-                data: { status: 'DELISTED', delistedAt: new Date() },
-            });
-            if (delisted.count > 0) {
-                console.log(`   🔄 Delisted ${delisted.count} animals not seen for 48+ hours from ${config.shelterName}`);
-                totalDelisted += delisted.count;
+    if (created + updated === 0) {
+        console.log('\n   ⚠️  CIRCUIT BREAKER: Skipping reconciliation — scraper returned 0 animals.');
+        console.log('      This likely means the upstream API is down or has changed.');
+    } else {
+        const graceCutoff = new Date(Date.now() - 48 * 60 * 60 * 1000);
+        for (const config of configs) {
+            const dbId = `socrata-${config.id}`;
+            try {
+                const delisted = await (prisma as any).animal.updateMany({
+                    where: {
+                        shelterId: dbId,
+                        status: { in: ['AVAILABLE', 'URGENT'] },
+                        lastSeenAt: { lt: graceCutoff },
+                    },
+                    data: { status: 'DELISTED', delistedAt: new Date() },
+                });
+                if (delisted.count > 0) {
+                    console.log(`   🔄 Delisted ${delisted.count} animals not seen for 48+ hours from ${config.shelterName}`);
+                    totalDelisted += delisted.count;
+                }
+            } catch (err) {
+                console.error(`   ⚠ Reconciliation failed for ${config.shelterName}: ${(err as Error).message?.substring(0, 80)}`);
             }
-        } catch (err) {
-            console.error(`   ⚠ Reconciliation failed for ${config.shelterName}: ${(err as Error).message?.substring(0, 80)}`);
         }
     }
 

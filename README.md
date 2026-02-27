@@ -1,5 +1,9 @@
 # Golden Years Club
 
+[![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](LICENSE)
+[![CI](https://github.com/oracle000-om/golden-years/actions/workflows/ci.yml/badge.svg)](https://github.com/oracle000-om/golden-years/actions/workflows/ci.yml)
+[![Scrape](https://github.com/oracle000-om/golden-years/actions/workflows/scrape.yml/badge.svg)](https://github.com/oracle000-om/golden-years/actions/workflows/scrape.yml)
+
 **A last chance for senior animals on shelter euthanasia lists.**
 
 Golden Years Club surfaces senior dogs and cats facing euthanasia at shelters and rescues across the U.S., giving them the visibility they need to find forever homes before their time runs out.
@@ -146,7 +150,7 @@ prisma/
 |---|---|---|---|
 | Municipal shelter APIs (LA, OC, NYC, Maricopa, Harris County) | Direct API | 5 major metro areas | ✅ Active |
 | RescueGroups.org | JSON API | ~600+ rescue orgs nationwide | ✅ Active |
-| Petfinder | GraphQL | ~150+ orgs nationwide | ✅ Active |
+| Petfinder | GraphQL | ~2,400+ orgs nationwide | ✅ Active |
 | ShelterLuv | JSON API | ~200+ orgs | ✅ Active |
 | Petango / 24PetConnect | JSON API | ~50+ orgs | ✅ Active |
 | Adopt-a-Pet | JSON API | Configured shelters | ✅ Active |
@@ -194,4 +198,4 @@ Golden Years Club is building toward an **open-source senior animal welfare API*
 
 ## License
 
-Private.
+AGPL-3.0 — see [LICENSE](LICENSE).

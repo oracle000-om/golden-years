@@ -11,6 +11,7 @@ title = "Golden Years Gitleaks Config"
     '''scraper/config/.*\.json''',
     '''package-lock\.json''',
     '''\.github/workflows/ci\.yml''',
+    '''\.env\.example''',
     '''\.next/''',
     '''node_modules/''',
   ]

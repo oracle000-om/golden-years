@@ -1,25 +1,50 @@
 /**
- * Shared Reconciliation Module
+ * Ultra-Conservative Reconciliation Module
  *
- * Centralizes the "delist stale animals" logic with multi-layered safeguards:
+ * Design principle: "It is better to show 100 animals that have already been
+ * adopted than to hide 1 animal that is still waiting. A false removal has
+ * a body count. A stale listing does not."
  *
- * Layer 1: Zero-result circuit breaker (skip if pipeline got 0 animals)
- * Layer 2: Per-shelter percentage guard (skip if >50% of shelter would be delisted)
- * Layer 3: Absolute cap (abort if total delistings would exceed MAX_DELIST_PER_RUN)
+ * Two-phase delisting with multi-strike protection:
  *
- * All 7 scraper runners should use this instead of inlining reconciliation.
+ *   Phase 1 — STALE (soft hide):
+ *     Animal must be missed by 5+ consecutive scraper runs AND unseen for
+ *     14+ days before moving to STALE. Stale animals are hidden from the
+ *     public listing but fully preserved in the database.
+ *
+ *   Phase 2 — DELISTED (hard remove):
+ *     Animals in STALE for 30+ days with continued misses are auto-delisted
+ *     as a final fallback. Admin can also manually delist via dashboard.
+ *
+ *   Auto-Recovery:
+ *     If any scraper sees the animal again (even from a different pipeline),
+ *     it is immediately restored to AVAILABLE. Data is never destroyed.
+ *
+ * Safeguard layers (unchanged from v1):
+ *   Layer 1: Zero-result circuit breaker (skip if pipeline found 0 animals)
+ *   Layer 2: Per-shelter fraction guard (skip if >20% would go stale)
+ *   Layer 3: Absolute cap (abort if total transitions exceed 200 per run)
  */
 
 import { sendAlert } from './alert';
 
-/** Never delist more than this many animals in one pipeline run */
-const MAX_DELIST_PER_RUN = 500;
+// ── Thresholds ─────────────────────────────────────────
 
-/** Skip a shelter's reconciliation if it would delist more than this fraction */
-const MAX_DELIST_FRACTION = 0.5;
+/** How many consecutive scraper misses before an animal becomes STALE */
+const STALE_STRIKE_THRESHOLD = 5;
 
-/** Animals must be unseen for this long before delisting (ms) */
-const GRACE_PERIOD_MS = 48 * 60 * 60 * 1000;
+/** How long an animal must be unseen before becoming STALE (ms) */
+const STALE_GRACE_PERIOD_MS = 14 * 24 * 60 * 60 * 1000; // 14 days
+
+/** How long an animal must be in STALE before auto-delisting (ms) */
+const AUTO_DELIST_AFTER_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+
+/** Skip a shelter if more than this fraction would transition */
+const MAX_TRANSITION_FRACTION = 0.20;
+
+/** Never transition more than this many animals in one pipeline run */
+const MAX_TRANSITIONS_PER_RUN = 200;
+
 
 export interface ReconcileOptions {
     /** Pipeline name for logging/alerts */
@@ -36,18 +61,31 @@ export interface ReconcileOptions {
 
 export interface ReconcileResult {
     totalDelisted: number;
+    totalStaled: number;
+    totalMissIncremented: number;
     skippedShelters: number;
     aborted: boolean;
 }
 
 /**
- * Reconcile stale animals across shelters with safeguards.
+ * Two-phase reconciliation: increment misses → stale → delist.
  *
- * Returns the count of delisted animals and whether any shelters were skipped.
+ * For each shelter in this pipeline:
+ *   1. Increment consecutiveMisses for all unseen animals
+ *   2. Transition to STALE if misses ≥ 5 AND unseen ≥ 14 days
+ *   3. Auto-delist if in STALE for ≥ 30 days
+ *
+ * Safeguards apply to steps 2 and 3.
  */
 export async function reconcileAnimals(opts: ReconcileOptions): Promise<ReconcileResult> {
     const { pipeline, prisma, shelterIds, created, updated } = opts;
-    const result: ReconcileResult = { totalDelisted: 0, skippedShelters: 0, aborted: false };
+    const result: ReconcileResult = {
+        totalDelisted: 0,
+        totalStaled: 0,
+        totalMissIncremented: 0,
+        skippedShelters: 0,
+        aborted: false,
+    };
 
     // ── Layer 1: Zero-result circuit breaker ───────────────
     if (created + updated === 0) {
@@ -60,12 +98,38 @@ export async function reconcileAnimals(opts: ReconcileOptions): Promise<Reconcil
         return result;
     }
 
-    const graceCutoff = new Date(Date.now() - GRACE_PERIOD_MS);
+    // Cutoff timestamps
+    const now = new Date();
+    const staleGraceCutoff = new Date(now.getTime() - STALE_GRACE_PERIOD_MS);
+    const autoDelistCutoff = new Date(now.getTime() - AUTO_DELIST_AFTER_MS);
 
     for (const shelterId of shelterIds) {
         try {
-            // ── Layer 2: Percentage guard ──────────────────
-            // Count how many active animals this shelter has
+            // ─────────────────────────────────────────────
+            // Step 1: Increment consecutiveMisses for all
+            // animals at this shelter that were NOT touched
+            // by this scraper run (lastSeenAt is old).
+            // ─────────────────────────────────────────────
+            // "Recently seen" = lastSeenAt within the last 2 hours
+            // (generous window to account for long-running scraper batches)
+            const recentCutoff = new Date(now.getTime() - 2 * 60 * 60 * 1000);
+
+            const missIncrement = await prisma.animal.updateMany({
+                where: {
+                    shelterId,
+                    status: { in: ['AVAILABLE', 'URGENT'] },
+                    lastSeenAt: { lt: recentCutoff },
+                },
+                data: {
+                    consecutiveMisses: { increment: 1 },
+                },
+            });
+            result.totalMissIncremented += missIncrement.count;
+
+            // ─────────────────────────────────────────────
+            // Step 2: Transition AVAILABLE/URGENT → STALE
+            // Requires: consecutiveMisses ≥ 5 AND unseen ≥ 14 days
+            // ─────────────────────────────────────────────
             const activeCount = await prisma.animal.count({
                 where: {
                     shelterId,
@@ -75,60 +139,88 @@ export async function reconcileAnimals(opts: ReconcileOptions): Promise<Reconcil
 
             if (activeCount === 0) continue;
 
-            // Count how many would be delisted
-            const staleCount = await prisma.animal.count({
+            const staleEligibleCount = await prisma.animal.count({
                 where: {
                     shelterId,
                     status: { in: ['AVAILABLE', 'URGENT'] },
-                    lastSeenAt: { lt: graceCutoff },
+                    consecutiveMisses: { gte: STALE_STRIKE_THRESHOLD },
+                    lastSeenAt: { lt: staleGraceCutoff },
                 },
             });
 
-            if (staleCount === 0) continue;
+            if (staleEligibleCount === 0) continue;
 
-            const fraction = staleCount / activeCount;
-            if (fraction > MAX_DELIST_FRACTION) {
-                console.log(`   ⚠️  Skipping ${shelterId}: would delist ${staleCount}/${activeCount} (${(fraction * 100).toFixed(0)}% > ${MAX_DELIST_FRACTION * 100}% threshold)`);
+            // ── Layer 2: Fraction guard ───────────────────
+            const fraction = staleEligibleCount / activeCount;
+            if (fraction > MAX_TRANSITION_FRACTION) {
+                console.log(`   ⚠️  Skipping ${shelterId}: would stale ${staleEligibleCount}/${activeCount} (${(fraction * 100).toFixed(0)}% > ${MAX_TRANSITION_FRACTION * 100}% threshold)`);
                 result.skippedShelters++;
                 continue;
             }
 
             // ── Layer 3: Absolute cap ─────────────────────
-            if (result.totalDelisted + staleCount > MAX_DELIST_PER_RUN) {
-                console.log(`   🛑 ABSOLUTE CAP: Would exceed ${MAX_DELIST_PER_RUN} total delistings. Aborting reconciliation.`);
-                sendAlert('CRITICAL', `${pipeline}: reconciliation aborted — would exceed ${MAX_DELIST_PER_RUN} delist cap`, {
-                    pipeline, animalCount: result.totalDelisted + staleCount,
+            if (result.totalStaled + staleEligibleCount > MAX_TRANSITIONS_PER_RUN) {
+                console.log(`   🛑 ABSOLUTE CAP: Would exceed ${MAX_TRANSITIONS_PER_RUN} total transitions. Aborting.`);
+                sendAlert('CRITICAL', `${pipeline}: reconciliation aborted — would exceed ${MAX_TRANSITIONS_PER_RUN} transition cap`, {
+                    pipeline, animalCount: result.totalStaled + staleEligibleCount,
                 });
                 result.aborted = true;
                 break;
             }
 
-            // ── Safe to delist ─────────────────────────────
-            const delisted = await prisma.animal.updateMany({
+            // ── Safe to transition → STALE ────────────────
+            const staled = await prisma.animal.updateMany({
                 where: {
                     shelterId,
                     status: { in: ['AVAILABLE', 'URGENT'] },
-                    lastSeenAt: { lt: graceCutoff },
+                    consecutiveMisses: { gte: STALE_STRIKE_THRESHOLD },
+                    lastSeenAt: { lt: staleGraceCutoff },
                 },
                 data: {
-                    status: 'DELISTED',
-                    delistedAt: new Date(),
+                    status: 'STALE',
+                    staleSince: now,
                 },
             });
 
-            if (delisted.count > 0) {
-                console.log(`   🔄 Delisted ${delisted.count}/${activeCount} stale animals from ${shelterId}`);
-                result.totalDelisted += delisted.count;
+            if (staled.count > 0) {
+                console.log(`   🔶 Staled ${staled.count}/${activeCount} animals at ${shelterId} (${STALE_STRIKE_THRESHOLD}+ misses, ${Math.round(STALE_GRACE_PERIOD_MS / (24 * 60 * 60 * 1000))}d+ unseen)`);
+                result.totalStaled += staled.count;
+            }
+
+            // ─────────────────────────────────────────────
+            // Step 3: Auto-delist STALE animals that have
+            // been stale for 30+ days (final fallback).
+            // ─────────────────────────────────────────────
+            const autoDelisted = await prisma.animal.updateMany({
+                where: {
+                    shelterId,
+                    status: 'STALE',
+                    staleSince: { lt: autoDelistCutoff },
+                },
+                data: {
+                    status: 'DELISTED',
+                    delistedAt: now,
+                },
+            });
+
+            if (autoDelisted.count > 0) {
+                console.log(`   🔴 Auto-delisted ${autoDelisted.count} animals at ${shelterId} (stale for ${Math.round(AUTO_DELIST_AFTER_MS / (24 * 60 * 60 * 1000))}+ days)`);
+                result.totalDelisted += autoDelisted.count;
             }
         } catch (err) {
             console.error(`   ⚠ Reconciliation failed for ${shelterId}: ${(err as Error).message?.substring(0, 80)}`);
         }
     }
 
+    // ── Summary alerts ────────────────────────────────────
     if (result.skippedShelters > 0) {
-        sendAlert('WARNING', `${pipeline}: ${result.skippedShelters} shelter(s) skipped — too many stale animals (possible API issue)`, {
-            pipeline, animalCount: result.totalDelisted,
+        sendAlert('WARNING', `${pipeline}: ${result.skippedShelters} shelter(s) skipped — too many stale candidates (possible API issue)`, {
+            pipeline, totalStaled: result.totalStaled,
         });
+    }
+
+    if (result.totalStaled > 0 || result.totalDelisted > 0) {
+        console.log(`   📊 Reconciliation: ${result.totalMissIncremented} misses incremented, ${result.totalStaled} → STALE, ${result.totalDelisted} → DELISTED`);
     }
 
     return result;

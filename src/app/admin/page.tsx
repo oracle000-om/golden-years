@@ -1,5 +1,4 @@
-import Link from 'next/link';
-import { getAdminOverview, get24hDeltas, getLatestScrapeRuns, getStaleShelters } from '@/lib/admin-queries';
+import { getAdminOverview, get24hDeltas } from '@/lib/admin-queries';
 import { DonutChart } from '@/components/donut-chart';
 import { SplitBar } from '@/components/split-bar';
 import { AdminQueryTable } from '@/components/admin-query-table';
@@ -21,17 +20,6 @@ function StatCard({ label, value, sub, accent, delta }: { label: string; value: 
     );
 }
 
-function timeAgo(date: Date | null): string {
-    if (!date) return 'never';
-    const ms = Date.now() - new Date(date).getTime();
-    const mins = Math.floor(ms / 60000);
-    if (mins < 60) return `${mins}m ago`;
-    const hrs = Math.floor(mins / 60);
-    if (hrs < 24) return `${hrs}h ago`;
-    const days = Math.floor(hrs / 24);
-    return `${days}d ago`;
-}
-
 const STATUS_COLORS: Record<string, string> = {
     AVAILABLE: '#4ade80',
     URGENT: '#ef4444',
@@ -43,13 +31,11 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export default async function AdminDashboard() {
-    let data, deltas, scrapeRuns, staleShelters;
+    let data, deltas;
     try {
-        [data, deltas, scrapeRuns, staleShelters] = await Promise.all([
+        [data, deltas] = await Promise.all([
             getAdminOverview(),
             get24hDeltas(),
-            getLatestScrapeRuns(),
-            getStaleShelters(),
         ]);
     } catch (err) {
         return (
@@ -117,28 +103,7 @@ export default async function AdminDashboard() {
                     <strong>{data.activeAnimals.toLocaleString()}</strong> currently available.
                 </p>
 
-                {/* Stale Sources Alert */}
-                {staleShelters.length > 0 && (
-                    <div className="admin-alert admin-alert--warn">
-                        <details>
-                            <summary className="admin-alert__title" style={{ cursor: 'pointer' }}>
-                                ⚠️ {staleShelters.length} source{staleShelters.length !== 1 ? 's' : ''} not scraped in &gt;72h
-                            </summary>
-                            <ul className="admin-alert__list">
-                                {staleShelters.slice(0, 20).map(s => (
-                                    <li key={s.id}>
-                                        <Link href={`/shelter/${s.id}`} style={{ color: 'inherit', textDecoration: 'none' }}>
-                                            {s.name} ({s.state}) — {timeAgo(s.lastScrapedAt)}
-                                        </Link>
-                                    </li>
-                                ))}
-                                {staleShelters.length > 20 && (
-                                    <li>+{staleShelters.length - 20} more</li>
-                                )}
-                            </ul>
-                        </details>
-                    </div>
-                )}
+
 
                 {/* Stats Grid */}
                 <div className="admin-stats-grid">
@@ -190,29 +155,7 @@ export default async function AdminDashboard() {
                     </div>
                 </div>
 
-                {/* Scraper Health */}
-                {scrapeRuns.length > 0 && (
-                    <div className="admin-card">
-                        <h2 className="admin-card__title">Scraper Health</h2>
-                        <div className="admin-scraper-grid">
-                            {scrapeRuns.map(run => (
-                                <div key={run.pipeline} className="admin-scraper-card">
-                                    <div className="admin-scraper-card__name">{run.pipeline}</div>
-                                    <span className={`admin-scraper-card__status admin-scraper-card__status--${run.status.toLowerCase()}`}>
-                                        {run.status}
-                                    </span>
-                                    <div className="admin-scraper-card__meta">
-                                        {timeAgo(run.startedAt)}<br />
-                                        {run.animalsCreated > 0 && `+${run.animalsCreated} new `}
-                                        {run.animalsUpdated > 0 && `${run.animalsUpdated} updated`}
-                                        {run.errors > 0 && <span style={{ color: '#ef4444' }}> · {run.errors} errors</span>}
-                                        {run.durationMs && <><br />{Math.round(Number(run.durationMs) / 1000)}s</>}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
+
             </div>
         </div>
     );

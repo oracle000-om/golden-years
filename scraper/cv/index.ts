@@ -11,7 +11,6 @@
 import { createGeminiProvider } from './gemini-provider';
 import type { AgeEstimationProvider } from './types';
 
-export { estimateAgeFromText } from './text-fallback';
 export { lookupLifeExpectancy } from './breed-lifespan';
 export { computeAssessmentDiff } from './cv-diff';
 export { enrichWithBreedProfile } from './breed-enrichment';

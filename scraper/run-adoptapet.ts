@@ -197,6 +197,8 @@ async function main() {
                 intakeReason: animal.intakeReason, intakeReasonDetail: sanitizeText(animal.intakeReasonDetail),
                 euthScheduledAt: animal.euthScheduledAt, intakeDate: animal.intakeDate,
                 notes: sanitizeText(animal.notes), lastSeenAt: now,
+                // v10: Reset listing protection counters
+                consecutiveMisses: 0, staleSince: null,
                 // v6: Behavioral data
                 houseTrained: animal.houseTrained ?? null,
                 goodWithCats: animal.goodWithCats ?? null,
@@ -258,19 +260,19 @@ async function main() {
 
             let animalId: string;
             if (existing) {
-                // Re-entry detection: animal was delisted but reappeared
-                if (existing.status === 'DELISTED') {
-                    // Only count as genuine re-entry if delisted >48h ago
-                    // (avoids inflating count from false delistings due to partial scrape runs)
+                // Re-entry detection: animal was delisted/stale but reappeared
+                if (existing.status === 'DELISTED' || existing.status === 'STALE') {
                     const delistedAgo = existing.delistedAt
                         ? Date.now() - new Date(existing.delistedAt).getTime()
                         : Infinity;
                     if (delistedAgo > 48 * 60 * 60 * 1000) {
                         data.shelterEntryCount = (existing.shelterEntryCount || 1) + 1;
                         console.log(`      🔄 Re-entry #${data.shelterEntryCount}: ${animal.name || animal.intakeId}`);
-                    } else {
-                        console.log(`      ↩️ Restoring falsely delisted: ${animal.name || animal.intakeId}`);
+                    } else if (existing.status === 'STALE') {
+                        console.log(`      ↩️ Restoring from STALE: ${animal.name || animal.intakeId}`);
                     }
+                    // Auto-recovery: restore status
+                    data.status = animal.status;
                 }
                 await (prisma as any).animal.update({
                     where: { id: existing.id }, data: {

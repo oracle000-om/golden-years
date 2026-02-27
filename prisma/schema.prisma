@@ -172,6 +172,10 @@ model Animal {
   // ── v3: Status lifecycle ──
   delistedAt            DateTime?   @map("delisted_at")
   shelterEntryCount     Int         @default(1) @map("shelter_entry_count")
+
+  // ── v10: Listing protection (ultra-conservative reconciliation) ──
+  consecutiveMisses     Int         @default(0) @map("consecutive_misses")
+  staleSince            DateTime?   @map("stale_since")
   outcomeDate           DateTime?   @map("outcome_date")
   outcomeNotes          String?     @map("outcome_notes")
 
@@ -232,6 +236,7 @@ enum AnimalSize {
 enum AnimalStatus {
   AVAILABLE
   URGENT
+  STALE
   RESCUE_PULL
   ADOPTED
   TRANSFERRED

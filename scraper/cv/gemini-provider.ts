@@ -29,6 +29,46 @@ const MODEL_FAST = 'gemini-2.5-flash-lite';
 const MODEL_FULL = 'gemini-2.5-flash';
 const TARGET_SIZE = 512;  // v2: increased from 256 for better health/behavioral detection
 const MIN_DIMENSION = 50;
+const MIN_PHOTO_DIMENSION = 300; // real animal photos are almost always larger than 300px
+const MIN_RAW_BYTES = 5000;      // 5KB — real photos are typically 50KB+; placeholders are often < 10KB
+
+/**
+ * Known placeholder image perceptual hashes (8×8 grayscale pHash).
+ * These are generic "No Image Available" graphics served by shelter APIs
+ * when an animal has no photo. Gemini will hallucinate CV data from these.
+ */
+const PLACEHOLDER_HASHES = new Set([
+    '0f1e200121e5e7ff', // 24PetConnect "No Image Available" (232×246 PNG)
+]);
+
+/**
+ * Compute a quick 8×8 grayscale perceptual hash for placeholder detection.
+ * Same algorithm as dedup/index.ts but operates on a Buffer directly.
+ */
+async function computeQuickHash(imageBuffer: Buffer): Promise<string | null> {
+    try {
+        const pixels = await sharp(imageBuffer)
+            .resize(8, 8, { fit: 'fill' })
+            .grayscale()
+            .raw()
+            .toBuffer();
+
+        let sum = 0;
+        for (let i = 0; i < 64; i++) sum += pixels[i];
+        const mean = sum / 64;
+
+        let hashBits = '';
+        for (let i = 0; i < 64; i++) hashBits += pixels[i] >= mean ? '1' : '0';
+
+        let hex = '';
+        for (let i = 0; i < 64; i += 4) {
+            hex += parseInt(hashBits.substring(i, i + 4), 2).toString(16);
+        }
+        return hex;
+    } catch {
+        return null;
+    }
+}
 
 /**
  * JSON Schema for structured output — matches AnimalAssessment type.
@@ -86,7 +126,7 @@ async function downloadImage(url: string): Promise<Buffer | null> {
         if (contentType.startsWith('text/html') || contentType.startsWith('application/json')) return null;
 
         const arrayBuffer = await response.arrayBuffer();
-        if (arrayBuffer.byteLength < 500) return null; // too small to be a photo
+        if (arrayBuffer.byteLength < MIN_RAW_BYTES) return null; // too small to be a real animal photo
         return Buffer.from(arrayBuffer);
     } catch {
         return null;
@@ -95,7 +135,7 @@ async function downloadImage(url: string): Promise<Buffer | null> {
 
 /**
  * Pre-check image quality before sending to Gemini.
- * Rejects images that are too small, corrupt, or blank.
+ * Rejects images that are too small, corrupt, blank, or placeholder graphics.
  * Returns the resized image buffer if it passes, null otherwise.
  */
 async function preprocessImage(imageBuffer: Buffer): Promise<{ buffer: Buffer; mimeType: string } | null> {
@@ -105,6 +145,20 @@ async function preprocessImage(imageBuffer: Buffer): Promise<{ buffer: Buffer; m
         // Reject images that are too small to be useful
         if (!metadata.width || !metadata.height) return null;
         if (metadata.width < MIN_DIMENSION || metadata.height < MIN_DIMENSION) return null;
+
+        // Reject small images — real animal photos are almost always > 300px.
+        // Placeholder graphics ("No Image Available") are typically tiny.
+        if (metadata.width <= MIN_PHOTO_DIMENSION && metadata.height <= MIN_PHOTO_DIMENSION) {
+            console.log(`      ⚠ Image too small for CV (${metadata.width}×${metadata.height}) — likely placeholder`);
+            return null;
+        }
+
+        // Check against known placeholder image hashes
+        const hash = await computeQuickHash(imageBuffer);
+        if (hash && PLACEHOLDER_HASHES.has(hash)) {
+            console.log(`      ⚠ Known placeholder image detected (hash: ${hash}) — skipping CV`);
+            return null;
+        }
 
         // Resize to target size for cost optimization
         const resized = await sharp(imageBuffer)

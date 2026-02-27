@@ -43,7 +43,7 @@ export interface Animal {
     photoUrl: string | null;
     photoUrls: string[];
     videoUrl: string | null;
-    status: 'AVAILABLE' | 'URGENT' | 'RESCUE_PULL' | 'ADOPTED' | 'TRANSFERRED' | 'RETURNED_OWNER' | 'EUTHANIZED' | 'DELISTED';
+    status: 'AVAILABLE' | 'URGENT' | 'STALE' | 'RESCUE_PULL' | 'ADOPTED' | 'TRANSFERRED' | 'RETURNED_OWNER' | 'EUTHANIZED' | 'DELISTED';
     lastSeenAt: Date | null;
     delistedAt: Date | null;
     shelterEntryCount: number;

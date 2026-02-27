@@ -199,6 +199,8 @@ async function main() {
                 intakeReason: animal.intakeReason, intakeReasonDetail: sanitizeText(animal.intakeReasonDetail),
                 euthScheduledAt: animal.euthScheduledAt, intakeDate: animal.intakeDate,
                 notes: sanitizeText(animal.notes), lastSeenAt: now,
+                // v10: Reset listing protection counters
+                consecutiveMisses: 0, staleSince: null,
                 // v6: Behavioral data
                 houseTrained: animal.houseTrained ?? null,
                 goodWithCats: animal.goodWithCats ?? null,
@@ -265,14 +267,18 @@ async function main() {
 
             let animalId: string;
             if (existing) {
-                // Re-entry detection: only count as re-entry if delisted 48+ hours ago
-                if (existing.status === 'DELISTED') {
+                // Re-entry detection: animal was delisted/stale but reappeared
+                if (existing.status === 'DELISTED' || existing.status === 'STALE') {
                     const wasDelistedLongAgo = existing.delistedAt &&
                         (now.getTime() - new Date(existing.delistedAt).getTime()) > 48 * 60 * 60 * 1000;
                     if (wasDelistedLongAgo) {
                         data.shelterEntryCount = (existing.shelterEntryCount || 1) + 1;
                         console.log(`      🔄 Re-entry #${data.shelterEntryCount}: ${animal.name || animal.intakeId}`);
+                    } else if (existing.status === 'STALE') {
+                        console.log(`      ↩️ Restoring from STALE: ${animal.name || animal.intakeId}`);
                     }
+                    // Auto-recovery: restore status
+                    data.status = animal.status;
                 }
                 await (prisma as any).animal.update({
                     where: { id: existing.id }, data: {

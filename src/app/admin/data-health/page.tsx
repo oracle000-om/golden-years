@@ -1,4 +1,5 @@
-import { getAdminOverview, getLatestScrapeRuns, getRecentScrapeRuns } from '@/lib/admin-queries';
+import Link from 'next/link';
+import { getAdminOverview, getLatestScrapeRuns, getRecentScrapeRuns, getStaleShelters } from '@/lib/admin-queries';
 import { UsaCoverageMap } from '@/components/usa-coverage-map';
 import { DonutChart } from '@/components/donut-chart';
 
@@ -37,12 +38,13 @@ function formatDuration(ms: number | null): string {
 }
 
 export default async function DataHealthPage() {
-    let data, latestRuns, recentRuns;
+    let data, latestRuns, recentRuns, staleShelters;
     try {
-        [data, latestRuns, recentRuns] = await Promise.all([
+        [data, latestRuns, recentRuns, staleShelters] = await Promise.all([
             getAdminOverview(),
             getLatestScrapeRuns(),
             getRecentScrapeRuns(30),
+            getStaleShelters(),
         ]);
     } catch (err) {
         return (
@@ -92,6 +94,29 @@ export default async function DataHealthPage() {
     return (
         <div className="admin-page">
             <h1 className="admin-page__title">Data Health</h1>
+
+            {/* ── Stale Sources Alert ── */}
+            {staleShelters.length > 0 && (
+                <div className="admin-alert admin-alert--warn">
+                    <details>
+                        <summary className="admin-alert__title" style={{ cursor: 'pointer' }}>
+                            ⚠️ {staleShelters.length} source{staleShelters.length !== 1 ? 's' : ''} not scraped in &gt;72h
+                        </summary>
+                        <ul className="admin-alert__list">
+                            {staleShelters.slice(0, 20).map(s => (
+                                <li key={s.id}>
+                                    <Link href={`/shelter/${s.id}`} style={{ color: 'inherit', textDecoration: 'none' }}>
+                                        {s.name} ({s.state}) — {timeAgo(s.lastScrapedAt)}
+                                    </Link>
+                                </li>
+                            ))}
+                            {staleShelters.length > 20 && (
+                                <li>+{staleShelters.length - 20} more</li>
+                            )}
+                        </ul>
+                    </details>
+                </div>
+            )}
 
             {/* ── Scraper Pipeline Status ── */}
             <div className="admin-card">

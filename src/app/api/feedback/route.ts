@@ -1,20 +1,45 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 
-/* ── Rate limiter ── */
+/* ── Rate limiter (DB-backed for multi-instance safety) ── */
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const RATE_LIMIT_MAX = 5;
-const ipCounts = new Map<string, { count: number; resetAt: number }>();
 
-function isRateLimited(ip: string): boolean {
-    const now = Date.now();
-    const entry = ipCounts.get(ip);
-    if (!entry || now > entry.resetAt) {
-        ipCounts.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+async function isRateLimited(ip: string): Promise<boolean> {
+    const route = 'feedback';
+    const now = new Date();
+    const windowStart = new Date(now.getTime() - RATE_LIMIT_WINDOW_MS);
+
+    // Clean up expired entries and count current window in one go
+    await prisma.rateLimitEntry.deleteMany({
+        where: { route, windowEnd: { lt: now } },
+    });
+
+    const existing = await prisma.rateLimitEntry.findUnique({
+        where: { ip_route: { ip, route } },
+    });
+
+    if (!existing) {
+        await prisma.rateLimitEntry.create({
+            data: { ip, route, count: 1, windowEnd: new Date(now.getTime() + RATE_LIMIT_WINDOW_MS) },
+        });
         return false;
     }
-    entry.count++;
-    return entry.count > RATE_LIMIT_MAX;
+
+    if (existing.windowEnd < now) {
+        await prisma.rateLimitEntry.update({
+            where: { ip_route: { ip, route } },
+            data: { count: 1, windowEnd: new Date(now.getTime() + RATE_LIMIT_WINDOW_MS) },
+        });
+        return false;
+    }
+
+    await prisma.rateLimitEntry.update({
+        where: { ip_route: { ip, route } },
+        data: { count: existing.count + 1 },
+    });
+
+    return existing.count + 1 > RATE_LIMIT_MAX;
 }
 
 export async function POST(request: NextRequest) {
@@ -24,7 +49,7 @@ export async function POST(request: NextRequest) {
             request.headers.get('x-real-ip') ||
             'unknown';
 
-        if (isRateLimited(ip)) {
+        if (await isRateLimited(ip)) {
             return NextResponse.json(
                 { error: 'Too many requests. Please wait a moment.' },
                 { status: 429 },

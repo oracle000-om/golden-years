@@ -26,7 +26,16 @@ export function verifyToken(token: string): boolean {
 }
 
 export async function POST(request: Request) {
-    const { password } = await request.json();
+    let body: { password?: string };
+    try {
+        body = await request.json();
+    } catch {
+        return NextResponse.json({ success: false, error: 'Invalid request body' }, { status: 400 });
+    }
+    const { password } = body;
+    if (!password || typeof password !== 'string') {
+        return NextResponse.json({ success: false, error: 'Password is required' }, { status: 400 });
+    }
     const sitePassword = process.env.SITE_PASSWORD;
 
     if (!sitePassword) {

@@ -188,19 +188,19 @@ export function AnimalGrid({ animals, totalCount, page, totalPages }: AnimalGrid
                             </div>
 
                             <div className="animal-card__footer">
-                                <div className="animal-card__death-marker">
+                                <div className="animal-card__status-row">
                                     {intakeDisplay && (
                                         <>
-                                            <span className="animal-card__death-marker-label">Intake</span>
-                                            <span className="animal-card__death-marker-time standard">
+                                            <span className="animal-card__status-row-label">Intake</span>
+                                            <span className="animal-card__status-row-value standard">
                                                 {intakeDisplay}
                                             </span>
                                         </>
                                     )}
                                     {animal.euthScheduledAt ? (
                                         <>
-                                            <span className="animal-card__death-marker-label">Scheduled</span>
-                                            <span className={`animal-card__death-marker-time ${urgency}`}>
+                                            <span className="animal-card__status-row-label">Scheduled</span>
+                                            <span className={`animal-card__status-row-value ${urgency}`}>
                                                 {formatScheduledDate(animal.euthScheduledAt)}
                                             </span>
                                         </>
@@ -227,11 +227,11 @@ export function AnimalGrid({ animals, totalCount, page, totalPages }: AnimalGrid
                                         </div>
                                     ) : (
                                         <>
-                                            <span className="animal-card__death-marker-label">Status</span>
-                                            <span className="animal-card__death-marker-time standard">
-                                                {(animal.shelter as any).shelterType === 'RESCUE' ? 'In Rescue'
-                                                    : (animal.shelter as any).shelterType === 'NO_KILL' ? 'In No-Kill Shelter'
-                                                        : (animal.shelter as any).shelterType === 'FOSTER_BASED' ? 'In Foster'
+                                            <span className="animal-card__status-row-label">Status</span>
+                                            <span className="animal-card__status-row-value standard">
+                                                {animal.shelter.shelterType === 'RESCUE' ? 'In Rescue'
+                                                    : animal.shelter.shelterType === 'NO_KILL' ? 'In No-Kill Shelter'
+                                                        : animal.shelter.shelterType === 'FOSTER_BASED' ? 'In Foster'
                                                             : 'In Shelter'}
                                             </span>
                                         </>
@@ -239,7 +239,7 @@ export function AnimalGrid({ animals, totalCount, page, totalPages }: AnimalGrid
                                     {daysInShelter !== null && (
                                         <div className="animal-card__days-in-shelter">
                                             {daysInShelter === 0 ? 'Arrived today'
-                                                : `${daysInShelter} day${daysInShelter !== 1 ? 's' : ''} ${(animal.shelter as any).shelterType === 'RESCUE' ? 'in rescue' : (animal.shelter as any).shelterType === 'NO_KILL' ? 'in no-kill shelter' : (animal.shelter as any).shelterType === 'FOSTER_BASED' ? 'in foster' : 'in shelter'}`}
+                                                : `${daysInShelter} day${daysInShelter !== 1 ? 's' : ''} ${animal.shelter.shelterType === 'RESCUE' ? 'in rescue' : animal.shelter.shelterType === 'NO_KILL' ? 'in no-kill shelter' : animal.shelter.shelterType === 'FOSTER_BASED' ? 'in foster' : 'in shelter'}`}
                                         </div>
                                     )}
                                 </div>

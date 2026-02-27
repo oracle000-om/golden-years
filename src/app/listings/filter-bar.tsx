@@ -26,7 +26,8 @@ export function FilterBar({
     const searchParams = useSearchParams();
     const [zipValue, setZipValue] = useState(currentZip);
     const [locating, setLocating] = useState(false);
-    const [isPending, startTransition] = useTransition();
+    const [, startFilterTransition] = useTransition();
+    const [isResetting, startResetTransition] = useTransition();
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const updateFilter = useCallback(
@@ -39,7 +40,7 @@ export function FilterBar({
             }
             // Reset page on filter change
             params.delete('page');
-            startTransition(() => {
+            startFilterTransition(() => {
                 router.push(`/?${params.toString()}`);
             });
         },
@@ -62,10 +63,17 @@ export function FilterBar({
         [updateFilter],
     );
 
+    const [locateError, setLocateError] = useState(false);
+
     const handleLocate = useCallback(async () => {
-        if (!navigator.geolocation) return;
+        if (!navigator.geolocation) {
+            setLocateError(true);
+            setTimeout(() => setLocateError(false), 3000);
+            return;
+        }
 
         setLocating(true);
+        setLocateError(false);
 
         navigator.geolocation.getCurrentPosition(
             async (position) => {
@@ -81,15 +89,21 @@ export function FilterBar({
                     if (zip && zip.length === 5) {
                         setZipValue(zip);
                         updateFilter('zip', zip);
+                    } else {
+                        setLocateError(true);
+                        setTimeout(() => setLocateError(false), 3000);
                     }
                 } catch {
-                    // Silently fail
+                    setLocateError(true);
+                    setTimeout(() => setLocateError(false), 3000);
                 } finally {
                     setLocating(false);
                 }
             },
             () => {
                 setLocating(false);
+                setLocateError(true);
+                setTimeout(() => setLocateError(false), 3000);
             },
             { enableHighAccuracy: false, timeout: 8000 },
         );
@@ -97,10 +111,11 @@ export function FilterBar({
 
     const resetFilters = useCallback(() => {
         setZipValue('');
-        startTransition(() => {
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        startResetTransition(() => {
             router.push('/');
         });
-    }, [router, startTransition]);
+    }, [router, startResetTransition]);
 
     return (
         <div className="filter-bar">
@@ -151,14 +166,14 @@ export function FilterBar({
 
             <select
                 className="filter-bar__select"
-                value={currentSort}
+                value={currentSort === 'distance' && !hasLocation ? 'urgency' : currentSort}
                 onChange={(e) => updateFilter('sort', e.target.value)}
                 aria-label="Sort results"
             >
                 <option value="urgency">Sort: Urgency</option>
                 <option value="newest">Sort: Newest</option>
-                <option value="distance">Sort: Distance</option>
-                <option value="age">Sort: Oldest</option>
+                {hasLocation && <option value="distance">Sort: Distance</option>}
+                <option value="age">Sort: Oldest Animals</option>
             </select>
 
             {hasEuthDates && (
@@ -193,13 +208,13 @@ export function FilterBar({
                     maxLength={5}
                 />
                 <button
-                    className="filter-bar__locate"
+                    className={`filter-bar__locate${locateError ? ' filter-bar__locate--error' : ''}`}
                     onClick={handleLocate}
                     disabled={locating}
                     aria-label="Use my location"
-                    title="Use my location"
+                    title={locateError ? 'Location unavailable' : 'Use my location'}
                 >
-                    {locating ? '…' : '📍'}
+                    {locating ? '…' : locateError ? '✕' : '📍'}
                 </button>
             </div>
 
@@ -218,8 +233,8 @@ export function FilterBar({
                 </select>
             )}
 
-            <button className="filter-bar__reset" onClick={resetFilters} disabled={isPending}>
-                {isPending ? 'Resetting…' : 'Reset'}
+            <button className="filter-bar__reset" onClick={resetFilters} disabled={isResetting}>
+                {isResetting ? 'Resetting…' : 'Reset'}
             </button>
         </div>
     );

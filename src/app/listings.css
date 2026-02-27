@@ -306,6 +306,27 @@
   cursor: wait;
 }
 
+.filter-bar__locate--error {
+  color: var(--color-critical, #d93636);
+  animation: locateShake 0.3s ease;
+}
+
+@keyframes locateShake {
+
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  25% {
+    transform: translateX(-2px);
+  }
+
+  75% {
+    transform: translateX(2px);
+  }
+}
+
 /* --- Listings Pagination --- */
 .listings-count {
   text-align: center;
@@ -888,37 +909,37 @@
   border-top: var(--border-subtle);
 }
 
-.animal-card__death-marker {
+.animal-card__status-row {
   font-size: var(--font-size-sm);
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
 
-.animal-card__death-marker-label {
+.animal-card__status-row-label {
   color: var(--color-text-dim);
   text-transform: uppercase;
   letter-spacing: 0.08em;
   font-weight: 500;
 }
 
-.animal-card__death-marker-time {
+.animal-card__status-row-value {
   font-weight: 600;
 }
 
-.animal-card__death-marker-time.critical {
+.animal-card__status-row-value.critical {
   color: var(--color-critical);
 }
 
-.animal-card__death-marker-time.urgent {
+.animal-card__status-row-value.urgent {
   color: var(--color-urgent);
 }
 
-.animal-card__death-marker-time.warning {
+.animal-card__status-row-value.warning {
   color: var(--color-warning);
 }
 
-.animal-card__death-marker-time.standard {
+.animal-card__status-row-value.standard {
   color: var(--color-text-muted);
 }
 

@@ -3,7 +3,8 @@ import { SafeImage } from '@/components/SafeImage';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { getAnimalById, getAnimalForMetadata, getBreedCommonConditions, getShelterInsights } from '@/lib/queries';
-import { formatDeathMarker, hoursUntil, getUrgencyLevel, formatIntakeReason, formatYearsRemaining, getAgeDiscrepancy, getGoldenYearsConfidence, computeHealthScore, getSaveRate, getBestAge, cleanDisplayText } from '@/lib/utils';
+import { formatDeathMarker, hoursUntil, getUrgencyLevel, formatIntakeReason, formatYearsRemaining, getAgeDiscrepancy, getGoldenYearsConfidence, computeHealthScore, getSaveRate, getBestAge, cleanDisplayText, getRecommendedMinSqft } from '@/lib/utils';
+import { getMatchProfiles } from '@/lib/match-profiles';
 import { CopyLinkButton } from '@/components/copy-link-button';
 import { BackButton } from '@/components/back-button';
 import { PhotoGallery } from '@/components/photo-gallery';
@@ -209,7 +210,7 @@ export default async function AnimalDetailPage({
                 {animal.status === 'DELISTED' && (
                     <div className="animal-detail__status-banner animal-detail__status-banner--neutral">
                         <strong>ℹ️ {animal.name || 'This animal'} is no longer listed</strong>
-                        <span>This usually means the animal was adopted, transferred, or pulled by a rescue.</span>
+                        <span>This could mean the animal was adopted, transferred, pulled by a rescue, or euthanized.</span>
                         {animal.lastSeenAt && <span className="animal-detail__status-banner-date">Last seen on shelter site {new Date(animal.lastSeenAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>}
                     </div>
                 )}
@@ -302,6 +303,12 @@ export default async function AnimalDetailPage({
                                     <span className={`animal-detail__detail-value ${sizeDisplay.inferred ? 'cv-estimated' : ''}`}>{sizeDisplay.text}</span>
                                 </div>
                             )}
+                            {animal.estimatedWeightLbs && (
+                                <div className="animal-detail__detail-row">
+                                    <span className="animal-detail__detail-label">Est. weight</span>
+                                    <span className="animal-detail__detail-value cv-estimated">~{animal.estimatedWeightLbs} lbs</span>
+                                </div>
+                            )}
                             <div className="animal-detail__detail-row">
                                 <span className="animal-detail__detail-label">Intake ID</span>
                                 <span className="animal-detail__detail-value">{animal.intakeId || 'N/A'}</span>
@@ -324,6 +331,21 @@ export default async function AnimalDetailPage({
                             )}
                         </div>
 
+                        {/* Match Profile Badges (exclude families badge — shown in report card) */}
+                        {(() => {
+                            const badges = getMatchProfiles(animal).filter(b => b.label !== 'Good with families');
+                            if (badges.length === 0) return null;
+                            return (
+                                <div className="animal-detail__match-badges">
+                                    {badges.map(b => (
+                                        <span key={b.label} className="animal-detail__match-badge">
+                                            {b.icon} {b.label}
+                                        </span>
+                                    ))}
+                                </div>
+                            );
+                        })()}
+
                         {/* Only show urgency badge when real euthanasia schedule exists */}
                         {urgency !== 'standard' && (
                             <div className="animal-detail__ers-badge-row">
@@ -341,6 +363,32 @@ export default async function AnimalDetailPage({
                 {/* --- Consolidated Report Card --- */}
                 <div className="animal-detail__report">
                     <h2 className="animal-detail__report-title">Report Card</h2>
+
+                    {/* Good with families — individual compatibility chips */}
+                    {(() => {
+                        const familiesBadge = getMatchProfiles(animal).find(b => b.label === 'Good with families');
+                        if (!familiesBadge) return null;
+                        const chips: { icon: string; label: string }[] = [];
+                        if (animal.goodWithChildren) chips.push({ icon: '👶', label: 'Good with children' });
+                        if (animal.goodWithDogs) chips.push({ icon: '🐕', label: 'Good with dogs' });
+                        if (animal.goodWithCats) chips.push({ icon: '🐈', label: 'Good with cats' });
+                        if (animal.aggressionRisk !== null && animal.aggressionRisk <= 2) chips.push({ icon: '🤝', label: 'Low aggression' });
+                        if (animal.stressLevel === 'low') chips.push({ icon: '😌', label: 'Low stress' });
+                        if (animal.energyLevel === 'moderate' || animal.energyLevel === 'low') chips.push({ icon: '🧘', label: 'Calm energy' });
+                        if (chips.length === 0) chips.push({ icon: '👨‍👩‍👧', label: 'Good with families' });
+                        return (
+                            <div className="animal-detail__report-section animal-detail__report-section--highlight">
+                                <h3>👨‍👩‍👧 Family Friendly</h3>
+                                <div className="animal-detail__match-chips">
+                                    {chips.map(c => (
+                                        <span key={c.label} className="animal-detail__match-chip">
+                                            {c.icon} {c.label}
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+                        );
+                    })()}
 
                     {hours !== null && hours === 0 && (
                         <div className="animal-detail__report-section animal-detail__report-section--warning">
@@ -522,6 +570,23 @@ export default async function AnimalDetailPage({
                             )}
                         </div>
                     )}
+
+                    {/* --- Up to Shelter / Rescue Discretion --- */}
+                    {(() => {
+                        const homeSizeRec = getRecommendedMinSqft(animal.estimatedWeightLbs, animal.energyLevel, animal.mobilityAssessment);
+                        if (!homeSizeRec) return null;
+                        return (
+                            <div className="animal-detail__report-section animal-detail__report-section--discretion">
+                                <h3>Shelter / Rescue Discretion</h3>
+                                <p className="animal-detail__report-detail">
+                                    Recommended minimum home size: <strong>~{homeSizeRec.sqft} sqft</strong> ({homeSizeRec.label})
+                                </p>
+                                <p className="animal-detail__report-disclaimer">
+                                    Based on estimated weight, energy level, and mobility. Actual requirements are up to the shelter or rescue&apos;s application process.
+                                </p>
+                            </div>
+                        );
+                    })()}
 
                 </div>
 

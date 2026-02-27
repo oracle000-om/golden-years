@@ -1093,3 +1093,47 @@ export function buildShelterStoryInsights(input: StoryInsightsInput): string[] {
 
     return insights.slice(0, 8);
 }
+
+/**
+ * Recommended minimum home sqft from weight + energy + mobility.
+ *
+ * Baseline from weight buckets, adjusted by energy level and
+ * mobility. Returns null if weight is unknown.
+ */
+export function getRecommendedMinSqft(
+    weightLbs: number | null,
+    energyLevel: string | null,
+    mobilityAssessment: string | null,
+): { sqft: number; label: string } | null {
+    if (weightLbs === null) return null;
+
+    // Base sqft from weight
+    let sqft: number;
+    if (weightLbs <= 15) sqft = 400;   // toy/small
+    else if (weightLbs <= 30) sqft = 600;   // small-medium
+    else if (weightLbs <= 55) sqft = 800;   // medium
+    else if (weightLbs <= 80) sqft = 1000;  // large
+    else sqft = 1200;  // XL
+
+    // Energy adjustment
+    if (energyLevel === 'high') sqft = Math.round(sqft * 1.3);
+    else if (energyLevel === 'low') sqft = Math.round(sqft * 0.7);
+
+    // Mobility — limited/impaired animals need less space
+    if (mobilityAssessment === 'limited' || mobilityAssessment === 'impaired') {
+        sqft = Math.round(sqft * 0.7);
+    }
+
+    // Snap to nearest 50
+    sqft = Math.round(sqft / 50) * 50;
+
+    // Human-friendly label
+    let label: string;
+    if (sqft <= 400) label = 'Studio / small apt';
+    else if (sqft <= 600) label = 'Apartment';
+    else if (sqft <= 800) label = 'Large apartment';
+    else if (sqft <= 1000) label = 'House';
+    else label = 'House with yard';
+
+    return { sqft, label };
+}

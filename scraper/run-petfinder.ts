@@ -14,7 +14,7 @@
 import 'dotenv/config';
 import { createPrismaClient } from './lib/prisma';
 import { scrapePetfinder } from './adapters/petfinder';
-import { createAgeEstimationProvider, lookupLifeExpectancy, computeAssessmentDiff, type AgeEstimationProvider } from './cv';
+import { createAgeEstimationProvider, lookupLifeExpectancy, computeAssessmentDiff, extractKeyFrames, type AgeEstimationProvider } from './cv';
 import { findDuplicate, computePhotoHashFromBuffer, hammingDistance, PHASH_THRESHOLD } from './dedup';
 import { sanitizeText } from './lib/sanitize-text';
 import { enqueueFailure } from './lib/retry-queue';
@@ -166,10 +166,28 @@ async function main() {
             let cvEstimate = null;
             const hasExistingCv = existing?.ageEstimatedLow != null;
             const photoUnchanged = existing?.photoUrl === animal.photoUrl;
+            // Photo quality re-scrape: re-run CV if previous quality was poor
+            // and new photos are available (primary changed or more photos added)
+            const needsReassess = hasExistingCv && existing?.photoQuality === 'poor' && (
+                !photoUnchanged ||
+                (animal.photoUrls?.length ?? 0) > (existing?.photoUrls?.length ?? 0)
+            );
 
-            if (hasExistingCv && photoUnchanged) { cvSkipped++; }
+            if (needsReassess) {
+                console.log(`      📸 Re-assessing (previous quality: poor, ${!photoUnchanged ? 'new primary photo' : 'new photos added'})`);
+            }
+
+            if (hasExistingCv && photoUnchanged && !needsReassess) { cvSkipped++; }
             else if (cvProvider && animal.photoUrl) {
-                try { cvEstimate = await cvProvider.estimateAge(animal.photoUrl, animal.photoUrls, { shelterSize: animal.size, shelterSpecies: animal.species, shelterAge: animal.ageKnownYears, shelterBreed: animal.breed, shelterNotes: animal.description || animal.notes }); if (cvEstimate) cvProcessed++; } catch { /* skip */ }
+                try {
+                    // Extract key frames from video for enriched behavioral analysis
+                    let videoFrames: Buffer[] = [];
+                    if (animal.videoUrl) {
+                        try { videoFrames = await extractKeyFrames(animal.videoUrl, 4); } catch { /* non-fatal */ }
+                    }
+                    cvEstimate = await cvProvider.estimateAge(animal.photoUrl, animal.photoUrls, { shelterSize: animal.size, shelterSpecies: animal.species, shelterAge: animal.ageKnownYears, shelterBreed: animal.breed, shelterNotes: animal.description || animal.notes }, undefined, videoFrames.length > 0 ? videoFrames : undefined);
+                    if (cvEstimate) cvProcessed++;
+                } catch { /* skip */ }
             }
 
             if (cvEstimate && cvEstimate.confidence === 'NONE') { skippedNonPhoto++; return {}; }
@@ -183,6 +201,7 @@ async function main() {
                 sex: animal.sex, size: animal.size, photoUrl: animal.photoUrl,
                 photoUrls: animal.photoUrls ?? [],
                 photoHash, status: animal.status,
+                videoUrl: animal.videoUrl ?? null,
                 ageKnownYears: animal.ageKnownYears != null ? Number(animal.ageKnownYears) : null,
                 intakeReason: animal.intakeReason, intakeReasonDetail: sanitizeText(animal.intakeReasonDetail),
                 euthScheduledAt: animal.euthScheduledAt, intakeDate: animal.intakeDate,

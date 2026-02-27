@@ -206,6 +206,7 @@ async function main() {
                     size: animal.size,
                     photoUrl: animal.photoUrl,
                     photoHash,
+                    videoUrl: animal.videoUrl ?? null,
                     status: animal.status,
                     ageKnownYears: animal.ageKnownYears != null ? Number(animal.ageKnownYears) : null,
                     intakeReason: animal.intakeReason,

@@ -15,7 +15,7 @@
 import 'dotenv/config';
 import { createPrismaClient } from './lib/prisma';
 import { scrapeRescueGroups } from './adapters/rescuegroups';
-import { createAgeEstimationProvider, lookupLifeExpectancy, computeAssessmentDiff, type AgeEstimationProvider } from './cv';
+import { createAgeEstimationProvider, lookupLifeExpectancy, computeAssessmentDiff, extractKeyFrames, type AgeEstimationProvider } from './cv';
 import { findDuplicate, computePhotoHashFromBuffer, hammingDistance, PHASH_THRESHOLD } from './dedup';
 import { sanitizeText } from './lib/sanitize-text';
 import { enqueueFailure } from './lib/retry-queue';
@@ -228,18 +228,22 @@ async function main() {
             const hasExistingCv = existing?.ageEstimatedLow != null;
             const photoUnchanged = existing?.photoUrl === animal.photoUrl;
 
-            if (hasExistingCv && photoUnchanged) {
+            if (hasExistingCv && photoUnchanged && !(existing?.photoQuality === 'poor' && (
+                (animal.photoUrls?.length ?? 0) > (existing?.photoUrls?.length ?? 0)
+            ))) {
                 // Reuse existing CV data — no Gemini call needed
                 cvSkipped++;
             } else if (cvProvider && animal.photoUrl) {
                 try {
+                    let videoFrames: Buffer[] = [];
+                    if (animal.videoUrl) { try { videoFrames = await extractKeyFrames(animal.videoUrl, 4); } catch { /* non-fatal */ } }
                     cvEstimate = await cvProvider.estimateAge(animal.photoUrl, animal.photoUrls, {
                         shelterSize: animal.size,
                         shelterSpecies: animal.species,
                         shelterAge: animal.ageKnownYears,
                         shelterBreed: animal.breed,
                         shelterNotes: animal.description || animal.notes,
-                    });
+                    }, undefined, videoFrames.length > 0 ? videoFrames : undefined);
                     if (cvEstimate) cvProcessed++;
                 } catch {
                     // Silently skip CV errors
@@ -269,6 +273,7 @@ async function main() {
                 photoUrl: animal.photoUrl,
                 photoUrls: animal.photoUrls ?? [],
                 photoHash,
+                videoUrl: animal.videoUrl ?? null,
                 status: animal.status,
                 ageKnownYears: animal.ageKnownYears != null ? Number(animal.ageKnownYears) : null,
                 intakeReason: animal.intakeReason,

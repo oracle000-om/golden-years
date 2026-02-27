@@ -416,8 +416,9 @@ export function createGeminiProvider(apiKey: string): AgeEstimationProvider {
 
         if (hasDentalSignals || hasEyeSignals) {
             try {
+                // Smart close-up routing: send all photos, let model pick best view
                 const closeUpResult = await runCloseUpAssessment(
-                    genai, allProcessed[0], hasDentalSignals, hasEyeSignals
+                    genai, allProcessed, hasDentalSignals, hasEyeSignals
                 );
                 if (closeUpResult && closeUpResult.isCloseUp) {
                     estimate.dentalGrade = closeUpResult.dentalGrade;
@@ -425,7 +426,7 @@ export function createGeminiProvider(apiKey: string): AgeEstimationProvider {
                     estimate.dentalNotes = closeUpResult.dentalNotes;
                     estimate.cataractStage = closeUpResult.cataractStage;
                     estimate.eyeNotes = closeUpResult.eyeNotes;
-                    console.log(`      🦷 Close-up: dental=${closeUpResult.dentalGrade ?? '?'}/4, eyes=${closeUpResult.cataractStage ?? 'n/a'}`);
+                    console.log(`      🦷 Close-up: dental=${closeUpResult.dentalGrade ?? '?'}/4, eyes=${closeUpResult.cataractStage ?? 'n/a'} (${allProcessed.length} photos sent)`);
                 }
             } catch {
                 // Non-fatal — close-up is supplementary
@@ -441,7 +442,7 @@ export function createGeminiProvider(apiKey: string): AgeEstimationProvider {
      */
     async function runCloseUpAssessment(
         ai: GoogleGenAI,
-        photo: { buffer: Buffer; mimeType: string },
+        photos: { buffer: Buffer; mimeType: string }[],
         checkDental: boolean,
         checkEyes: boolean,
     ): Promise<CloseUpAssessment | null> {
@@ -459,16 +460,23 @@ export function createGeminiProvider(apiKey: string): AgeEstimationProvider {
         };
 
         const focus = [checkDental && 'dental health', checkEyes && 'eye health'].filter(Boolean).join(' and ');
-        const prompt = `Focus on assessing ${focus} in this photo.\n\n${CLOSE_UP_ASSESSMENT_PROMPT}`;
+        const multiPhotoNote = photos.length > 1
+            ? `You have ${photos.length} photos of the same animal. Pick the photo with the BEST view of the ${focus} for your assessment. `
+            : '';
+        const prompt = `${multiPhotoNote}Focus on assessing ${focus} in this photo.\n\n${CLOSE_UP_ASSESSMENT_PROMPT}`;
+
+        // Build parts: all photos + prompt
+        const parts: Array<{ inlineData: { mimeType: string; data: string } } | { text: string }> = [];
+        for (const photo of photos) {
+            parts.push({ inlineData: { mimeType: photo.mimeType, data: photo.buffer.toString('base64') } });
+        }
+        parts.push({ text: prompt });
 
         const response = await ai.models.generateContent({
             model: MODEL_FAST,
             contents: [{
                 role: 'user',
-                parts: [
-                    { inlineData: { mimeType: photo.mimeType, data: photo.buffer.toString('base64') } },
-                    { text: prompt },
-                ],
+                parts,
             }],
             config: {
                 responseMimeType: 'application/json',

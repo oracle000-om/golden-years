@@ -21,7 +21,7 @@
 import 'dotenv/config';
 import { createPrismaClient } from './lib/prisma';
 import { scrapeSocrataListings, LISTING_CONFIGS } from './adapters/socrata-listings';
-import { createAgeEstimationProvider, lookupLifeExpectancy, computeAssessmentDiff, type AgeEstimationProvider } from './cv';
+import { createAgeEstimationProvider, lookupLifeExpectancy, computeAssessmentDiff, extractKeyFrames, type AgeEstimationProvider } from './cv';
 import { findDuplicate, computePhotoHash } from './dedup';
 import { sanitizeText } from './lib/sanitize-text';
 import { enqueueFailure } from './lib/retry-queue';
@@ -130,18 +130,20 @@ async function main() {
         const hasExistingCv = existing?.ageEstimatedLow != null;
         const photoUnchanged = existing?.photoUrl === animal.photoUrl;
 
-        if (hasExistingCv && photoUnchanged) {
+        if (hasExistingCv && photoUnchanged && !(hasExistingCv && existing?.photoQuality === 'poor' && !photoUnchanged)) {
             cvSkipped++;
         } else if (cvProvider && animal.photoUrl) {
             try {
                 console.log(`   🔬 CV: ${animal.name || animal.intakeId}...`);
+                let videoFrames: Buffer[] = [];
+                if (animal.videoUrl) { try { videoFrames = await extractKeyFrames(animal.videoUrl, 4); } catch { /* non-fatal */ } }
                 cvEstimate = await cvProvider.estimateAge(animal.photoUrl, undefined, {
                     shelterSize: animal.size,
                     shelterSpecies: animal.species,
                     shelterAge: animal.ageKnownYears,
                     shelterBreed: animal.breed,
                     shelterNotes: animal.description || animal.notes,
-                });
+                }, undefined, videoFrames.length > 0 ? videoFrames : undefined);
                 if (cvEstimate) cvProcessed++;
             } catch {
                 // Silently skip CV errors
@@ -168,6 +170,7 @@ async function main() {
                 size: animal.size,
                 photoUrl: animal.photoUrl,
                 photoHash,
+                videoUrl: animal.videoUrl ?? null,
                 status: animal.status,
                 ageKnownYears: animal.ageKnownYears != null ? Number(animal.ageKnownYears) : null,
                 intakeReason: animal.intakeReason,

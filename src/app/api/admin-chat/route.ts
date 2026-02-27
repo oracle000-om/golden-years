@@ -303,7 +303,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
         }
 
-        const { question } = await request.json();
+        const { question, pageContext } = await request.json();
 
         if (!question || typeof question !== 'string' || question.trim().length === 0) {
             return NextResponse.json({ error: 'Question is required' }, { status: 400 });
@@ -316,10 +316,12 @@ export async function POST(request: NextRequest) {
 
         const ai = new GoogleGenAI({ apiKey });
 
-        // Step 1: Generate SQL from natural language
+        // Build contextual question
+        const contextPrefix = pageContext ? `[Admin is currently viewing page: ${pageContext}] ` : '';
+
         const sqlResponse = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
-            contents: [{ role: 'user', parts: [{ text: question }] }],
+            contents: [{ role: 'user', parts: [{ text: contextPrefix + question }] }],
             config: {
                 systemInstruction: SQL_SYSTEM_PROMPT,
                 temperature: 0,
@@ -330,6 +332,8 @@ export async function POST(request: NextRequest) {
         let sql = (sqlResponse.text ?? '').trim();
         // Strip markdown code fences if present
         sql = sql.replace(/^```(?:sql)?\s*/i, '').replace(/\s*```$/i, '').trim();
+        // Strip trailing semicolons (Gemini often adds them)
+        sql = sql.replace(/;\s*$/, '').trim();
 
         if (!sql) {
             return NextResponse.json({ error: 'Could not generate a query for that question' }, { status: 400 });

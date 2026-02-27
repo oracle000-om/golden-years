@@ -192,12 +192,16 @@ export async function getAdminOverview(): Promise<AdminOverview> {
     const activeShelters = activeShelterIds.length;
 
     // Enhancement 5: State coverage
+    // Valid US states + DC + territories
+    const VALID_US = new Set(['AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA', 'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD', 'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ', 'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC', 'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY', 'DC', 'PR']);
+
     const stateGroups = await prisma.shelter.groupBy({
         by: ['state'],
         _count: { state: true },
     });
+    const validStateGroups = stateGroups.filter(g => VALID_US.has(g.state));
     const stateAnimalCounts = await Promise.all(
-        stateGroups.map(async (g) => {
+        validStateGroups.map(async (g) => {
             const count = await prisma.animal.count({
                 where: {
                     status: { in: ['AVAILABLE', 'URGENT'] },
@@ -231,7 +235,7 @@ export async function getAdminOverview(): Promise<AdminOverview> {
         withConflicts,
         withVisibleConditions,
         stateBreakdown,
-        totalStates: stateGroups.length,
+        totalStates: validStateGroups.length,
     };
 }
 
@@ -255,40 +259,41 @@ export interface AdminAnimalStats {
     recentlyDelisted: RecentAnimal[];
 }
 
-export async function getAdminAnimalStats(): Promise<AdminAnimalStats> {
+export async function getAdminAnimalStats(species?: string): Promise<AdminAnimalStats> {
+    const speciesWhere = species ? { species: species as any } : {};
     const [total, withoutName, withoutAge, urgentCount] = await Promise.all([
-        prisma.animal.count(),
-        prisma.animal.count({ where: { name: null } }),
-        prisma.animal.count({ where: { ageKnownYears: null, ageEstimatedLow: null } }),
-        prisma.animal.count({ where: { status: 'URGENT' } }),
+        prisma.animal.count({ where: speciesWhere }),
+        prisma.animal.count({ where: { name: null, ...speciesWhere } }),
+        prisma.animal.count({ where: { ageKnownYears: null, ageEstimatedLow: null, ...speciesWhere } }),
+        prisma.animal.count({ where: { status: 'URGENT', ...speciesWhere } }),
     ]);
 
-    const bySpecies = (await prisma.animal.groupBy({ by: ['species'], _count: { species: true } }))
+    const bySpecies = (await prisma.animal.groupBy({ by: ['species'], _count: { species: true }, where: speciesWhere }))
         .map(g => ({ species: g.species, count: g._count.species }));
 
-    const byStatus = (await prisma.animal.groupBy({ by: ['status'], _count: { status: true } }))
+    const byStatus = (await prisma.animal.groupBy({ by: ['status'], _count: { status: true }, where: speciesWhere }))
         .map(g => ({ status: g.status, count: g._count.status }));
 
-    const byAgeSource = (await prisma.animal.groupBy({ by: ['ageSource'], _count: { ageSource: true } }))
+    const byAgeSource = (await prisma.animal.groupBy({ by: ['ageSource'], _count: { ageSource: true }, where: speciesWhere }))
         .map(g => ({ source: g.ageSource, count: g._count.ageSource }));
 
     const photoQualityGroups = await prisma.animal.groupBy({
         by: ['photoQuality'],
         _count: { photoQuality: true },
-        where: { photoQuality: { not: null } },
+        where: { photoQuality: { not: null }, ...speciesWhere },
     });
     const byPhotoQuality = photoQualityGroups
         .map(g => ({ quality: g.photoQuality || 'unknown', count: g._count.photoQuality }));
 
     // Average days in shelter for active animals
     const activeDays = await prisma.animal.aggregate({
-        where: { status: { in: ['AVAILABLE', 'URGENT'] }, daysInShelter: { not: null } },
+        where: { status: { in: ['AVAILABLE', 'URGENT'] }, daysInShelter: { not: null }, ...speciesWhere },
         _avg: { daysInShelter: true },
     });
 
     // Recently delisted
     const recentlyDelisted = await prisma.animal.findMany({
-        where: { status: 'DELISTED' },
+        where: { status: 'DELISTED', ...speciesWhere },
         orderBy: { delistedAt: 'desc' },
         take: 15,
         select: {
@@ -309,6 +314,7 @@ export async function getAdminAnimalStats(): Promise<AdminAnimalStats> {
                 where: {
                     status: { in: ['AVAILABLE', 'URGENT'] },
                     shelter: { is: { shelterType: type as any } },
+                    ...speciesWhere,
                 },
             });
             return { type, count };
@@ -317,19 +323,19 @@ export async function getAdminAnimalStats(): Promise<AdminAnimalStats> {
     const bySourceType = sourceTypeCounts.filter(s => s.count > 0);
 
     // Enhancement 2: Intake reason breakdown
-    const byIntakeReason = (await prisma.animal.groupBy({ by: ['intakeReason'], _count: { intakeReason: true } }))
+    const byIntakeReason = (await prisma.animal.groupBy({ by: ['intakeReason'], _count: { intakeReason: true }, where: speciesWhere }))
         .map(g => ({ reason: g.intakeReason, count: g._count.intakeReason }))
         .sort((a, b) => b.count - a.count);
 
     // Enhancement 3: Sex & size breakdowns
-    const bySex = (await prisma.animal.groupBy({ by: ['sex'], _count: { sex: true } }))
+    const bySex = (await prisma.animal.groupBy({ by: ['sex'], _count: { sex: true }, where: speciesWhere }))
         .map(g => ({ sex: g.sex || 'UNKNOWN', count: g._count.sex }))
         .sort((a, b) => b.count - a.count);
 
     const bySize = (await prisma.animal.groupBy({
         by: ['size'],
         _count: { size: true },
-        where: { size: { not: null } },
+        where: { size: { not: null }, ...speciesWhere },
     }))
         .map(g => ({ size: g.size || 'UNKNOWN', count: g._count.size }))
         .sort((a, b) => b.count - a.count);
@@ -338,7 +344,7 @@ export async function getAdminAnimalStats(): Promise<AdminAnimalStats> {
     const byCareLevel = (await prisma.animal.groupBy({
         by: ['estimatedCareLevel'],
         _count: { estimatedCareLevel: true },
-        where: { estimatedCareLevel: { not: null } },
+        where: { estimatedCareLevel: { not: null }, ...speciesWhere },
     }))
         .map(g => ({ level: g.estimatedCareLevel || 'unknown', count: g._count.estimatedCareLevel }))
         .sort((a, b) => b.count - a.count);
@@ -421,3 +427,103 @@ export async function getAdminShelterList(): Promise<AdminShelterDetail[]> {
         dataYear: s.dataYear,
     }));
 }
+
+// ─── 24h Delta Stats ──────────────────────────────────────
+
+export interface DeltaStats {
+    newAnimals: number;
+    adopted: number;
+    delisted: number;
+}
+
+export async function get24hDeltas(): Promise<DeltaStats> {
+    const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+    const [newAnimals, adopted, delisted] = await Promise.all([
+        prisma.animal.count({ where: { createdAt: { gte: cutoff } } }),
+        prisma.animal.count({ where: { status: 'ADOPTED', updatedAt: { gte: cutoff } } }),
+        prisma.animal.count({ where: { status: 'DELISTED', delistedAt: { gte: cutoff } } }),
+    ]);
+
+    return { newAnimals, adopted, delisted };
+}
+
+// ─── Scraper Health ──────────────────────────────────────
+
+export interface LatestScrapeRun {
+    pipeline: string;
+    status: string;
+    startedAt: Date;
+    finishedAt: Date | null;
+    durationMs: number | null;
+    animalsCreated: number;
+    animalsUpdated: number;
+    errors: number;
+}
+
+export async function getLatestScrapeRuns(): Promise<LatestScrapeRun[]> {
+    // Get the latest run per pipeline using raw SQL for DISTINCT ON
+    const runs = await prisma.$queryRaw<LatestScrapeRun[]>`
+        SELECT DISTINCT ON (pipeline)
+            pipeline,
+            status,
+            started_at AS "startedAt",
+            finished_at AS "finishedAt",
+            duration_ms AS "durationMs",
+            animals_created AS "animalsCreated",
+            animals_updated AS "animalsUpdated",
+            errors
+        FROM scrape_runs
+        ORDER BY pipeline, started_at DESC
+    `;
+    return runs;
+}
+
+// ─── Stale Shelters ──────────────────────────────────────
+
+export interface StaleShelter {
+    id: string;
+    name: string;
+    state: string;
+    lastScrapedAt: Date | null;
+    activeAnimals: number;
+}
+
+export async function getStaleShelters(): Promise<StaleShelter[]> {
+    const cutoff = new Date(Date.now() - 72 * 60 * 60 * 1000);
+
+    const shelters = await prisma.shelter.findMany({
+        where: {
+            OR: [
+                { lastScrapedAt: { lt: cutoff } },
+                { lastScrapedAt: null },
+            ],
+        },
+        select: {
+            id: true,
+            name: true,
+            state: true,
+            lastScrapedAt: true,
+            _count: {
+                select: {
+                    animals: {
+                        where: { status: { in: ['AVAILABLE', 'URGENT'] } },
+                    },
+                },
+            },
+        },
+        orderBy: { lastScrapedAt: 'asc' },
+        take: 20,
+    });
+
+    return shelters
+        .filter(s => s._count.animals > 0) // Only show those with active animals
+        .map(s => ({
+            id: s.id,
+            name: s.name,
+            state: s.state,
+            lastScrapedAt: s.lastScrapedAt,
+            activeAnimals: s._count.animals,
+        }));
+}
+

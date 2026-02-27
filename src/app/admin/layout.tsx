@@ -1,11 +1,23 @@
+'use client';
+
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import '../admin.css';
+
+const NAV_LINKS = [
+    { href: '/admin', label: 'Overview', exact: true },
+    { href: '/admin/data-health', label: 'Data Health' },
+    { href: '/admin/animals', label: 'Animals' },
+    { href: '/admin/organizations', label: 'Organizations' },
+];
 
 export default function AdminLayout({
     children,
 }: {
     children: React.ReactNode;
 }) {
+    const pathname = usePathname();
+
     return (
         <div className="admin-layout">
             <nav className="admin-nav">
@@ -15,17 +27,29 @@ export default function AdminLayout({
                     </Link>
                 </div>
                 <div className="admin-nav__links">
-                    <Link href="/admin" className="admin-nav__link">Overview</Link>
-                    <Link href="/admin/animals" className="admin-nav__link">Animals</Link>
-                    <Link href="/admin/shelters" className="admin-nav__link">Shelters</Link>
-                    <Link href="/admin/rescue" className="admin-nav__link">Rescue</Link>
-                    <Link href="/admin/chat" className="admin-nav__link">Chat</Link>
+                    {NAV_LINKS.map(({ href, label, exact }) => {
+                        const isActive = exact
+                            ? pathname === href
+                            : pathname.startsWith(href);
+                        return (
+                            <Link
+                                key={href}
+                                href={href}
+                                className={`admin-nav__link${isActive ? ' admin-nav__link--active' : ''}`}
+                            >
+                                {label}
+                            </Link>
+                        );
+                    })}
                     <Link href="/" className="admin-nav__link admin-nav__link--back">← Site</Link>
                 </div>
             </nav>
             <main className="admin-main">
                 {children}
             </main>
+            <footer className="admin-footer">
+                Dashboard loaded at {new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+            </footer>
         </div>
     );
 }

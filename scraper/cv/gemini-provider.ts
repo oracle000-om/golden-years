@@ -5,7 +5,7 @@
  * Uses @google/genai SDK with structured output (responseSchema).
  *
  * v4 — Tiered model strategy:
- *   1. Try gemini-2.0-flash-lite (cheap/fast) first
+ *   1. Try gemini-2.5-flash-lite (cheap/fast) first
  *   2. If result is null or LOW confidence, retry with gemini-2.5-flash
  *   3. Track which model produced the final result
  *
@@ -25,7 +25,7 @@ import { CLOSE_UP_ASSESSMENT_PROMPT } from './close-up-prompt';
 import type { AnimalAssessment, CloseUpAssessment, AssessmentProvider, AgeEstimationProvider, AssessmentContext } from './types';
 import type { CalibrationConfig } from './calibration-config';
 
-const MODEL_FAST = 'gemini-2.0-flash-lite';
+const MODEL_FAST = 'gemini-2.5-flash-lite';
 const MODEL_FULL = 'gemini-2.5-flash';
 const TARGET_SIZE = 512;  // v2: increased from 256 for better health/behavioral detection
 const MIN_DIMENSION = 50;

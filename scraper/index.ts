@@ -160,7 +160,7 @@ async function main() {
                         const breeds = cvEstimate.detectedBreeds.length > 0
                             ? cvEstimate.detectedBreeds.join(' / ')
                             : 'unknown breed';
-                        const modelTag = cvEstimate.modelUsed === 'gemini-2.0-flash-lite' ? '[LITE]' : '[FLASH]';
+                        const modelTag = cvEstimate.modelUsed === 'gemini-2.5-flash-lite' ? '[LITE]' : '[FLASH]';
                         console.log(`      → ${modelTag} ${cvEstimate.estimatedAgeLow}–${cvEstimate.estimatedAgeHigh}yr (${cvEstimate.confidence}) | ${breeds} | BCS:${cvEstimate.bodyConditionScore ?? '?'} | Aggr:${cvEstimate.aggressionRisk}/5 | Care:${cvEstimate.estimatedCareLevel}`);
                     }
                 } catch (err) {

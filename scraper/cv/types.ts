@@ -67,7 +67,7 @@ export interface AnimalAssessment {
     dataConflicts: string[];
 
     // ── Model metadata (v4) ──
-    /** Which model produced this assessment (e.g. 'gemini-2.0-flash-lite', 'gemini-2.5-flash') */
+    /** Which model produced this assessment (e.g. 'gemini-2.5-flash-lite', 'gemini-2.5-flash') */
     modelUsed?: string;
 
     // ── Close-up dental/eye assessment (v5) ──

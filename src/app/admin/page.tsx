@@ -120,21 +120,23 @@ export default async function AdminDashboard() {
                 {/* Stale Sources Alert */}
                 {staleShelters.length > 0 && (
                     <div className="admin-alert admin-alert--warn">
-                        <div className="admin-alert__title">
-                            ⚠️ {staleShelters.length} source{staleShelters.length !== 1 ? 's' : ''} not scraped in &gt;72h
-                        </div>
-                        <ul className="admin-alert__list">
-                            {staleShelters.slice(0, 10).map(s => (
-                                <li key={s.id}>
-                                    <Link href={`/shelter/${s.id}`} style={{ color: 'inherit', textDecoration: 'none' }}>
-                                        {s.name} ({s.state}) — {timeAgo(s.lastScrapedAt)}
-                                    </Link>
-                                </li>
-                            ))}
-                            {staleShelters.length > 10 && (
-                                <li>+{staleShelters.length - 10} more</li>
-                            )}
-                        </ul>
+                        <details>
+                            <summary className="admin-alert__title" style={{ cursor: 'pointer' }}>
+                                ⚠️ {staleShelters.length} source{staleShelters.length !== 1 ? 's' : ''} not scraped in &gt;72h
+                            </summary>
+                            <ul className="admin-alert__list">
+                                {staleShelters.slice(0, 20).map(s => (
+                                    <li key={s.id}>
+                                        <Link href={`/shelter/${s.id}`} style={{ color: 'inherit', textDecoration: 'none' }}>
+                                            {s.name} ({s.state}) — {timeAgo(s.lastScrapedAt)}
+                                        </Link>
+                                    </li>
+                                ))}
+                                {staleShelters.length > 20 && (
+                                    <li>+{staleShelters.length - 20} more</li>
+                                )}
+                            </ul>
+                        </details>
                     </div>
                 )}
 

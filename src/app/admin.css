@@ -670,16 +670,6 @@ a.admin-stat--link:hover {
     position: relative;
 }
 
-.admin-report-card::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: var(--space-lg);
-    right: var(--space-lg);
-    height: 2px;
-    background: linear-gradient(90deg, var(--color-gold), transparent);
-    border-radius: 1px;
-}
 
 .admin-report-card__heading {
     font-family: var(--font-sans);

@@ -8,7 +8,6 @@ const RATE_LIMIT_MAX = 5;
 async function isRateLimited(ip: string): Promise<boolean> {
     const route = 'feedback';
     const now = new Date();
-    const windowStart = new Date(now.getTime() - RATE_LIMIT_WINDOW_MS);
 
     // Clean up expired entries and count current window in one go
     await prisma.rateLimitEntry.deleteMany({

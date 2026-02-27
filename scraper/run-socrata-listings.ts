@@ -26,6 +26,7 @@ import { findDuplicate, computePhotoHash } from './dedup';
 import { sanitizeText } from './lib/sanitize-text';
 import { enqueueFailure } from './lib/retry-queue';
 import { checkScrapeHealth } from './lib/alert';
+import { reconcileAnimals } from './lib/reconcile';
 import { startRun, finishRun, failRun } from './lib/scrape-run';
 import type { ScrapedAnimal } from './types';
 
@@ -287,41 +288,22 @@ async function main() {
         }
     }
 
-    // Step 4: Reconciliation — delist stale animals per shelter (48h grace period)
-    // CIRCUIT BREAKER: skip reconciliation if scraper returned 0 animals.
-    let totalDelisted = 0;
-    if (created + updated === 0) {
-        console.log('\n   ⚠️  CIRCUIT BREAKER: Skipping reconciliation — scraper returned 0 animals.');
-        console.log('      This likely means the upstream API is down or has changed.');
-    } else {
-        const graceCutoff = new Date(Date.now() - 48 * 60 * 60 * 1000);
-        for (const config of configs) {
-            const dbId = `socrata-${config.id}`;
-            try {
-                const delisted = await (prisma as any).animal.updateMany({
-                    where: {
-                        shelterId: dbId,
-                        status: { in: ['AVAILABLE', 'URGENT'] },
-                        lastSeenAt: { lt: graceCutoff },
-                    },
-                    data: { status: 'DELISTED', delistedAt: new Date() },
-                });
-                if (delisted.count > 0) {
-                    console.log(`   🔄 Delisted ${delisted.count} animals not seen for 48+ hours from ${config.shelterName}`);
-                    totalDelisted += delisted.count;
-                }
-            } catch (err) {
-                console.error(`   ⚠ Reconciliation failed for ${config.shelterName}: ${(err as Error).message?.substring(0, 80)}`);
-            }
-        }
-    }
+    // Step 4: Reconciliation — delist stale animals with safeguards
+    const reconcileResult = await reconcileAnimals({
+        pipeline: 'socrata-listings',
+        prisma,
+        shelterIds: configs.map(c => `socrata-${c.id}`),
+        created,
+        updated,
+    });
+    const totalDelisted = reconcileResult.totalDelisted;
 
     console.log(`\n🏁 Done in ${((Date.now() - startTime) / 1000).toFixed(0)}s!`);
     console.log(`   Animals: ${created} created, ${updated} updated, ${totalDelisted} delisted, ${errors} errors`);
     console.log(`   CV: ${cvProcessed} new estimates, ${cvSkipped} reused from previous run`);
     console.log(`   Shelters: ${sheltersUpserted}`);
     checkScrapeHealth('socrata-listings', created + updated, errors, Date.now() - startTime);
-    await finishRun(runId, { created, updated, errors, errorSummary: errors > 0 ? `${errors} animal upsert failures` : undefined });
+    await finishRun(runId, { created, updated, errors, delisted: totalDelisted, errorSummary: errors > 0 ? `${errors} animal upsert failures` : undefined });
     process.exit(errors > 0 ? 1 : 0);
 }
 

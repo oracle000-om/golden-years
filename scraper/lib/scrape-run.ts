@@ -41,6 +41,7 @@ export async function finishRun(
         created: number;
         updated: number;
         errors: number;
+        delisted?: number;
         errorSummary?: string;
     },
 ): Promise<void> {
@@ -53,6 +54,12 @@ export async function finishRun(
             ? Date.now() - run.startedAt.getTime()
             : null;
 
+        // Merge delisted count into existing metadata
+        const existingMeta = (run?.metadata as Record<string, unknown>) || {};
+        const metadata = stats.delisted != null
+            ? { ...existingMeta, delisted: stats.delisted }
+            : existingMeta;
+
         await prisma.scrapeRun.update({
             where: { id: runId },
             data: {
@@ -63,6 +70,7 @@ export async function finishRun(
                 animalsUpdated: stats.updated,
                 errors: stats.errors,
                 errorSummary: stats.errorSummary?.substring(0, 1000),
+                metadata: Object.keys(metadata).length > 0 ? JSON.parse(JSON.stringify(metadata)) : undefined,
             },
         });
     } catch (err) {

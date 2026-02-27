@@ -459,6 +459,7 @@ export interface LatestScrapeRun {
     animalsCreated: number;
     animalsUpdated: number;
     errors: number;
+    metadata: Record<string, unknown> | null;
 }
 
 export async function getLatestScrapeRuns(): Promise<LatestScrapeRun[]> {
@@ -472,9 +473,32 @@ export async function getLatestScrapeRuns(): Promise<LatestScrapeRun[]> {
             duration_ms AS "durationMs",
             animals_created AS "animalsCreated",
             animals_updated AS "animalsUpdated",
-            errors
+            errors,
+            metadata
         FROM scrape_runs
         ORDER BY pipeline, started_at DESC
+    `;
+    return runs;
+}
+
+/**
+ * Get recent scrape runs across all pipelines (for data-health history view).
+ */
+export async function getRecentScrapeRuns(limit = 30): Promise<LatestScrapeRun[]> {
+    const runs = await prisma.$queryRaw<LatestScrapeRun[]>`
+        SELECT
+            pipeline,
+            status,
+            started_at AS "startedAt",
+            finished_at AS "finishedAt",
+            duration_ms AS "durationMs",
+            animals_created AS "animalsCreated",
+            animals_updated AS "animalsUpdated",
+            errors,
+            metadata
+        FROM scrape_runs
+        ORDER BY started_at DESC
+        LIMIT ${limit}
     `;
     return runs;
 }

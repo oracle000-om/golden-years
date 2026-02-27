@@ -1,4 +1,4 @@
-import { getAdminOverview } from '@/lib/admin-queries';
+import { getAdminOverview, getLatestScrapeRuns, getRecentScrapeRuns } from '@/lib/admin-queries';
 import { UsaCoverageMap } from '@/components/usa-coverage-map';
 import { DonutChart } from '@/components/donut-chart';
 
@@ -11,10 +11,39 @@ const CONFIDENCE_COLORS: Record<string, string> = {
     NONE: '#52525b',
 };
 
+const STATUS_EMOJI: Record<string, string> = {
+    SUCCESS: '✅',
+    PARTIAL: '⚠️',
+    FAILED: '❌',
+    RUNNING: '🔄',
+};
+
+function timeAgo(date: Date | null): string {
+    if (!date) return 'never';
+    const ms = Date.now() - new Date(date).getTime();
+    const mins = Math.floor(ms / 60000);
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    const days = Math.floor(hrs / 24);
+    return `${days}d ago`;
+}
+
+function formatDuration(ms: number | null): string {
+    if (!ms) return '—';
+    const s = Math.round(Number(ms) / 1000);
+    if (s < 60) return `${s}s`;
+    return `${Math.floor(s / 60)}m ${s % 60}s`;
+}
+
 export default async function DataHealthPage() {
-    let data;
+    let data, latestRuns, recentRuns;
     try {
-        data = await getAdminOverview();
+        [data, latestRuns, recentRuns] = await Promise.all([
+            getAdminOverview(),
+            getLatestScrapeRuns(),
+            getRecentScrapeRuns(30),
+        ]);
     } catch (err) {
         return (
             <div className="admin-page">
@@ -45,9 +74,93 @@ export default async function DataHealthPage() {
             color: CONFIDENCE_COLORS[String(c.confidence)] || '#52525b',
         }));
 
+    // Sort latest runs by pipeline name
+    const sortedRuns = [...latestRuns].sort((a, b) => a.pipeline.localeCompare(b.pipeline));
+
     return (
         <div className="admin-page">
             <h1 className="admin-page__title">Data Health</h1>
+
+            {/* ── Scraper Pipeline Status ── */}
+            <div className="admin-card">
+                <h2 className="admin-card__title">🔌 Scraper Pipeline Status</h2>
+                <div className="admin-scraper-grid">
+                    {sortedRuns.map(run => {
+                        const meta = (run.metadata || {}) as Record<string, unknown>;
+                        const delisted = typeof meta.delisted === 'number' ? meta.delisted : null;
+                        return (
+                            <div key={run.pipeline} className="admin-scraper-card">
+                                <div className="admin-scraper-card__name">{run.pipeline}</div>
+                                <span className={`admin-scraper-card__status admin-scraper-card__status--${run.status.toLowerCase()}`}>
+                                    {run.status}
+                                </span>
+                                <div className="admin-scraper-card__meta">
+                                    {timeAgo(run.startedAt)}
+                                    {run.durationMs && <> · {formatDuration(run.durationMs)}</>}
+                                    <br />
+                                    {run.animalsCreated > 0 && <span style={{ color: '#4ade80' }}>+{run.animalsCreated} </span>}
+                                    {run.animalsUpdated > 0 && <span>{run.animalsUpdated} updated </span>}
+                                    {delisted != null && delisted > 0 && <span style={{ color: '#fbbf24' }}>-{delisted} delisted </span>}
+                                    {run.errors > 0 && <span style={{ color: '#ef4444' }}>{run.errors} errors</span>}
+                                    {run.animalsCreated === 0 && run.animalsUpdated === 0 && run.errors === 0 && (
+                                        <span style={{ color: '#a1a1aa' }}>no changes</span>
+                                    )}
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+
+            {/* ── Recent Scrape Runs ── */}
+            <div className="admin-card">
+                <h2 className="admin-card__title">📋 Recent Scrape Runs</h2>
+                <div style={{ overflowX: 'auto' }}>
+                    <table className="admin-table">
+                        <thead>
+                            <tr>
+                                <th>Pipeline</th>
+                                <th>Status</th>
+                                <th>When</th>
+                                <th>Duration</th>
+                                <th style={{ textAlign: 'right' }}>Created</th>
+                                <th style={{ textAlign: 'right' }}>Updated</th>
+                                <th style={{ textAlign: 'right' }}>Delisted</th>
+                                <th style={{ textAlign: 'right' }}>Errors</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {recentRuns.map((run, i) => {
+                                const meta = (run.metadata || {}) as Record<string, unknown>;
+                                const delisted = typeof meta.delisted === 'number' ? meta.delisted : null;
+                                const isZero = run.animalsCreated === 0 && run.animalsUpdated === 0;
+                                return (
+                                    <tr key={i} style={isZero && run.status !== 'RUNNING' ? { opacity: 0.6 } : undefined}>
+                                        <td><strong>{run.pipeline}</strong></td>
+                                        <td>
+                                            <span className={`admin-scraper-card__status admin-scraper-card__status--${run.status.toLowerCase()}`}>
+                                                {STATUS_EMOJI[run.status] || ''} {run.status}
+                                            </span>
+                                        </td>
+                                        <td>{timeAgo(run.startedAt)}</td>
+                                        <td>{formatDuration(run.durationMs)}</td>
+                                        <td style={{ textAlign: 'right', color: run.animalsCreated > 0 ? '#4ade80' : '#71717a' }}>
+                                            {run.animalsCreated > 0 ? `+${run.animalsCreated}` : '0'}
+                                        </td>
+                                        <td style={{ textAlign: 'right' }}>{run.animalsUpdated}</td>
+                                        <td style={{ textAlign: 'right', color: delisted && delisted > 0 ? '#fbbf24' : '#71717a' }}>
+                                            {delisted != null ? delisted : '—'}
+                                        </td>
+                                        <td style={{ textAlign: 'right', color: run.errors > 0 ? '#ef4444' : '#71717a' }}>
+                                            {run.errors > 0 ? run.errors : '0'}
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
 
             {/* ── Data Completeness Bars ── */}
             <div className="admin-section-grid">
@@ -97,3 +210,4 @@ export default async function DataHealthPage() {
         </div>
     );
 }
+

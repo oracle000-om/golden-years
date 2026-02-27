@@ -11,22 +11,40 @@ export default function ContactPage() {
         message: '',
     });
     const [submitted, setSubmitted] = useState(false);
+    const [submitting, setSubmitting] = useState(false);
+    const [error, setError] = useState('');
 
-    const canSubmit = form.email.trim() && form.shelter.trim() && form.subject.trim() && form.message.trim();
+    const canSubmit = form.email.trim() && form.shelter.trim() && form.subject.trim() && form.message.trim() && !submitting;
 
-    function handleSubmit(e: React.FormEvent) {
+    async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
         if (!canSubmit) return;
 
-        const subject = encodeURIComponent(form.subject || `Shelter Partnership — ${form.shelter}`);
-        const body = encodeURIComponent(
-            `Name: ${form.name || 'N/A'}\n` +
-            `Shelter: ${form.shelter}\n` +
-            `Email: ${form.email}\n\n` +
-            `${form.message}`
-        );
-        window.open(`mailto:enter@daye.town?subject=${subject}&body=${body}`, '_self');
-        setSubmitted(true);
+        setSubmitting(true);
+        setError('');
+
+        try {
+            const res = await fetch('/api/feedback', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    firstName: form.name || form.shelter,
+                    email: form.email,
+                    note: `[Shelter: ${form.shelter}] [Subject: ${form.subject}]\n\n${form.message}`,
+                }),
+            });
+
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({}));
+                throw new Error(data.error || 'Failed to send message');
+            }
+
+            setSubmitted(true);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
+        } finally {
+            setSubmitting(false);
+        }
     }
 
     if (submitted) {
@@ -125,8 +143,11 @@ export default function ContactPage() {
                         <span style={{ fontSize: '0.75rem', color: 'var(--color-text-dim)', textAlign: 'right' }}>{form.message.length}/1000</span>
                     </div>
 
+                    {error && (
+                        <p style={{ color: '#e57373', fontSize: '0.875rem', margin: '0 0 0.5rem' }}>{error}</p>
+                    )}
                     <button type="submit" className="join-form__submit" disabled={!canSubmit}>
-                        Send Message
+                        {submitting ? 'Sending…' : 'Send Message'}
                     </button>
                 </form>
             </div>

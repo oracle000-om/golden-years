@@ -299,7 +299,7 @@ export default async function ShelterDetailPage({
                                             )}
                                             {transferRate !== null && (
                                                 <div className="report-card__metric">
-                                                    <span className="report-card__metric-label">Transferred to Rescues</span>
+                                                    <span className="report-card__metric-label">Transfer Rate</span>
                                                     <span className="report-card__metric-value">{transferRate}%</span>
                                                 </div>
                                             )}

@@ -74,8 +74,20 @@ export default async function DataHealthPage() {
             color: CONFIDENCE_COLORS[String(c.confidence)] || '#52525b',
         }));
 
-    // Sort latest runs by pipeline name
-    const sortedRuns = [...latestRuns].sort((a, b) => a.pipeline.localeCompare(b.pipeline));
+    // Ensure all known pipelines appear even if they haven't run yet
+    const KNOWN_PIPELINES = ['adoptapet', 'petango', 'petfinder', 'rescuegroups', 'shelterluv', 'shelters', 'socrata-listings'];
+    const runMap = new Map(latestRuns.map(r => [r.pipeline, r]));
+    const sortedRuns = KNOWN_PIPELINES.map(p => runMap.get(p) || {
+        pipeline: p,
+        status: 'NO DATA',
+        startedAt: null as unknown as Date,
+        finishedAt: null,
+        durationMs: null,
+        animalsCreated: 0,
+        animalsUpdated: 0,
+        errors: 0,
+        metadata: null,
+    });
 
     return (
         <div className="admin-page">
@@ -112,54 +124,58 @@ export default async function DataHealthPage() {
                 </div>
             </div>
 
-            {/* ── Recent Scrape Runs ── */}
+            {/* ── Recent Scrape Runs (collapsed) ── */}
             <div className="admin-card">
-                <h2 className="admin-card__title">📋 Recent Scrape Runs</h2>
-                <div style={{ overflowX: 'auto' }}>
-                    <table className="admin-table">
-                        <thead>
-                            <tr>
-                                <th>Pipeline</th>
-                                <th>Status</th>
-                                <th>When</th>
-                                <th>Duration</th>
-                                <th style={{ textAlign: 'right' }}>Created</th>
-                                <th style={{ textAlign: 'right' }}>Updated</th>
-                                <th style={{ textAlign: 'right' }}>Delisted</th>
-                                <th style={{ textAlign: 'right' }}>Errors</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {recentRuns.map((run, i) => {
-                                const meta = (run.metadata || {}) as Record<string, unknown>;
-                                const delisted = typeof meta.delisted === 'number' ? meta.delisted : null;
-                                const isZero = run.animalsCreated === 0 && run.animalsUpdated === 0;
-                                return (
-                                    <tr key={i} style={isZero && run.status !== 'RUNNING' ? { opacity: 0.6 } : undefined}>
-                                        <td><strong>{run.pipeline}</strong></td>
-                                        <td>
-                                            <span className={`admin-scraper-card__status admin-scraper-card__status--${run.status.toLowerCase()}`}>
-                                                {STATUS_EMOJI[run.status] || ''} {run.status}
-                                            </span>
-                                        </td>
-                                        <td>{timeAgo(run.startedAt)}</td>
-                                        <td>{formatDuration(run.durationMs)}</td>
-                                        <td style={{ textAlign: 'right', color: run.animalsCreated > 0 ? '#4ade80' : '#71717a' }}>
-                                            {run.animalsCreated > 0 ? `+${run.animalsCreated}` : '0'}
-                                        </td>
-                                        <td style={{ textAlign: 'right' }}>{run.animalsUpdated}</td>
-                                        <td style={{ textAlign: 'right', color: delisted && delisted > 0 ? '#fbbf24' : '#71717a' }}>
-                                            {delisted != null ? delisted : '—'}
-                                        </td>
-                                        <td style={{ textAlign: 'right', color: run.errors > 0 ? '#ef4444' : '#71717a' }}>
-                                            {run.errors > 0 ? run.errors : '0'}
-                                        </td>
-                                    </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
-                </div>
+                <details>
+                    <summary className="admin-card__title" style={{ cursor: 'pointer' }}>
+                        📋 Recent Scrape Runs ({recentRuns.length})
+                    </summary>
+                    <div style={{ overflowX: 'auto', marginTop: 'var(--space-sm)' }}>
+                        <table className="admin-table">
+                            <thead>
+                                <tr>
+                                    <th>Pipeline</th>
+                                    <th>Status</th>
+                                    <th>When</th>
+                                    <th>Duration</th>
+                                    <th style={{ textAlign: 'right' }}>Created</th>
+                                    <th style={{ textAlign: 'right' }}>Updated</th>
+                                    <th style={{ textAlign: 'right' }}>Delisted</th>
+                                    <th style={{ textAlign: 'right' }}>Errors</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {recentRuns.map((run, i) => {
+                                    const meta = (run.metadata || {}) as Record<string, unknown>;
+                                    const delisted = typeof meta.delisted === 'number' ? meta.delisted : null;
+                                    const isZero = run.animalsCreated === 0 && run.animalsUpdated === 0;
+                                    return (
+                                        <tr key={i} style={isZero && run.status !== 'RUNNING' ? { opacity: 0.6 } : undefined}>
+                                            <td><strong>{run.pipeline}</strong></td>
+                                            <td>
+                                                <span className={`admin-scraper-card__status admin-scraper-card__status--${run.status.toLowerCase()}`}>
+                                                    {STATUS_EMOJI[run.status] || ''} {run.status}
+                                                </span>
+                                            </td>
+                                            <td>{timeAgo(run.startedAt)}</td>
+                                            <td>{formatDuration(run.durationMs)}</td>
+                                            <td style={{ textAlign: 'right', color: run.animalsCreated > 0 ? '#4ade80' : '#71717a' }}>
+                                                {run.animalsCreated > 0 ? `+${run.animalsCreated}` : '0'}
+                                            </td>
+                                            <td style={{ textAlign: 'right' }}>{run.animalsUpdated}</td>
+                                            <td style={{ textAlign: 'right', color: delisted && delisted > 0 ? '#fbbf24' : '#71717a' }}>
+                                                {delisted != null ? delisted : '—'}
+                                            </td>
+                                            <td style={{ textAlign: 'right', color: run.errors > 0 ? '#ef4444' : '#71717a' }}>
+                                                {run.errors > 0 ? run.errors : '0'}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                </details>
             </div>
 
             {/* ── Data Completeness Bars ── */}

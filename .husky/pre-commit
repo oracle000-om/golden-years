@@ -1,0 +1,16 @@
+#!/usr/bin/env sh
+
+# Gitleaks — prevent committing secrets
+# Scans only staged changes (fast) using project-level config
+
+if command -v gitleaks >/dev/null 2>&1; then
+    gitleaks protect --staged --config .gitleaks.toml --verbose
+    if [ $? -ne 0 ]; then
+        echo ""
+        echo "🚨 gitleaks found secrets in staged changes!"
+        echo "   Fix the issue or use 'git commit --no-verify' to bypass (not recommended)."
+        exit 1
+    fi
+else
+    echo "⚠️  gitleaks not installed — skipping secret scan (brew install gitleaks)"
+fi

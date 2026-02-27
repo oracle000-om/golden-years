@@ -1,0 +1,50 @@
+# Gitleaks config for Golden Years Club
+# Extends the default ruleset with project-specific patterns.
+
+title = "Golden Years Gitleaks Config"
+
+# --- Allowlists (reduce false positives) ---
+
+[allowlist]
+  # Config files contain public-facing org IDs, not secrets
+  paths = [
+    '''scraper/config/.*\.json''',
+    '''package-lock\.json''',
+    '''\.github/workflows/ci\.yml''',
+    '''\.next/''',
+    '''node_modules/''',
+  ]
+
+# --- Extra rules for this project ---
+
+[[rules]]
+  id = "railway-database-url"
+  description = "Railway PostgreSQL connection string"
+  regex = '''postgresql://[^:]+:[^@]+@[^/]*rlwy\.net'''
+  tags = ["database", "railway"]
+
+[[rules]]
+  id = "generic-database-url"
+  description = "Database connection string with password"
+  regex = '''(?:postgres|mysql|mongodb)(?:ql)?://[^:]+:[^@\s]{8,}@'''
+  tags = ["database"]
+
+[[rules]]
+  id = "gemini-api-key"
+  description = "Google Gemini API Key"
+  regex = '''AIza[0-9A-Za-z\-_]{35,}'''
+  tags = ["google", "api-key"]
+
+[[rules]]
+  id = "hardcoded-password-assignment"
+  description = "Hardcoded password in variable assignment"
+  regex = '''(?i)(?:password|passwd|secret)\s*[:=]\s*['"][^'"]{8,}['"]'''
+  tags = ["password"]
+  [rules.allowlist]
+    regexes = [
+      # Allow env var references and placeholder values
+      '''process\.env\.\w+''',
+      '''placeholder''',
+      '''golden-years-default''',
+      '''Enter password''',
+    ]

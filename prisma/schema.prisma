@@ -191,9 +191,12 @@ model Animal {
   createdAt             DateTime    @default(now()) @map("created_at")
   updatedAt             DateTime    @updatedAt @map("updated_at")
 
-  shelter   Shelter           @relation(fields: [shelterId], references: [id])
-  sources   Source[]
-  snapshots AnimalSnapshot[]
+  shelter    Shelter            @relation(fields: [shelterId], references: [id])
+  sources    Source[]
+  snapshots  AnimalSnapshot[]
+  assessment AnimalAssessment?
+  enrichment AnimalEnrichment?
+  listing    AnimalListing?
 
   @@index([photoHash])
   @@index([shelterId, status])
@@ -202,6 +205,131 @@ model Animal {
   @@index([status, createdAt])
   @@index([shelterId, intakeId])
   @@map("animals")
+}
+
+// ── AnimalAssessment: CV pipeline data (1:1 optional) ──
+model AnimalAssessment {
+  id                    String    @id @default(uuid())
+  animalId              String    @unique @map("animal_id")
+
+  // Age estimation
+  ageEstimatedLow       Int?      @map("age_estimated_low")
+  ageEstimatedHigh      Int?      @map("age_estimated_high")
+  ageConfidence         AgeConfidence @default(NONE) @map("age_confidence")
+  ageIndicators         String[]  @default([]) @map("age_indicators")
+
+  // Breed detection
+  detectedBreeds        String[]  @default([]) @map("detected_breeds")
+  breedConfidence       AgeConfidence @default(NONE) @map("breed_confidence")
+  lifeExpectancyLow     Int?      @map("life_expectancy_low")
+  lifeExpectancyHigh    Int?      @map("life_expectancy_high")
+
+  // Health assessment
+  bodyConditionScore    Int?      @map("body_condition_score")
+  coatCondition         String?   @map("coat_condition")
+  visibleConditions     String[]  @default([]) @map("visible_conditions")
+  healthNotes           String?   @map("health_notes")
+
+  // Behavioral signals
+  aggressionRisk        Int?      @map("aggression_risk")
+  fearIndicators        String[]  @default([]) @map("fear_indicators")
+  stressLevel           String?   @map("stress_level")
+  behaviorNotes         String?   @map("behavior_notes")
+
+  // Photo quality
+  photoQuality          String?   @map("photo_quality")
+
+  // Care guidance
+  likelyCareNeeds       String[]  @default([]) @map("likely_care_needs")
+  estimatedCareLevel    String?   @map("estimated_care_level")
+
+  // Cross-validation
+  dataConflicts         String[]  @default([]) @map("data_conflicts")
+
+  // Dental & eye
+  dentalGrade           Int?      @map("dental_grade")
+  tartarSeverity        String?   @map("tartar_severity")
+  dentalNotes           String?   @map("dental_notes")
+  cataractStage         String?   @map("cataract_stage")
+  eyeNotes              String?   @map("eye_notes")
+
+  // Physical assessment
+  estimatedWeightLbs    Int?      @map("estimated_weight_lbs")
+  mobilityAssessment    String?   @map("mobility_assessment")
+  mobilityNotes         String?   @map("mobility_notes")
+  energyLevel           String?   @map("energy_level")
+  groomingNeeds         String?   @map("grooming_needs")
+
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+
+  animal Animal @relation(fields: [animalId], references: [id], onDelete: Cascade)
+
+  @@map("animal_assessments")
+}
+
+// ── AnimalEnrichment: computed/derived scores (1:1 optional) ──
+model AnimalEnrichment {
+  id                    String    @id @default(uuid())
+  animalId              String    @unique @map("animal_id")
+
+  adoptionUrgency       String?   @map("adoption_urgency")
+  adoptionReadiness     String?   @map("adoption_readiness")
+  breedHealthRisk       Int?      @map("breed_health_risk")
+  breedCommonConditions String[]  @default([]) @map("breed_common_conditions")
+  estimatedAnnualCost   String?   @map("estimated_annual_cost")
+
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+
+  animal Animal @relation(fields: [animalId], references: [id], onDelete: Cascade)
+
+  @@map("animal_enrichments")
+}
+
+// ── AnimalListing: rich listing detail from shelter APIs (1:1 optional) ──
+model AnimalListing {
+  id                    String    @id @default(uuid())
+  animalId              String    @unique @map("animal_id")
+
+  // Behavioral
+  houseTrained          Boolean?  @map("house_trained")
+  goodWithCats          Boolean?  @map("good_with_cats")
+  goodWithDogs          Boolean?  @map("good_with_dogs")
+  goodWithChildren      Boolean?  @map("good_with_children")
+  specialNeeds          Boolean?  @map("special_needs")
+
+  // Description & environment
+  description           String?
+  environmentNeeds      String[]  @default([]) @map("environment_needs")
+
+  // Coat & appearance
+  coatType              String?   @map("coat_type")
+  coatColors            String[]  @default([]) @map("coat_colors")
+  coatPattern           String?   @map("coat_pattern")
+  isMixed               Boolean?  @map("is_mixed")
+
+  // Medical status
+  isAltered             Boolean?  @map("is_altered")
+  isMicrochipped        Boolean?  @map("is_microchipped")
+  isVaccinated          Boolean?  @map("is_vaccinated")
+
+  // Adoption & listing
+  adoptionFee           String?   @map("adoption_fee")
+  listingUrl            String?   @map("listing_url")
+  isCourtesyListing     Boolean?  @map("is_courtesy_listing")
+
+  // Physical details
+  weight                String?
+  birthday              DateTime?
+  isFosterHome          Boolean?  @map("is_foster_home")
+
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+
+  animal Animal @relation(fields: [animalId], references: [id], onDelete: Cascade)
+
+  @@map("animal_listings")
 }
 
 model Source {

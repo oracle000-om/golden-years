@@ -29,7 +29,7 @@ Golden Years Club surfaces senior dogs and cats facing euthanasia at shelters an
 - **Admin dashboard** — Overview stats, source breakdowns (municipal/rescue/foster), shelter leaderboard, CV confidence, and stale animal monitoring
 - **Admin data chat** — Natural language interface to query the database (e.g., "what percent of intake are dogs at this shelter")
 - **Modular scraper pipeline** — Adapter-based system supporting 8+ data sources with JSON-driven configuration and automated reconciliation
-- **State shelter statistics** — Mandatory reporting data from Virginia (VDACS), Georgia (GDA), Florida (UF Census), Colorado (PACFA), and North Carolina (NCDA) with live release rate calculations
+- **State shelter statistics** — Mandatory reporting data from 13 states: Virginia, Georgia, Florida, Colorado, North Carolina, Connecticut, Illinois, Maryland, Michigan, Missouri, New Jersey, Oregon, and South Carolina with live release rate calculations
 - **State policy rankings** — ALDF animal protection law rankings by state
 
 ## Tech Stack
@@ -136,6 +136,14 @@ scraper/
     ├── georgia-gda.ts          # Georgia GDA XLSX parser
     ├── colorado-pacfa.ts       # Colorado PACFA XLSX parser
     ├── north-carolina-ncda.ts  # North Carolina NCDA XLSX parser
+    ├── connecticut-doag.ts     # Connecticut DoAg municipal pound stats
+    ├── illinois-idoa.ts        # Illinois IDOA animal welfare reports
+    ├── maryland-mda.ts         # Maryland MDA shelter statistics
+    ├── michigan-mdard.ts       # Michigan MDARD annual shelter reports
+    ├── missouri-acfa.ts        # Missouri ACFA program reports
+    ├── new-jersey-njdoh.ts     # New Jersey NJDOH pound/shelter survey
+    ├── oregon-oda.ts           # Oregon ODA SB 328 annual reports
+    ├── south-carolina-scllr.ts # South Carolina SCLLR shelter reports
     ├── breed-db.ts             # AKC/CFA breed data APIs
     └── shelter-animals-count.ts # Shelter Animals Count (ASPCA)
 
@@ -163,6 +171,14 @@ prisma/
 | Florida UF Census | HTML scraping | ~153 shelters statewide | ✅ Active |
 | Colorado PACFA | XLSX (Google Sheets) | Shelters & rescues, annual stats | ✅ Active |
 | North Carolina NCDA | XLSX export | Public shelters, annual reports | ✅ Active |
+| Connecticut DoAg | Parsed data | ~24 municipal pounds, FY 2023-2024 | ✅ Active |
+| Illinois IDOA | Parsed data | ~30 shelters, Animal Welfare Act reports | ✅ Active |
+| Maryland MDA | Parsed data | ~24 county shelters, annual statistics | ✅ Active |
+| Michigan MDARD | Parsed data | ~24 shelters, annual reports | ✅ Active |
+| Missouri ACFA | Parsed data | ~20 shelters, ACFA program | ✅ Active |
+| New Jersey NJDOH | Parsed data | ~47 shelters, annual pound/shelter survey | ✅ Active |
+| Oregon ODA | Parsed data | ~20 shelters, SB 328 annual reports | ✅ Active |
+| South Carolina SCLLR | Parsed data | ~24 shelters, Vet Med board reports | ✅ Active |
 | ALDF State Rankings | HTML scraping | 50 states + DC policy rankings | ✅ Active |
 
 ## Scripts
@@ -188,6 +204,14 @@ prisma/
 | `npx tsx scraper/run-florida.ts` | Run Florida UF Census stats |
 | `npx tsx scraper/run-colorado.ts` | Run Colorado PACFA stats |
 | `npx tsx scraper/run-north-carolina.ts` | Run North Carolina NCDA stats |
+| `npx tsx scraper/run-connecticut.ts` | Run Connecticut DoAg stats |
+| `npx tsx scraper/run-illinois.ts` | Run Illinois IDOA stats |
+| `npx tsx scraper/run-maryland.ts` | Run Maryland MDA stats |
+| `npx tsx scraper/run-michigan.ts` | Run Michigan MDARD stats |
+| `npx tsx scraper/run-missouri.ts` | Run Missouri ACFA stats |
+| `npx tsx scraper/run-new-jersey.ts` | Run New Jersey NJDOH stats |
+| `npx tsx scraper/run-oregon.ts` | Run Oregon ODA stats |
+| `npx tsx scraper/run-south-carolina.ts` | Run South Carolina SCLLR stats |
 | `npx tsx scraper/run-aldf.ts` | Run ALDF state rankings |
 
 All scraper scripts accept `--dry-run` (preview), `--no-cv` (skip AI), and `--shelter=<id>` (single source) flags.

@@ -19,6 +19,47 @@ export function toTitleCase(str: string): string {
 }
 
 /**
+ * Format shelter location for display.
+ * Filters out placeholder values like "Unknown" county and "US" state.
+ */
+export function formatShelterLocation(
+    shelter: { county?: string | null; state?: string | null; zipCode?: string | null },
+    opts: { titleCase?: boolean; includeZip?: boolean; countySuffix?: boolean } = {},
+): string {
+    const { titleCase: tc, includeZip, countySuffix = true } = opts;
+    const parts: string[] = [];
+    if (shelter.county && shelter.county.toLowerCase() !== 'unknown') {
+        const county = tc ? toTitleCase(shelter.county) : shelter.county;
+        parts.push(countySuffix ? `${county} County` : county);
+    }
+    if (shelter.state && shelter.state.length === 2 && shelter.state !== 'US') {
+        parts.push(shelter.state);
+    }
+    if (includeZip && shelter.zipCode) {
+        parts.push(shelter.zipCode);
+    }
+    return parts.join(', ');
+}
+
+/**
+ * Build a Google Maps search URL for a shelter's address.
+ */
+export function buildShelterMapUrl(
+    shelter: { latitude?: number | null; longitude?: number | null; address?: string | null; county?: string | null; state?: string | null },
+): string | null {
+    if (shelter.latitude && shelter.longitude) {
+        return `https://www.google.com/maps/search/?api=1&query=${shelter.latitude},${shelter.longitude}`;
+    }
+    if (shelter.address) {
+        const addrParts = [shelter.address];
+        if (shelter.county && shelter.county.toLowerCase() !== 'unknown') addrParts.push(`${shelter.county} County`);
+        if (shelter.state && shelter.state.length === 2 && shelter.state !== 'US') addrParts.push(shelter.state);
+        return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addrParts.join(', '))}`;
+    }
+    return null;
+}
+
+/**
  * Clean text for display — decodes HTML entities, fixes mojibake, strips tags.
  * Use at render time for text already stored in the database.
  *
@@ -1070,6 +1111,8 @@ export function buildShelterStoryInsights(input: StoryInsightsInput): string[] {
         insights.push('💛 This is a no-kill organization');
     } else if (shelter.shelterType === 'RESCUE') {
         insights.push('🤝 This is a rescue — animals here were pulled from other shelters');
+    } else if (shelter.shelterType === 'SANCTUARY') {
+        insights.push('🏛️ This is a sanctuary — animals here are permanent residents');
     }
 
     // ── 9. State holding period context ──

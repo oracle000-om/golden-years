@@ -5,6 +5,7 @@ import { getShelterById, getShelterForMetadata, getStatePolicyForShelter, getShe
 import type { AnimalResult } from '@/lib/queries';
 import {
     getSaveRate, getPerCapitaIntake, getYoYTrend, getTransferRate, toTitleCase,
+    formatShelterLocation, buildShelterMapUrl,
 } from '@/lib/utils';
 import type { ShelterWithAnimals, Animal } from '@/lib/types';
 import { CopyLinkButton } from '@/components/copy-link-button';
@@ -31,7 +32,8 @@ export async function generateMetadata({
         const saveRate = getSaveRate(shelter.totalIntakeAnnual, shelter.totalEuthanizedAnnual);
         const displayName = toTitleCase(shelter.name);
         const title = `${displayName} | Golden Years Club`;
-        const description = `${displayName} in ${toTitleCase(shelter.county)} County, ${shelter.state}. ${shelter.animals.length} senior animals currently listed.${saveRate !== null ? ` ${saveRate}% live release rate.` : ''}`;
+        const locationLabel = formatShelterLocation(shelter, { titleCase: true });
+        const description = `${displayName}${locationLabel ? ` in ${locationLabel}` : ''}. ${shelter.animals.length} senior animals currently listed.${saveRate !== null ? ` ${saveRate}% live release rate.` : ''}`;
 
         return {
             title,
@@ -61,27 +63,7 @@ const TYPE_LABELS: Record<string, { label: string; icon: string }> = {
     FOSTER_BASED: { label: 'Foster-Based Rescue', icon: '🏡' },
 };
 
-function buildMapUrl(shelter: ShelterWithAnimals): string | null {
-    if (shelter.latitude && shelter.longitude) {
-        return `https://www.google.com/maps/search/?api=1&query=${shelter.latitude},${shelter.longitude}`;
-    }
-    if (shelter.address) {
-        const q = encodeURIComponent(`${shelter.address}, ${shelter.county} County, ${shelter.state}`);
-        return `https://www.google.com/maps/search/?api=1&query=${q}`;
-    }
-    return null;
-}
 
-function computeAvgDaysInShelter(animals: Animal[]): number | null {
-    const withDays = animals.filter((a) => a.intakeDate);
-    if (withDays.length === 0) return null;
-    const now = Date.now();
-    const total = withDays.reduce((sum, a) => {
-        const days = Math.max(0, Math.floor((now - new Date(a.intakeDate!).getTime()) / 86_400_000));
-        return sum + days;
-    }, 0);
-    return Math.round(total / withDays.length);
-}
 
 export default async function ShelterDetailPage({
     params,
@@ -134,9 +116,7 @@ export default async function ShelterDetailPage({
     const perCapita = getPerCapitaIntake(shelter.totalIntakeAnnual, shelter.countyPopulation);
     const yoyTrend = getYoYTrend(shelter.totalIntakeAnnual, shelter.totalEuthanizedAnnual, shelter.priorYearIntake, shelter.priorYearEuthanized);
     const transferRate = getTransferRate(shelter.totalTransferred, shelter.totalIntakeAnnual);
-    const mapUrl = buildMapUrl(shelter);
     const typeInfo = TYPE_LABELS[shelter.shelterType] || TYPE_LABELS.MUNICIPAL;
-    const avgDays = computeAvgDaysInShelter(shelter.animals);
     const storyInsights = await getShelterStoryInsights(id);
 
     // ── Report Card: State policy ──
@@ -163,10 +143,10 @@ export default async function ShelterDetailPage({
                                 {toTitleCase(shelter.name)}
                                 <CopyLinkButton />
                             </h1>
-                            <p className="shelter-hero__location">
-                                {toTitleCase(shelter.county)} County, {shelter.state}
-                                {shelter.zipCode && ` ${shelter.zipCode}`}
-                            </p>
+                            {(() => {
+                                const loc = formatShelterLocation(shelter, { titleCase: true, includeZip: true });
+                                return loc ? <p className="shelter-hero__location">{loc}</p> : null;
+                            })()}
                         </div>
                     </div>
 
@@ -175,7 +155,7 @@ export default async function ShelterDetailPage({
                         {shelter.address && (
                             <div className="shelter-hero__contact-item">
                                 <span className="shelter-hero__contact-icon">📍</span>
-                                <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(shelter.address + ', ' + shelter.county + ' County, ' + shelter.state)}`}>
+                                <a href={buildShelterMapUrl(shelter) || '#'}>
                                     {shelter.address}
                                 </a>
                             </div>

@@ -89,14 +89,9 @@ Based on the breed(s), estimated age, and any visible conditions, list:
 - Likely veterinary care needs for a senior of this breed (e.g., "dental cleaning", "joint supplements", "thyroid screening", "cardiac monitoring", "eye exam for cataracts")
 - Estimated overall care level: low (healthy senior, routine care), moderate (some age-related conditions needing management), high (multiple conditions or breed-specific health risks)
 
-## 7. DATA CROSS-VALIDATION
+## 7. DATA INTEGRITY
 
-If shelter-provided context is included (age, breed, size, notes), compare it to your findings:
-- If the shelter-reported age CONFLICTS with your visual assessment by 3+ years, flag it (e.g., "Shelter reports 2yr but muzzle greying and cataracts suggest 9-12yr")
-- If the shelter-reported breed seems IMPLAUSIBLE given the photo (wrong size category, completely different morphology), flag it (e.g., "Listed as Chihuahua but appears to be a medium-sized Beagle mix")
-- If shelter notes mention conditions you cannot see (or vice versa), note the discrepancy
-- If there are NO conflicts, return an empty dataConflicts array
-- Be conservative — only flag genuine discrepancies, not minor differences
+This is a BLIND visual-only assessment. You will NOT receive shelter-reported age, breed, or listing notes. This is intentional — your assessment must be based ENTIRELY on what you see in the photo(s). Do not speculate about what a shelter might have reported. Return an empty dataConflicts array.
 
 ## 8. WEIGHT ESTIMATION
 
@@ -223,7 +218,7 @@ Example 2 — Ambiguous cat, acceptable photo:
   "photoQuality": "acceptable",
   "likelyCareNeeds": ["dental cleaning", "thyroid screening"],
   "estimatedCareLevel": "moderate",
-  "dataConflicts": ["Shelter reports 3yr but coat thinning and facial maturity suggest 7-10yr"]
+  "dataConflicts": []
 }
 
 Example 3 — Poor photo, low confidence:

@@ -4,18 +4,20 @@
  * Tiered Gemini implementation of AssessmentProvider.
  * Uses @google/genai SDK with structured output (responseSchema).
  *
- * v4 — Tiered model strategy:
- *   1. Try gemini-2.5-flash-lite (cheap/fast) first
- *   2. If result is null or LOW confidence, retry with gemini-2.5-flash
- *   3. Track which model produced the final result
+ * v5 — Blind assessment + integrity hardening:
+ *   1. URL-pattern filtering (reject known non-photo URLs)
+ *   2. Photo quality pre-check (reject placeholders, corrupt, tiny)
+ *   3. Blind visual-only assessment (no shelter text in prompt)
+ *   4. Tiered model: gemini-2.5-flash-lite → gemini-2.5-flash fallback
+ *   5. Reject LOW confidence and species=OTHER results
+ *   6. Cross-validate with shelter data in code (zero extra API cost)
  *
  * Pipeline:
- *   1. Download photo from URL
- *   2. Photo quality pre-check via sharp (reject corrupt/tiny/blank images)
- *   3. Resize to 512×512 for health/behavioral signal detection
- *   4. Send to Gemini with structured prompt + JSON schema enforcement
- *   5. Parse + validate JSON response into AnimalAssessment
- *   6. If LOW confidence, retry with full model
+ *   1. URL filter → Download → Preprocess (sharp)
+ *   2. Send to Gemini with visual-only prompt (no shelter age/breed/notes)
+ *   3. Validate + reject non-animals and low confidence
+ *   4. Cross-validate with shelter context in code
+ *   5. Optional close-up dental/eye assessment
  */
 
 import { GoogleGenAI, Type } from '@google/genai';
@@ -67,6 +69,39 @@ async function computeQuickHash(imageBuffer: Buffer): Promise<string | null> {
         return hex;
     } catch {
         return null;
+    }
+}
+
+/**
+ * URL patterns that indicate the URL is NOT a real animal photo.
+ * Checks the URL path/filename for known non-photo indicators.
+ */
+const NON_PHOTO_PATTERNS = [
+    /\/no[-_]?image/i,
+    /\/no[-_]?photo/i,
+    /\/placeholder/i,
+    /\/default[-_.]?(image|photo|pic|img)?\./i,
+    /\/coming[-_]?soon/i,
+    /\/logo\b/i,
+    /\/favicon/i,
+    /\/no[-_]?pic/i,
+    /\/generic[-_.]?(pet|animal|dog|cat)?\./i,
+    /\/image[-_]?not[-_]?available/i,
+    /\/photo[-_]?unavailable/i,
+    /\/nophoto\./i,
+    /\/pet[-_]?default/i,
+];
+
+/**
+ * Check if a URL is a known non-photo path (shelter logo, default image, etc.)
+ * Returns true if the URL should be SKIPPED.
+ */
+function isKnownNonPhotoUrl(url: string): boolean {
+    try {
+        const path = new URL(url).pathname;
+        return NON_PHOTO_PATTERNS.some(re => re.test(path));
+    } catch {
+        return false; // if URL parsing fails, let download try
     }
 }
 
@@ -213,6 +248,9 @@ function validateResponse(parsed: Record<string, unknown>): AnimalAssessment | n
         // Reject NONE confidence — means the model couldn't assess
         if (parsed.confidence === 'NONE') return null;
 
+        // Fix #2: Reject species=OTHER — image doesn't contain a recognizable dog/cat
+        if (parsed.species === 'OTHER') return null;
+
         // Filter indicators to canonical set only
         const rawIndicators = Array.isArray(parsed.indicators) ? parsed.indicators : [];
         const indicators = rawIndicators
@@ -221,7 +259,7 @@ function validateResponse(parsed: Record<string, unknown>): AnimalAssessment | n
 
         return {
             // ── v1 fields ──
-            species: ['DOG', 'CAT', 'OTHER'].includes(parsed.species as string) ? parsed.species as 'DOG' | 'CAT' | 'OTHER' : 'OTHER',
+            species: parsed.species as 'DOG' | 'CAT',
             estimatedAgeLow: parsed.estimatedAgeLow as number,
             estimatedAgeHigh: parsed.estimatedAgeHigh as number,
             isSenior: parsed.isSenior as boolean,
@@ -296,6 +334,12 @@ export function createGeminiProvider(apiKey: string): AgeEstimationProvider {
     const MAX_ADDITIONAL_PHOTOS = 4; // cap at 5 total (1 primary + 4 extra)
 
     async function assess(photoUrl: string, additionalPhotos?: string[], context?: AssessmentContext, calibration?: CalibrationConfig, videoFrames?: Buffer[]): Promise<AnimalAssessment | null> {
+        // Fix #4: URL-pattern filter — reject known non-photo URLs before download
+        if (isKnownNonPhotoUrl(photoUrl)) {
+            console.log('      ⚠ Known non-photo URL pattern — skipping CV');
+            return null;
+        }
+
         // Step 1: Download the primary image
         const imageBuffer = await downloadImage(photoUrl);
         if (!imageBuffer) {
@@ -346,7 +390,9 @@ export function createGeminiProvider(apiKey: string): AgeEstimationProvider {
             });
         }
 
-        // Build context preamble from shelter listing data
+        // Fix #1: Blind assessment — only inject photo/video context and size
+        // (factual measurement). NO shelter age, breed, or notes to avoid anchoring.
+        // Cross-validation with shelter data happens in code after the assessment.
         const contextLines: string[] = [];
         if (isMultiPhoto) {
             contextLines.push(`You are provided with ${allProcessed.length} images of the SAME animal${hasVideoFrames ? ' (including key frames extracted from a video)' : ''}. Synthesize your assessment across ALL images for maximum accuracy. Different angles help with breed identification (side profiles), body condition scoring (full body), and health assessment (close-ups). Use the combination of all views.`);
@@ -356,19 +402,6 @@ export function createGeminiProvider(apiKey: string): AgeEstimationProvider {
         }
         if (context?.shelterSize) {
             contextLines.push(`SHELTER-REPORTED SIZE: ${context.shelterSize}. Since all animals on this platform are seniors (full-grown adults), the shelter-reported size is a reliable indicator. Factor this into your breed identification.`);
-        }
-        if (context?.shelterAge != null) {
-            contextLines.push(`SHELTER-REPORTED AGE: ${context.shelterAge} years. Compare this to your visual assessment and flag any significant discrepancy (3+ years) in dataConflicts.`);
-        }
-        if (context?.shelterBreed) {
-            contextLines.push(`SHELTER-REPORTED BREED: ${context.shelterBreed}. Compare this to your visual breed detection and flag any implausible mismatch in dataConflicts.`);
-        }
-        if (context?.shelterNotes) {
-            // Truncate very long notes to avoid token waste
-            const truncated = context.shelterNotes.length > 500
-                ? context.shelterNotes.substring(0, 500) + '...'
-                : context.shelterNotes;
-            contextLines.push(`SHELTER NOTES: "${truncated}". Cross-reference any health or behavioral claims with what you observe in the photo.`);
         }
 
         // Inject calibration prompt addendum if provided
@@ -428,12 +461,21 @@ export function createGeminiProvider(apiKey: string): AgeEstimationProvider {
             if (fullEstimate) {
                 estimate = fullEstimate;
             }
-            // If full also fails, keep the lite LOW result (better than nothing)
+            // Fix #3: Reject LOW confidence from both models — don't store as CV_ESTIMATED
+            if (estimate && estimate.confidence === 'LOW') {
+                console.log('      ⚠ Both models returned LOW confidence — rejecting (not reliable enough for CV_ESTIMATED)');
+                return null;
+            }
         }
 
         if (!estimate) {
             console.log('      ⚠ Both models failed to produce a valid assessment');
             return null;
+        }
+
+        // Fix #1 continued: Cross-validate with shelter data in code (zero API cost)
+        if (context) {
+            crossValidateWithShelterData(estimate, context);
         }
 
         const modelTag = estimate.modelUsed === MODEL_FAST ? '[LITE]' : '[FLASH]';
@@ -562,3 +604,44 @@ export function createGeminiProvider(apiKey: string): AgeEstimationProvider {
     };
 }
 
+/**
+ * Cross-validate CV assessment against shelter-reported data.
+ * Populates dataConflicts deterministically in code (zero API cost).
+ * Runs AFTER the blind visual assessment to avoid anchoring bias.
+ */
+function crossValidateWithShelterData(
+    estimate: AnimalAssessment,
+    context: AssessmentContext,
+): void {
+    const conflicts = estimate.dataConflicts || [];
+
+    // Age cross-validation: flag if shelter age differs from CV midpoint by ≥4 years
+    if (context.shelterAge != null) {
+        const cvMid = (estimate.estimatedAgeLow + estimate.estimatedAgeHigh) / 2;
+        const gap = Math.abs(context.shelterAge - cvMid);
+        if (gap >= 4) {
+            if (context.shelterAge > estimate.estimatedAgeHigh) {
+                conflicts.push(`Shelter reports ${context.shelterAge}yr but visual assessment estimates ${estimate.estimatedAgeLow}–${estimate.estimatedAgeHigh}yr — animal may be younger than reported`);
+            } else if (context.shelterAge < estimate.estimatedAgeLow) {
+                conflicts.push(`Shelter reports ${context.shelterAge}yr but visual assessment estimates ${estimate.estimatedAgeLow}–${estimate.estimatedAgeHigh}yr — animal may be older than reported`);
+            }
+        }
+    }
+
+    // Breed cross-validation: flag if shelter breed has zero overlap with detected breeds
+    if (context.shelterBreed && estimate.detectedBreeds.length > 0) {
+        const shelterBreedLower = context.shelterBreed.toLowerCase();
+        const hasOverlap = estimate.detectedBreeds.some(cvBreed => {
+            const cvLower = cvBreed.toLowerCase();
+            // Check for partial match (e.g., "Pit Bull" matches "American Pit Bull Terrier")
+            return shelterBreedLower.includes(cvLower) || cvLower.includes(shelterBreedLower)
+                || shelterBreedLower.split(/[\s/,]+/).some(word => word.length > 3 && cvLower.includes(word))
+                || cvLower.split(/[\s/,]+/).some(word => word.length > 3 && shelterBreedLower.includes(word));
+        });
+        if (!hasOverlap) {
+            conflicts.push(`Shelter lists "${context.shelterBreed}" but visual assessment detected [${estimate.detectedBreeds.join(', ')}]`);
+        }
+    }
+
+    estimate.dataConflicts = conflicts;
+}

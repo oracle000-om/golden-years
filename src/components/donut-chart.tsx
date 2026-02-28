@@ -17,17 +17,28 @@ export function DonutChart({ segments, size = 200, label }: { segments: Segment[
     const cx = size / 2;
     const cy = size / 2;
     const circumference = 2 * Math.PI * r;
-    let offset = -circumference / 4; // start at 12 o'clock
+    const startOffset = -circumference / 4; // start at 12 o'clock
+
+    // Pre-compute cumulative offsets so we don't mutate during render
+    const visibleSegments = segments.filter(s => s.value > 0);
+    const cumulativeOffsets = visibleSegments.reduce<number[]>((acc, seg, i) => {
+        if (i === 0) {
+            acc.push(startOffset);
+        } else {
+            const prevSeg = visibleSegments[i - 1];
+            acc.push(acc[i - 1] + (prevSeg.value / total) * circumference);
+        }
+        return acc;
+    }, []);
 
     return (
         <div className="donut-chart" style={{ position: 'relative', width: size, height: size }}>
             <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-                {segments.filter(s => s.value > 0).map((seg) => {
+                {visibleSegments.map((seg, i) => {
                     const pct = seg.value / total;
                     const dashLength = pct * circumference;
                     const gap = circumference - dashLength;
-                    const currentOffset = offset;
-                    offset += dashLength;
+                    const currentOffset = cumulativeOffsets[i];
                     const isHovered = hovered?.label === seg.label;
 
                     return (

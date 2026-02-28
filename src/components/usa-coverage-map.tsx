@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 // Simplified US state paths for SVG map — each state is a polygon/path
 // Using a well-known simplified projection
@@ -85,13 +86,14 @@ function getColor(animals: number, maxAnimals: number): string {
 }
 
 export function UsaCoverageMap({ stateData, totalStates }: { stateData: StateData[]; totalStates: number }) {
+    const router = useRouter();
     const [hovered, setHovered] = useState<StateData | null>(null);
     const dataMap = new Map(stateData.map(s => [s.state, s]));
     const maxAnimals = Math.max(...stateData.map(s => s.animals), 1);
     const coveredStates = stateData.filter(s => s.animals > 0).length;
 
     const handleStateClick = (st: string) => {
-        window.location.href = `/admin/organizations?state=${st}`;
+        router.push(`/admin/organizations?state=${st}`);
     };
 
     return (

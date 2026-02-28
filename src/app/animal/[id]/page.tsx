@@ -3,7 +3,7 @@ import { SafeImage } from '@/components/SafeImage';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { getAnimalById, getAnimalForMetadata, getBreedCommonConditions, getShelterInsights } from '@/lib/queries';
-import { formatDeathMarker, hoursUntil, getUrgencyLevel, formatIntakeReason, formatYearsRemaining, getAgeDiscrepancy, getGoldenYearsConfidence, computeHealthScore, getSaveRate, getBestAge, cleanDisplayText, getRecommendedMinSqft } from '@/lib/utils';
+import { formatDeathMarker, hoursUntil, getUrgencyLevel, formatIntakeReason, formatYearsRemaining, getAgeDiscrepancy, getGoldenYearsConfidence, computeHealthScore, getSaveRate, getBestAge, cleanDisplayText, getRecommendedMinSqft, formatShelterLocation } from '@/lib/utils';
 import { getMatchProfiles } from '@/lib/match-profiles';
 import { CopyLinkButton } from '@/components/copy-link-button';
 import { BackButton } from '@/components/back-button';
@@ -249,10 +249,16 @@ export default async function AnimalDetailPage({
                         <Link href={`/shelter/${animal.shelter.id}`} className="animal-detail__shelter-link">
                             {animal.shelter.name}
                         </Link>
-                        <p className="animal-detail__location-phone">
-                            {animal.shelter.county} County, {animal.shelter.state}
-                            {animal.shelter.phone && <span className="animal-detail__inline-phone"> · 📞 <a href={`tel:${animal.shelter.phone.replace(/\D/g, '')}`}>{animal.shelter.phone}</a></span>}
-                        </p>
+                        {(() => {
+                            const locationStr = formatShelterLocation(animal.shelter);
+                            if (!locationStr && !animal.shelter.phone) return null;
+                            return (
+                                <p className="animal-detail__location-phone">
+                                    {locationStr}
+                                    {animal.shelter.phone && <span className="animal-detail__inline-phone">{locationStr ? ' · ' : ''}📞 <a href={`tel:${animal.shelter.phone.replace(/\D/g, '')}`}>{animal.shelter.phone}</a></span>}
+                                </p>
+                            );
+                        })()}
 
                         <div className="animal-detail__detail-grid">
                             <div className="animal-detail__detail-row">
@@ -599,10 +605,10 @@ export default async function AnimalDetailPage({
                         {animal.shelter.address && (
                             <p>{animal.shelter.address}</p>
                         )}
-                        <p>
-                            {animal.shelter.county} County, {animal.shelter.state}
-                            {animal.shelter.zipCode && ` ${animal.shelter.zipCode}`}
-                        </p>
+                        {(() => {
+                            const locationStr = formatShelterLocation(animal.shelter, { includeZip: true });
+                            return locationStr ? <p>{locationStr}</p> : null;
+                        })()}
                         {animal.shelter.phone ? (
                             <p className="animal-detail__shelter-phone-line">
                                 📞 <a href={`tel:${animal.shelter.phone.replace(/\D/g, '')}`}>{animal.shelter.phone}</a>

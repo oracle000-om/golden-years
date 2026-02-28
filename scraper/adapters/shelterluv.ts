@@ -311,8 +311,16 @@ export async function scrapeShelterLuv(opts?: {
         console.log(`   📦 Shard ${opts.shard + 1}/${opts.totalShards}: orgs ${start + 1}–${start + filtered.length} of ${configs.length}`);
     }
 
+    // Skip orgs without a known location — can't show these to adopters
+    const withLocation = filtered.filter(c => c.city !== 'Unknown' && c.state !== 'US' && c.state.length === 2);
+    const skipped = filtered.length - withLocation.length;
+    if (skipped > 0) {
+        console.log(`   ⚠ Skipping ${skipped} orgs with unknown location (${withLocation.length} remaining)`);
+    }
+    filtered = withLocation;
+
     if (filtered.length === 0) {
-        console.warn('   ⚠ No ShelterLuv shelters configured. Check shelterluv-config.json');
+        console.warn('   ⚠ No ShelterLuv shelters with known locations. Check shelterluv-config.json');
         return { animals: [], shelters: new Map() };
     }
 

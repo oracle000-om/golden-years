@@ -133,6 +133,13 @@ export async function getFilteredAnimals(filters: AnimalFilters): Promise<Pagina
         species: { in: ['DOG', 'CAT'] },
         photoUrl: { not: null },
         name: { notIn: PLACEHOLDER_NAMES },
+        // Exclude sanctuary animals and unknown-location shelters from adoption feed
+        shelter: { is: { shelterType: { not: 'SANCTUARY' }, state: { not: 'US' }, county: { not: 'Unknown' } } },
+        // Exclude listings with implausibly old intake dates (>10 yrs = likely data artifact)
+        OR: [
+            { intakeDate: null },
+            { intakeDate: { gte: new Date(Date.now() - 10 * 365.25 * 24 * 60 * 60 * 1000) } },
+        ],
         // #6: exclude animals confirmed non-senior by both sources
         ...buildSeniorExclusionClause(),
     };
@@ -146,14 +153,17 @@ export async function getFilteredAnimals(filters: AnimalFilters): Promise<Pagina
     }
 
     // Build shelter relation filter conditions
-    const shelterWhere: Record<string, unknown> = {};
+    // Start from the existing shelter filter (sanctuary exclusion is already set)
+    const shelterWhere: Record<string, unknown> = (where.shelter as any)?.is
+        ? { ...(where.shelter as any).is }
+        : {};
 
     if (filters.state && filters.state !== 'all') {
         shelterWhere.state = { equals: filters.state, mode: 'insensitive' };
     }
 
     if (filters.source && filters.source !== 'all') {
-        // "Shelters" = municipal + no-kill; "Rescues" = rescue + foster-based
+        // "Shelters" = municipal + no-kill (excludes sanctuary); "Rescues" = rescue + foster-based
         if (filters.source === 'municipal') {
             shelterWhere.shelterType = { in: ['MUNICIPAL', 'NO_KILL'] };
         } else if (filters.source === 'rescue') {
@@ -475,6 +485,13 @@ export async function searchAnimals(intent: SearchIntent): Promise<AnimalWithShe
         species: { in: ['DOG', 'CAT'] },
         photoUrl: { not: null },
         name: { notIn: PLACEHOLDER_NAMES },
+        // Exclude sanctuary animals and unknown-location shelters from search results
+        shelter: { is: { shelterType: { not: 'SANCTUARY' }, state: { not: 'US' }, county: { not: 'Unknown' } } },
+        // Exclude listings with implausibly old intake dates
+        OR: [
+            { intakeDate: null },
+            { intakeDate: { gte: new Date(Date.now() - 10 * 365.25 * 24 * 60 * 60 * 1000) } },
+        ],
         // Exclude confirmed non-seniors at DB level
         ...buildSeniorExclusionClause(),
     };
@@ -688,6 +705,8 @@ export async function getShelterInsights(shelterId: string): Promise<string[]> {
             insights.push('This is a no-kill organization');
         } else if (shelter.shelterType === 'FOSTER_BASED') {
             insights.push('Foster-based rescue — these seniors are living in homes, not kennels');
+        } else if (shelter.shelterType === 'SANCTUARY') {
+            insights.push('This is a sanctuary — animals here are permanent residents');
         }
     }
 

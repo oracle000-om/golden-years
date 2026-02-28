@@ -19,6 +19,14 @@ function isRateLimited(ip: string): boolean {
     return entry.count > RATE_LIMIT_MAX;
 }
 
+function getIp(request: NextRequest): string {
+    return (
+        request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+        request.headers.get('x-real-ip') ||
+        'unknown'
+    );
+}
+
 async function getResults() {
     const votes = await prisma.roadmapVote.findMany({ select: { choice: true } });
     const total = votes.length;
@@ -37,10 +45,7 @@ async function getResults() {
 /* ── POST: cast / change vote ── */
 export async function POST(request: NextRequest) {
     try {
-        const ip =
-            request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-            request.headers.get('x-real-ip') ||
-            'unknown';
+        const ip = getIp(request);
 
         if (isRateLimited(ip)) {
             return NextResponse.json(
@@ -61,8 +66,8 @@ export async function POST(request: NextRequest) {
 
         await prisma.roadmapVote.upsert({
             where: { voterToken },
-            create: { choice, voterToken },
-            update: { choice },
+            create: { choice, voterToken, ipAddress: ip },
+            update: { choice, ipAddress: ip },
         });
 
         const results = await getResults();
@@ -70,6 +75,33 @@ export async function POST(request: NextRequest) {
     } catch (error) {
         console.error('Roadmap vote error:', error);
         return NextResponse.json({ error: 'Failed to record vote' }, { status: 500 });
+    }
+}
+
+/* ── DELETE: undo vote ── */
+export async function DELETE(request: NextRequest) {
+    try {
+        const ip = getIp(request);
+
+        if (isRateLimited(ip)) {
+            return NextResponse.json(
+                { error: 'Too many requests. Please wait a moment.' },
+                { status: 429 },
+            );
+        }
+
+        const voterToken = new URL(request.url).searchParams.get('voterToken');
+        if (!voterToken) {
+            return NextResponse.json({ error: 'Missing voterToken' }, { status: 400 });
+        }
+
+        await prisma.roadmapVote.deleteMany({ where: { voterToken } });
+
+        const results = await getResults();
+        return NextResponse.json({ success: true, results });
+    } catch (error) {
+        console.error('Roadmap undo error:', error);
+        return NextResponse.json({ error: 'Failed to undo vote' }, { status: 500 });
     }
 }
 

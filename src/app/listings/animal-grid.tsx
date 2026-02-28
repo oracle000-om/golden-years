@@ -4,7 +4,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { SafeImage } from '@/components/SafeImage';
 import { useState } from 'react';
-import { formatScheduledDate, formatIntakeDate, hoursUntil, getUrgencyLevel, getGoldenYearsConfidence, getSaveRate, formatYearsRemaining } from '@/lib/utils';
+import { formatScheduledDate, formatIntakeDate, hoursUntil, getUrgencyLevel, getGoldenYearsConfidence, getSaveRate, formatYearsRemaining, formatShelterLocation } from '@/lib/utils';
 import type { AnimalResult } from '@/lib/queries';
 
 function CopyCardLink({ animalId }: { animalId: string }) {
@@ -146,12 +146,16 @@ export function AnimalGrid({ animals, totalCount, page, totalPages }: AnimalGrid
                                 <p className="animal-card__shelter">
                                     {animal.shelter.name}
                                 </p>
-                                {(animal.shelter.county || animal.shelter.state || animal.shelter.phone) && (
-                                    <p className="animal-card__shelter-location">
-                                        {[animal.shelter.county, animal.shelter.state].filter(Boolean).join(', ')}
-                                        {animal.shelter.phone && <span className="animal-card__shelter-phone"> · {animal.shelter.phone}</span>}
-                                    </p>
-                                )}
+                                {(() => {
+                                    const locStr = formatShelterLocation(animal.shelter, { countySuffix: false });
+                                    if (!locStr && !animal.shelter.phone) return null;
+                                    return (
+                                        <p className="animal-card__shelter-location">
+                                            {locStr}
+                                            {animal.shelter.phone && <span className="animal-card__shelter-phone">{locStr ? ' · ' : ''}{animal.shelter.phone}</span>}
+                                        </p>
+                                    );
+                                })()}
 
                                 <div className="animal-card__details">
                                     <div className="animal-card__detail">

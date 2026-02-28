@@ -16,6 +16,14 @@ export default function GivePage() {
                 </div>
                 <RoadmapPoll />
                 <FeedbackForm />
+                <a
+                    href="https://ko-fi.com/itsmedaye"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="give-tip"
+                >
+                    <span className="give-tip__heart">♥</span> Tip the developer
+                </a>
             </div>
         </section>
     );

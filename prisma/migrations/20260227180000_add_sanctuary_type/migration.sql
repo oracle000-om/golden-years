@@ -1,0 +1,2 @@
+-- Add SANCTUARY to ShelterType enum
+ALTER TYPE "ShelterType" ADD VALUE IF NOT EXISTS 'SANCTUARY';

@@ -6,11 +6,23 @@
  *   - healthRiskScore
  *   - seniorAgeThreshold
  *   - careNotes
+ *   - pubmedConditions (PubMed-sourced breed health predispositions)
  *
  * Uses fuzzy matching: "Golden Retriever Mix" → matches "Golden Retriever".
  */
 
 import type { PrismaClient } from '../../src/generated/prisma/client';
+
+/** Structured condition from PubMed literature */
+export interface PubMedCondition {
+    condition: string;
+    prevalence: 'common' | 'moderate' | 'rare';
+    severity: 'mild' | 'moderate' | 'severe' | 'life-threatening';
+    typicalAgeOnset: number | null;
+    seniorRelevant: boolean;
+    description: string;
+    citationPmids: string[];
+}
 
 export interface BreedEnrichment {
     /** Matched breed profile name */
@@ -23,6 +35,8 @@ export interface BreedEnrichment {
     seniorAgeThreshold: number | null;
     /** Breed-specific care notes */
     careNotes: string | null;
+    /** PubMed-sourced conditions with citations (null if not yet enriched) */
+    pubmedConditions: PubMedCondition[] | null;
 }
 
 /**
@@ -51,6 +65,7 @@ export async function enrichWithBreedProfile(
             healthRiskScore: true,
             seniorAgeThreshold: true,
             careNotes: true,
+            pubmedConditions: true,
         },
     });
 
@@ -87,6 +102,7 @@ export async function enrichWithBreedProfile(
                 healthRiskScore: match.healthRiskScore,
                 seniorAgeThreshold: match.seniorAgeThreshold,
                 careNotes: match.careNotes,
+                pubmedConditions: match.pubmedConditions as PubMedCondition[] | null,
             });
         }
     }

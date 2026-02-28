@@ -14,7 +14,7 @@ const OPTIONS: { key: Choice; icon: string; label: string }[] = [
     { key: 'enhance_site', icon: '🏠', label: 'Enhance the Golden Years Club site' },
     { key: 'grants', icon: '🎁', label: 'Give grants to organizations saving seniors' },
     { key: 'vet_costs', icon: '🩺', label: 'Help adopters with senior veterinary costs' },
-    { key: 'new_programs', icon: '✨', label: 'Create actual clubs' },
+    { key: 'new_programs', icon: '✨', label: 'Create clubs for fosters' },
 ];
 
 function getOrCreateToken(): string {
@@ -58,7 +58,10 @@ export function RoadmapPoll() {
     }, [checkExisting]);
 
     async function handleVote(choice: Choice) {
-        if (hasVoted || isSubmitting || !voterToken) return;
+        if (isSubmitting || !voterToken) return;
+        // If already voted for this option, ignore
+        if (hasVoted && selected === choice) return;
+
         setIsSubmitting(true);
         setSelected(choice);
 
@@ -75,7 +78,28 @@ export function RoadmapPoll() {
                 setTimeout(() => setShowResults(true), 50);
             }
         } catch {
-            setSelected(null);
+            if (!hasVoted) setSelected(null);
+        } finally {
+            setIsSubmitting(false);
+        }
+    }
+
+    async function handleUndo() {
+        if (isSubmitting || !voterToken) return;
+        setIsSubmitting(true);
+
+        try {
+            const res = await fetch(`/api/roadmap-vote?voterToken=${voterToken}`, {
+                method: 'DELETE',
+            });
+            if (res.ok) {
+                setSelected(null);
+                setResults(null);
+                setHasVoted(false);
+                setShowResults(false);
+            }
+        } catch {
+            // silently fail
         } finally {
             setIsSubmitting(false);
         }
@@ -100,7 +124,7 @@ export function RoadmapPoll() {
                             key={opt.key}
                             className={`roadmap__option ${hasVoted ? 'roadmap__option--voted' : ''} ${isSelected ? 'roadmap__option--selected' : ''}`}
                             onClick={() => handleVote(opt.key)}
-                            disabled={hasVoted || isSubmitting}
+                            disabled={isSubmitting}
                         >
                             {/* Fill bar (behind the label) */}
                             <div
@@ -122,10 +146,20 @@ export function RoadmapPoll() {
             </div>
 
             {hasVoted && results && (
-                <p className="roadmap__total">
-                    {results.total} vote{results.total !== 1 ? 's' : ''} cast
-                </p>
+                <div className="roadmap__footer">
+                    <p className="roadmap__total">
+                        {results.total} vote{results.total !== 1 ? 's' : ''} cast
+                    </p>
+                    <button
+                        className="roadmap__undo"
+                        onClick={handleUndo}
+                        disabled={isSubmitting}
+                    >
+                        Undo vote
+                    </button>
+                </div>
             )}
+
         </div>
     );
 }

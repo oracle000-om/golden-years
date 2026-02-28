@@ -1,24 +1,30 @@
 /**
  * Best Friends Pet Lifesaving Dashboard Adapter
  *
- * Scrapes the Best Friends dashboard to extract shelter-level
- * save rates and no-kill status.
+ * Scrapes the Best Friends Tableau dashboard to extract shelter-level
+ * no-kill status for ~10,000 shelters across all 51 US state pages.
  *
- * The dashboard is JS-rendered and loads data dynamically,
- * so we use their underlying data API endpoints when possible.
+ * Strategy (discovered via reverse-engineering):
+ *   1. Navigate to bestfriends.org/no-kill-2025/animal-shelter-statistics/{state}
+ *      (this page provides guest auth to the Tableau Cloud instance)
+ *   2. Intercept the VizQL bootstrapSession network response (~460KB)
+ *   3. Parse Tableau's multi-part response: segment 2 contains
+ *      secondaryInfo.presModelMap.dataDictionary with:
+ *      - cstring column: shelter labels ("Name | City, ST"), state codes,
+ *        no-kill status ("No-Kill", "Nearly No-Kill")
+ *      - integer column: organization IDs
+ *      - real column: lat/lon coordinates
  *
- * Source: https://bestfriends.org/…/pet-lifesaving-dashboard
+ * Source: https://bestfriends.org/no-kill-2025/animal-shelter-statistics
  */
 
-// Best Friends uses a Tableau/similar dashboard backend.
-// The underlying data is also available via their national dataset annual release.
-// For now, we can use their published CSV data when available.
+import type { Browser, Page, Response } from 'playwright-core';
 
 export interface BestFriendsShelterId {
     shelterName: string;
     city: string;
     state: string;
-    saveRate: number;          // 0.0–1.0
+    saveRate: number;          // 0.0–1.0 (inferred from no-kill status)
     noKillStatus: string;      // 'YES' | 'NEARLY' | 'NO'
     dataYear: number;
     liveIntakes: number | null;
@@ -26,96 +32,326 @@ export interface BestFriendsShelterId {
 }
 
 /**
- * Map a save rate to no-kill status.
- * Best Friends definition: ≥90% = no-kill, 85-89% = nearly, <85% = not.
+ * State slugs for bestfriends.org URL paths.
+ * Each state slug maps to the URL segment used on bestfriends.org.
  */
-function computeNoKillStatus(saveRate: number): string {
-    if (saveRate >= 0.90) return 'YES';
-    if (saveRate >= 0.85) return 'NEARLY';
-    return 'NO';
+const STATE_SLUGS: string[] = [
+    'alabama', 'alaska', 'arizona', 'arkansas', 'california', 'colorado',
+    'connecticut', 'delaware', 'washington-dc', 'florida', 'georgia', 'hawaii',
+    'idaho', 'illinois', 'indiana', 'iowa', 'kansas', 'kentucky', 'louisiana',
+    'maine', 'maryland', 'massachusetts', 'michigan', 'minnesota', 'mississippi',
+    'missouri', 'montana', 'nebraska', 'nevada', 'new-hampshire', 'new-jersey',
+    'new-mexico', 'new-york', 'north-carolina', 'north-dakota', 'ohio', 'oklahoma',
+    'oregon', 'pennsylvania', 'rhode-island', 'south-carolina', 'south-dakota',
+    'tennessee', 'texas', 'utah', 'vermont', 'virginia', 'washington',
+    'west-virginia', 'wisconsin', 'wyoming',
+];
+
+/** Slug → 2-letter state code */
+const SLUG_TO_CODE: Record<string, string> = {
+    'alabama': 'AL', 'alaska': 'AK', 'arizona': 'AZ', 'arkansas': 'AR',
+    'california': 'CA', 'colorado': 'CO', 'connecticut': 'CT', 'delaware': 'DE',
+    'washington-dc': 'DC', 'florida': 'FL', 'georgia': 'GA', 'hawaii': 'HI',
+    'idaho': 'ID', 'illinois': 'IL', 'indiana': 'IN', 'iowa': 'IA',
+    'kansas': 'KS', 'kentucky': 'KY', 'louisiana': 'LA', 'maine': 'ME',
+    'maryland': 'MD', 'massachusetts': 'MA', 'michigan': 'MI', 'minnesota': 'MN',
+    'mississippi': 'MS', 'missouri': 'MO', 'montana': 'MT', 'nebraska': 'NE',
+    'nevada': 'NV', 'new-hampshire': 'NH', 'new-jersey': 'NJ', 'new-mexico': 'NM',
+    'new-york': 'NY', 'north-carolina': 'NC', 'north-dakota': 'ND', 'ohio': 'OH',
+    'oklahoma': 'OK', 'oregon': 'OR', 'pennsylvania': 'PA', 'rhode-island': 'RI',
+    'south-carolina': 'SC', 'south-dakota': 'SD', 'tennessee': 'TN', 'texas': 'TX',
+    'utah': 'UT', 'vermont': 'VT', 'virginia': 'VA', 'washington': 'WA',
+    'west-virginia': 'WV', 'wisconsin': 'WI', 'wyoming': 'WY',
+};
+
+/** All 2-letter state codes */
+export const ALL_STATE_CODES = Object.values(SLUG_TO_CODE);
+
+/**
+ * Parse the VizQL bootstrapSession response to extract shelter data.
+ *
+ * The bootstrap response format is multi-part:
+ *   "len1;{segment1_json}len2;{segment2_json}"
+ *
+ * Segment 2 contains:
+ *   secondaryInfo.presModelMap.dataDictionary.presModelHolder
+ *     .genDataDictionaryPresModel.dataSegments["0"].dataColumns
+ *
+ * The cstring column has shelter labels ("Name | City, ST"), state codes,
+ * and no-kill status categories.
+ */
+function parseBootstrapResponse(body: string): BestFriendsShelterId[] {
+    const records: BestFriendsShelterId[] = [];
+
+    // ── Strategy 1: Parse multi-part Tableau response format ──
+    try {
+        // Find segment 2 (secondaryInfo with dataDictionary)
+        const firstSemi = body.indexOf(';');
+        if (firstSemi < 0 || firstSemi > 20) throw new Error('Invalid format');
+
+        const len1 = parseInt(body.substring(0, firstSemi));
+        if (isNaN(len1)) throw new Error('Invalid segment 1 length');
+
+        const seg2Start = firstSemi + 1 + len1;
+        const remaining = body.substring(seg2Start);
+        const secondSemi = remaining.indexOf(';');
+        if (secondSemi < 0 || secondSemi > 20) throw new Error('No segment 2');
+
+        const seg2Json = remaining.substring(secondSemi + 1);
+        const seg2Data = JSON.parse(seg2Json);
+
+        // Navigate to dataDictionary
+        const dataDict = seg2Data?.secondaryInfo?.presModelMap?.dataDictionary
+            ?.presModelHolder?.genDataDictionaryPresModel?.dataSegments;
+
+        if (!dataDict) throw new Error('No dataDictionary found');
+
+        // Collect all cstring values from all segments
+        const allStrings: string[] = [];
+        for (const segKey of Object.keys(dataDict)) {
+            const seg = dataDict[segKey];
+            for (const col of (seg.dataColumns || [])) {
+                if (col.dataType === 'cstring') {
+                    allStrings.push(...(col.dataValues || []));
+                }
+            }
+        }
+
+        // Extract shelter labels matching "Name | City, ST"
+        const shelterLabels: string[] = [];
+        const noKillStatuses = new Set<string>();
+        const shelterPattern = /^(.+?)\s*\|\s*(.+?),\s*([A-Z]{2})$/;
+
+        for (const str of allStrings) {
+            if (shelterPattern.test(str)) {
+                shelterLabels.push(str);
+            }
+            // Collect no-kill status categories
+            if (str.toLowerCase().includes('no-kill') || str.toLowerCase().includes('no kill')) {
+                noKillStatuses.add(str);
+            }
+        }
+
+        // Determine the state code from the data
+        const stateCode = allStrings.find(s => /^[A-Z]{2}$/.test(s) && ALL_STATE_CODES.includes(s)) || '';
+
+        // Check for "Shelter Groups" mapping in vizData
+        // The vizData presModelMap contains per-shelter no-kill status mappings
+        // via the "Shelter Groups" field
+        const vizData = seg2Data?.secondaryInfo?.presModelMap?.vizData?.presModelHolder
+            ?.genPresModelMapPresModel?.presModelMap;
+
+        // Try to build shelter → no-kill status mapping from the State Map sheet
+        const shelterStatuses = new Map<number, string>();
+        if (vizData) {
+            const mapSheet = vizData['State Map_Desktop'];
+            if (mapSheet) {
+                const panes = mapSheet.presModelHolder?.genVizDataPresModel
+                    ?.paneColumnsData?.paneColumnsList;
+                if (panes && panes.length > 0) {
+                    // Extract shelter group indices from the pane columns
+                    const vizCols = mapSheet.presModelHolder.genVizDataPresModel
+                        .paneColumnsData.vizDataColumns;
+                    for (const col of vizCols) {
+                        if (col.fieldCaption?.includes('Shelter Groups')) {
+                            // Find aliasIndices for this column
+                            for (const pane of panes) {
+                                for (const vpc of pane.vizPaneColumns) {
+                                    if (vpc.aliasIndices) {
+                                        // These indices map into the cstring array
+                                        for (let j = 0; j < vpc.aliasIndices.length; j++) {
+                                            const idx = vpc.aliasIndices[j];
+                                            if (idx >= 0 && idx < allStrings.length) {
+                                                const val = allStrings[idx];
+                                                if (val.includes('No-Kill') || val.includes('Nearly')) {
+                                                    shelterStatuses.set(j, val);
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Build records from shelter labels
+        for (let i = 0; i < shelterLabels.length; i++) {
+            const match = shelterLabels[i].match(shelterPattern);
+            if (!match) continue;
+
+            // Determine no-kill status
+            // Default: if "No-Kill" is in the status set for this state, check per-shelter
+            let status = 'NO';
+            let saveRate = 0;
+
+            const shelterStatus = shelterStatuses.get(i);
+            if (shelterStatus) {
+                if (shelterStatus.includes('Nearly')) {
+                    status = 'NEARLY';
+                    saveRate = 0.87; // Midpoint of 85-89%
+                } else if (shelterStatus.includes('No-Kill')) {
+                    status = 'YES';
+                    saveRate = 0.92; // Estimated ≥90%
+                }
+            }
+
+            records.push({
+                shelterName: match[1].trim(),
+                city: match[2].trim(),
+                state: match[3] || stateCode,
+                saveRate,
+                noKillStatus: status,
+                dataYear: new Date().getFullYear(),
+                liveIntakes: null,
+                nonLiveOutcomes: null,
+            });
+        }
+
+        return records;
+
+    } catch {
+        // Fall through to regex-based extraction
+    }
+
+    // ── Strategy 2: Regex-based extraction of shelter labels ──
+    const shelterPattern = /"([^"]{3,80}\s*\|\s*[^"]{2,40},\s*([A-Z]{2}))"/g;
+    let match;
+    const seen = new Set<string>();
+
+    while ((match = shelterPattern.exec(body)) !== null) {
+        const fullLabel = match[1];
+        const state = match[2];
+        if (seen.has(fullLabel)) continue;
+        seen.add(fullLabel);
+
+        const parts = fullLabel.match(/^(.+?)\s*\|\s*(.+?),\s*([A-Z]{2})$/);
+        if (!parts) continue;
+
+        records.push({
+            shelterName: parts[1].trim(),
+            city: parts[2].trim(),
+            state: parts[3],
+            saveRate: 0,
+            noKillStatus: 'NO',
+            dataYear: new Date().getFullYear(),
+            liveIntakes: null,
+            nonLiveOutcomes: null,
+        });
+    }
+
+    return records;
 }
 
 /**
- * Fetch Best Friends data.
- *
- * Strategy: Best Friends publishes an annual national dataset.
- * Their dashboard loads data via a backend API. We try multiple approaches:
- *
- * 1. Check for a published CSV/data download
- * 2. Attempt to hit the dashboard's data API
- * 3. Fall back to browser scraping
+ * Scrape a single state page by navigating through bestfriends.org
+ * (which provides guest auth for the Tableau Cloud instance).
  */
-export async function fetchBestFriendsData(): Promise<BestFriendsShelterId[]> {
-    console.log(`   📥 Fetching Best Friends lifesaving data...`);
+export async function scrapeStatePage(
+    page: Page,
+    stateSlug: string,
+): Promise<BestFriendsShelterId[]> {
+    const url = `https://bestfriends.org/no-kill-2025/animal-shelter-statistics/${stateSlug}`;
 
-    // Approach 1: Try the Shelter Pet Data Alliance public data endpoint
-    // Best Friends publishes aggregate data through SPDA
-    const spda = await trySpda();
-    if (spda.length > 0) return spda;
+    // Set up response interception BEFORE navigation
+    let bootstrapBody: string | null = null;
+    const capturePromise = new Promise<void>((resolve) => {
+        const timeout = setTimeout(resolve, 30000);
 
-    // Approach 2: Try the Best Friends API endpoints
-    const apiData = await tryBestFriendsApi();
-    if (apiData.length > 0) return apiData;
+        page.on('response', async (response: Response) => {
+            const respUrl = response.url();
+            if (respUrl.includes('bootstrapSession') && !bootstrapBody) {
+                try {
+                    bootstrapBody = await response.text();
+                    if (bootstrapBody.length > 10000) {
+                        clearTimeout(timeout);
+                        resolve();
+                    }
+                } catch { /* response not readable */ }
+            }
+        });
+    });
 
-    console.log(`   ⚠ Could not automatically fetch Best Friends data.`);
-    console.log(`   Best Friends data must be obtained via:`);
-    console.log(`     1. Request from bestfriends.org/research (annual dataset)`);
-    console.log(`     2. Browser scraping of the dashboard (run-best-friends.ts handles this)`);
+    try {
+        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+        // Wait for bootstrapSession response to arrive
+        await capturePromise;
+
+        if (bootstrapBody) {
+            return parseBootstrapResponse(bootstrapBody);
+        }
+
+        // Fallback: wait longer and try again
+        await page.waitForTimeout(10000);
+        if (bootstrapBody) {
+            return parseBootstrapResponse(bootstrapBody);
+        }
+    } catch (err) {
+        console.error(`   ❌ Error scraping ${stateSlug}: ${(err as Error).message?.substring(0, 200)}`);
+    }
 
     return [];
 }
 
-async function trySpda(): Promise<BestFriendsShelterId[]> {
-    try {
-        // Shelter Pet Data Alliance public endpoint
-        const resp = await fetch('https://shelterpetdata.org/api/data/national', {
-            headers: { 'User-Agent': 'GoldenYearsClub/1.0' },
-            signal: AbortSignal.timeout(15000),
-        });
-        if (!resp.ok) return [];
-        const data = await resp.json() as any;
-        console.log(`   📊 SPDA returned data: ${JSON.stringify(data).substring(0, 200)}...`);
-        // Parse if we get structured shelter data
-        // For now this is exploratory
-        return [];
-    } catch {
-        return [];
+/**
+ * Fetch Best Friends data from the Tableau dashboard.
+ */
+export async function fetchBestFriendsData(
+    browser: Browser,
+    stateFilter?: string,
+): Promise<BestFriendsShelterId[]> {
+    console.log(`   📥 Fetching Best Friends lifesaving data via Tableau dashboard...`);
+
+    // Map state code filter to slug
+    let slugsToScrape = STATE_SLUGS;
+    if (stateFilter) {
+        const code = stateFilter.toUpperCase();
+        const slug = Object.entries(SLUG_TO_CODE).find(([, v]) => v === code)?.[0];
+        if (!slug) {
+            console.error(`   ❌ Unknown state code: ${stateFilter}`);
+            return [];
+        }
+        slugsToScrape = [slug];
     }
-}
 
-async function tryBestFriendsApi(): Promise<BestFriendsShelterId[]> {
-    // Known Best Friends API patterns:
-    const endpoints = [
-        'https://bestfriends.org/api/v1/dashboard/shelters',
-        'https://bestfriends.org/api/dashboard/data',
-        'https://bestfriends.org/jsonapi/node/dashboard_shelter',
-    ];
+    const allRecords: BestFriendsShelterId[] = [];
+    const page = await browser.newPage();
+    await page.setViewportSize({ width: 1280, height: 900 });
 
-    for (const url of endpoints) {
+    for (let i = 0; i < slugsToScrape.length; i++) {
+        const slug = slugsToScrape[i];
+        const stateCode = SLUG_TO_CODE[slug];
+        const label = `[${i + 1}/${slugsToScrape.length}]`;
+
         try {
-            const resp = await fetch(url, {
-                headers: {
-                    'User-Agent': 'GoldenYearsClub/1.0',
-                    'Accept': 'application/json',
-                },
-                signal: AbortSignal.timeout(10000),
-            });
-            if (resp.ok) {
-                const text = await resp.text();
-                console.log(`   📡 ${url} returned: ${text.substring(0, 300)}...`);
-                // Parse if structured
-            }
-        } catch {
-            // Expected — most will fail
+            const records = await scrapeStatePage(page, slug);
+            allRecords.push(...records);
+            const yesCount = records.filter(r => r.noKillStatus === 'YES').length;
+            console.log(`   ${label} ${stateCode}: ${records.length} shelters (${yesCount} no-kill)`);
+        } catch (err) {
+            console.error(`   ${label} ${stateCode}: failed — ${(err as Error).message?.substring(0, 100)}`);
+        }
+
+        // Respectful delay between states
+        if (i < slugsToScrape.length - 1) {
+            await page.waitForTimeout(2000);
         }
     }
 
-    return [];
+    await page.close();
+
+    console.log(`   ✅ Total: ${allRecords.length} shelters from ${slugsToScrape.length} states`);
+    const noKillCount = allRecords.filter(r => r.noKillStatus === 'YES').length;
+    const nearlyCount = allRecords.filter(r => r.noKillStatus === 'NEARLY').length;
+    console.log(`   📊 ${noKillCount} no-kill, ${nearlyCount} nearly no-kill, ${allRecords.length - noKillCount - nearlyCount} not no-kill`);
+
+    return allRecords;
 }
 
 /**
- * Parse Best Friends CSV data (if downloaded manually or from annual release).
- * Expected columns: Organization Name, City, State, Save Rate, Live Intakes, Non-Live Outcomes, Year
+ * Parse Best Friends CSV data (manual fallback import path).
  */
 export function parseBestFriendsCsv(csvText: string): BestFriendsShelterId[] {
     const lines = csvText.split('\n');
@@ -127,10 +363,7 @@ export function parseBestFriendsCsv(csvText: string): BestFriendsShelterId[] {
         const line = lines[i].trim();
         if (!line) continue;
 
-        // Simple CSV parse — may need to handle quoted fields
         const fields = line.split(',').map(f => f.trim().replace(/"/g, ''));
-
-        // Flexible column matching
         const name = fields[0] || '';
         const city = fields[1] || '';
         const state = fields[2] || '';
@@ -139,15 +372,17 @@ export function parseBestFriendsCsv(csvText: string): BestFriendsShelterId[] {
         const saveRate = parseFloat(saveRateStr);
         if (isNaN(saveRate) || !name || !state) continue;
 
-        // Normalize save rate (could be 0-100 or 0-1)
         const normalizedRate = saveRate > 1 ? saveRate / 100 : saveRate;
+        let noKillStatus = 'NO';
+        if (normalizedRate >= 0.90) noKillStatus = 'YES';
+        else if (normalizedRate >= 0.85) noKillStatus = 'NEARLY';
 
         records.push({
             shelterName: name,
             city,
             state: state.toUpperCase(),
             saveRate: normalizedRate,
-            noKillStatus: computeNoKillStatus(normalizedRate),
+            noKillStatus,
             dataYear: parseInt(fields[6] || '2024', 10) || 2024,
             liveIntakes: parseInt(fields[4] || '', 10) || null,
             nonLiveOutcomes: parseInt(fields[5] || '', 10) || null,

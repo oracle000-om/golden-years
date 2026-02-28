@@ -39,6 +39,7 @@
     "scrape:virginia": "npx tsx scraper/run-vdacs.ts",
     "scrape:990": "npx tsx scraper/run-990.ts",
     "scrape:aldf": "npx tsx scraper/run-aldf.ts",
+    "scrape:best-friends": "npx tsx scraper/run-best-friends.ts",
     "geocode": "npx tsx scraper/geocode-shelters.ts",
     "enrich": "npx tsx scraper/compute-enrichments.ts",
     "postinstall": "prisma generate",

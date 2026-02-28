@@ -27,6 +27,8 @@ on:
     - cron: '0 4 * * 0'
     # Breed DB + shelter stats: 1st of every month at 5am UTC
     - cron: '0 5 1 * *'
+    # Best Friends dashboard: annually on Jan 15 at 6am UTC
+    - cron: '0 6 15 1 *'
 
   # Manual trigger from GitHub UI
   workflow_dispatch:
@@ -67,6 +69,7 @@ on:
           - north-carolina
           - geocode
           - enrich
+          - best-friends
 
 env:
   DATABASE_URL: ${{ secrets.DATABASE_URL }}
@@ -320,7 +323,7 @@ jobs:
         github.event.inputs.pipeline == 'enrich' ||
         github.event.inputs.pipeline == 'state-reports'))
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 
@@ -477,6 +480,27 @@ jobs:
           github.event.inputs.pipeline == 'all' ||
           github.event.inputs.pipeline == 'enrich'
         run: npm run enrich
+
+  # ── Best Friends Dashboard (annual, Jan 15) ─────────────
+  scrape-best-friends:
+    if: >-
+      github.event.schedule == '0 6 15 1 *' ||
+      (github.event_name == 'workflow_dispatch' &&
+       github.event.inputs.pipeline == 'best-friends')
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npx playwright install chromium --with-deps
+      - run: npm run scrape:best-friends
 
   # ── Retry Queue (after all 8h scrape jobs) ──────────────
   retry-queue:

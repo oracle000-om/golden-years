@@ -8,8 +8,27 @@ name: CI
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'public/mascots/**'
+      - 'LICENSE'
+      - '.github/workflows/scrape.yml'
+      - '.github/workflows/health-check.yml'
   pull_request:
     branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'public/mascots/**'
+      - 'LICENSE'
+      - '.github/workflows/scrape.yml'
+      - '.github/workflows/health-check.yml'
+
+# Cancel in-progress CI runs on the same branch — saves minutes on rapid pushes.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build-and-test:
@@ -17,14 +36,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-
-      - run: npm ci
-      - run: npx prisma generate
+      - uses: ./.github/actions/setup
 
       - name: Type check + build
         run: npm run build

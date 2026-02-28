@@ -29,6 +29,7 @@ import { checkScrapeHealth } from './lib/alert';
 import { reconcileAnimals } from './lib/reconcile';
 import { startRun, finishRun, failRun } from './lib/scrape-run';
 import type { ScrapedAnimal } from './types';
+import { upsertAnimalChildren } from './lib/upsert-children';
 
 async function main() {
     const dryRun = process.argv.includes('--dry-run');
@@ -268,11 +269,13 @@ async function main() {
                     },
                 });
                 updated++;
+                await upsertAnimalChildren(prisma, existing.id, data);
             } else {
-                await (prisma as any).animal.create({
+                const record = await (prisma as any).animal.create({
                     data: { shelterId, intakeId: animal.intakeId, ...data, firstSeenAt: now, daysInShelter: 0 },
                 });
                 created++;
+                await upsertAnimalChildren(prisma, record.id, data);
             }
         } catch (err) {
             errors++;

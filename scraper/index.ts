@@ -28,6 +28,7 @@ import { enqueueFailure } from './lib/retry-queue';
 import { checkScrapeHealth } from './lib/alert';
 import { reconcileAnimals } from './lib/reconcile';
 import { startRun, finishRun } from './lib/scrape-run';
+import { upsertAnimalChildren } from './lib/upsert-children';
 
 
 
@@ -288,6 +289,7 @@ async function main() {
                     });
                     animalId = existing.id;
                     updated++;
+                    await upsertAnimalChildren(prisma, animalId, data);
                 } else {
                     const created_record = await prisma.animal.create({
                         data: {
@@ -300,6 +302,7 @@ async function main() {
                     });
                     animalId = created_record.id;
                     created++;
+                    await upsertAnimalChildren(prisma, animalId, data);
                 }
 
                 // v2: Create temporal snapshot with diff logging

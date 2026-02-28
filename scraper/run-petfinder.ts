@@ -23,6 +23,7 @@ import { reconcileAnimals } from './lib/reconcile';
 import { startRun, finishRun, failRun } from './lib/scrape-run';
 import { shouldScrape } from './lib/should-scrape';
 import type { ScrapedAnimal } from './types';
+import { upsertAnimalChildren } from './lib/upsert-children';
 
 const CONCURRENCY = 5;
 
@@ -305,11 +306,13 @@ async function main() {
                     }
                 });
                 animalId = existing.id; updated++;
+                await upsertAnimalChildren(prisma, animalId, data);
             } else {
                 const record = await (prisma as any).animal.create({
                     data: { shelterId, intakeId: animal.intakeId, ...data, firstSeenAt: now, daysInShelter: 0 },
                 });
                 animalId = record.id; created++;
+                await upsertAnimalChildren(prisma, animalId, data);
                 // Buffer hash for post-batch merge (avoids race condition)
                 if (photoHash) newHashPair = [animalId, photoHash];
             }

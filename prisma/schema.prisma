@@ -46,6 +46,7 @@ model Shelter {
   vetDensityPer10k      Float?      @map("vet_density_per_10k")     // vets per 10K residents (BLS OEWS)
   metroAvgVetSalary     Int?        @map("metro_avg_vet_salary")    // mean annual vet wage in this metro
   metroName             String?     @map("metro_name")              // BLS metro area name
+  dataSourceAdapter     String?     @map("data_source_adapter")     // which adapter last wrote (petango, rescuegroups, etc.)
   lastScrapedAt         DateTime? @map("last_scraped_at")
   createdAt          DateTime @default(now()) @map("created_at")
   updatedAt          DateTime @updatedAt @map("updated_at")

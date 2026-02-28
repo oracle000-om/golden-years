@@ -99,7 +99,7 @@ async function main() {
         try {
             await (prisma as any).shelter.upsert({
                 where: { id: ptId },
-                update: { lastScrapedAt: new Date(), state: s.state },
+                update: { lastScrapedAt: new Date(), state: s.state, dataSourceAdapter: 'petango' },
                 create: {
                     id: ptId,
                     name: s.name,

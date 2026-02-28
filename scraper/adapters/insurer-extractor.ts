@@ -17,17 +17,8 @@ const MODEL = 'gemini-2.5-flash';
 
 // ── Types ──
 
-export interface InsurerCondition {
-    condition: string;
-    description: string;
-    riskLevel: 'high' | 'moderate' | 'low';
-    estimatedCostLow: number;           // annual cost range low bound ($)
-    estimatedCostHigh: number;          // annual cost range high bound ($)
-    claimFrequency: string;             // e.g. "2.3x average" or "common"
-    lifeStage: 'puppy' | 'adult' | 'senior' | 'all';
-    prevention: string | null;
-    treatmentType: 'surgery' | 'medication' | 'ongoing_management' | 'monitoring' | 'other';
-}
+import type { InsurerCondition } from '../types/breed-health';
+export type { InsurerCondition } from '../types/breed-health';
 
 export interface InsurerBreedData {
     breed: string;

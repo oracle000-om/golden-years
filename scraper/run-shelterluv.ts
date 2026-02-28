@@ -98,7 +98,7 @@ async function main() {
         try {
             await (prisma as any).shelter.upsert({
                 where: { id: slId },
-                update: { lastScrapedAt: new Date(), state: s.state, websiteUrl: embedUrl },
+                update: { lastScrapedAt: new Date(), state: s.state, websiteUrl: embedUrl, dataSourceAdapter: 'shelterluv' },
                 create: {
                     id: slId,
                     name: s.name,

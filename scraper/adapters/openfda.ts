@@ -106,15 +106,8 @@ const BREED_MAP: Record<string, string> = {
     'Domestic Medium Hair': 'Domestic Medium Hair',
 };
 
-export interface FdaAdverseReaction {
-    reaction: string;
-    count: number;
-}
-
-export interface FdaDrugWarning {
-    drug: string;
-    count: number;
-}
+import type { FdaAdverseReaction, FdaDrugWarning } from '../types/breed-health';
+export type { FdaAdverseReaction, FdaDrugWarning } from '../types/breed-health';
 
 export interface FdaBreedData {
     breed: string;

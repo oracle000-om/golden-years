@@ -115,6 +115,7 @@ async function main() {
                 phone: shelter.phone,
                 websiteUrl: shelter.websiteUrl,
                 lastScrapedAt: new Date(),
+                dataSourceAdapter: 'shelters',
             },
             create: {
                 id: shelter.id,

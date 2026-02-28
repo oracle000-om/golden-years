@@ -13,16 +13,10 @@
 
 import type { PrismaClient } from '../../src/generated/prisma/client';
 
-/** Structured condition from PubMed literature */
-export interface PubMedCondition {
-    condition: string;
-    prevalence: 'common' | 'moderate' | 'rare';
-    severity: 'mild' | 'moderate' | 'severe' | 'life-threatening';
-    typicalAgeOnset: number | null;
-    seniorRelevant: boolean;
-    description: string;
-    citationPmids: string[];
-}
+import type { PubmedCondition } from '../types/breed-health';
+
+/** Re-export for backward compatibility */
+export type { PubmedCondition as PubMedCondition } from '../types/breed-health';
 
 export interface BreedEnrichment {
     /** Matched breed profile name */
@@ -36,7 +30,7 @@ export interface BreedEnrichment {
     /** Breed-specific care notes */
     careNotes: string | null;
     /** PubMed-sourced conditions with citations (null if not yet enriched) */
-    pubmedConditions: PubMedCondition[] | null;
+    pubmedConditions: PubmedCondition[] | null;
 }
 
 /**
@@ -102,7 +96,7 @@ export async function enrichWithBreedProfile(
                 healthRiskScore: match.healthRiskScore,
                 seniorAgeThreshold: match.seniorAgeThreshold,
                 careNotes: match.careNotes,
-                pubmedConditions: match.pubmedConditions as PubMedCondition[] | null,
+                pubmedConditions: match.pubmedConditions as PubmedCondition[] | null,
             });
         }
     }

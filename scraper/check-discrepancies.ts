@@ -19,12 +19,15 @@ async function main() {
     // Sample some scraped animals
     const samples = await prisma.animal.findMany({
         where: { shelterId: { in: ['la-county', 'oc-animal-care'] } },
-        select: { id: true, name: true, ageKnownYears: true, ageEstimatedLow: true, ageEstimatedHigh: true, ageConfidence: true, ageSource: true, shelterId: true },
+        select: {
+            id: true, name: true, ageKnownYears: true, ageSource: true, shelterId: true,
+            assessment: { select: { ageEstimatedLow: true, ageEstimatedHigh: true, ageConfidence: true } },
+        },
         take: 10,
     });
     console.log(`\nSample scraped animals (first 10):`);
     for (const a of samples) {
-        console.log(`  ${(a.name || 'Unnamed').padEnd(16)} shelter=${a.ageKnownYears}yr  CV=${a.ageEstimatedLow}-${a.ageEstimatedHigh}yr  conf=${a.ageConfidence}  src=${a.ageSource}  sid=${a.shelterId}`);
+        console.log(`  ${(a.name || 'Unnamed').padEnd(16)} shelter=${a.ageKnownYears}yr  CV=${a.assessment?.ageEstimatedLow}-${a.assessment?.ageEstimatedHigh}yr  conf=${a.assessment?.ageConfidence}  src=${a.ageSource}  sid=${a.shelterId}`);
     }
 
     process.exit(0);

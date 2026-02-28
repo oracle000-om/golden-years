@@ -10,18 +10,11 @@ async function main() {
 
     const total = await p.animal.count({ where: { status: 'DELISTED' } });
 
-    // CV-powered = has any of: bodyConditionScore, ageEstimatedLow, detectedBreeds, coatCondition, dentalGrade
+    // CV-powered = has an assessment record
     const withCV = await p.animal.count({
         where: {
             status: 'DELISTED',
-            OR: [
-                { bodyConditionScore: { not: null } },
-                { ageEstimatedLow: { not: null } },
-                { coatCondition: { not: null } },
-                { dentalGrade: { not: null } },
-                { detectedBreeds: { isEmpty: false } },
-                { visibleConditions: { isEmpty: false } },
-            ],
+            assessment: { isNot: null },
         },
     });
 
@@ -45,12 +38,7 @@ async function main() {
         where: {
             status: 'DELISTED',
             delistedAt: { gte: recentCutoff },
-            bodyConditionScore: null,
-            ageEstimatedLow: null,
-            coatCondition: null,
-            dentalGrade: null,
-            detectedBreeds: { isEmpty: true },
-            visibleConditions: { isEmpty: true },
+            assessment: null,
         },
     });
 
@@ -81,12 +69,7 @@ async function main() {
         where: {
             status: 'DELISTED',
             delistedAt: { lt: recentCutoff },
-            bodyConditionScore: null,
-            ageEstimatedLow: null,
-            coatCondition: null,
-            dentalGrade: null,
-            detectedBreeds: { isEmpty: true },
-            visibleConditions: { isEmpty: true },
+            assessment: null,
         },
         select: { id: true },
     });
@@ -94,11 +77,15 @@ async function main() {
     const ids = toPurge.map(a => a.id);
     console.log(`\nPurging ${ids.length} DELISTED animals without CV data (>24h old)...`);
 
-    // Cascade: sources, snapshots, then animals
+    // Cascade: child tables, sources, snapshots, then animals
+    const assessmentDel = await (p as any).animalAssessment.deleteMany({ where: { animalId: { in: ids } } });
+    const enrichmentDel = await (p as any).animalEnrichment.deleteMany({ where: { animalId: { in: ids } } });
+    const listingDel = await (p as any).animalListing.deleteMany({ where: { animalId: { in: ids } } });
     const srcDel = await p.source.deleteMany({ where: { animalId: { in: ids } } });
     const snapDel = await p.animalSnapshot.deleteMany({ where: { animalId: { in: ids } } });
     const aDel = await p.animal.deleteMany({ where: { id: { in: ids } } });
 
+    console.log(`  Child tables deleted: ${assessmentDel.count + enrichmentDel.count + listingDel.count}`);
     console.log(`  Sources deleted: ${srcDel.count}`);
     console.log(`  Snapshots deleted: ${snapDel.count}`);
     console.log(`  Animals deleted: ${aDel.count}`);

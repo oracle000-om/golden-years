@@ -14,10 +14,9 @@ import { Prisma } from '../../../../generated/prisma/client';
 export async function GET() {
     try {
         // 1. Confidence distribution
-        const confidenceCounts = await prisma.animal.groupBy({
+        const confidenceCounts = await (prisma as any).animalAssessment.groupBy({
             by: ['ageConfidence'],
             _count: { id: true },
-            where: { ageSource: 'CV_ESTIMATED' },
         });
 
         const confidenceDistribution: Record<string, number> = {};
@@ -26,9 +25,8 @@ export async function GET() {
         }
 
         // 2. Average age range span by confidence
-        const cvAnimals = await prisma.animal.findMany({
+        const cvAnimals = await (prisma as any).animalAssessment.findMany({
             where: {
-                ageSource: 'CV_ESTIMATED',
                 ageEstimatedLow: { not: null },
                 ageEstimatedHigh: { not: null },
             },
@@ -54,18 +52,16 @@ export async function GET() {
 
         // 3. Data conflict rate
         const totalCvAnimals = cvAnimals.length;
-        const withConflicts = await prisma.animal.count({
+        const withConflicts = await (prisma as any).animalAssessment.count({
             where: {
-                ageSource: 'CV_ESTIMATED',
                 dataConflicts: { isEmpty: false },
             },
         });
 
         // 4. Photo quality distribution
-        const qualityCounts = await prisma.animal.groupBy({
+        const qualityCounts = await (prisma as any).animalAssessment.groupBy({
             by: ['photoQuality'],
             _count: { id: true },
-            where: { ageSource: 'CV_ESTIMATED' },
         });
 
         const photoQualityDistribution: Record<string, number> = {};
@@ -75,8 +71,7 @@ export async function GET() {
 
         // 5. Confidence × photo quality cross-tab
         const crossTab: Record<string, Record<string, number>> = {};
-        const crossData = await prisma.animal.findMany({
-            where: { ageSource: 'CV_ESTIMATED' },
+        const crossData = await (prisma as any).animalAssessment.findMany({
             select: { ageConfidence: true, photoQuality: true },
         });
         for (const row of crossData) {

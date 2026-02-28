@@ -93,6 +93,80 @@ export interface Animal {
     updatedAt: Date;
     shelter?: Shelter;
     sources?: Source[];
+    // Child table relations (optional, present when included)
+    assessment?: AnimalAssessment | null;
+    enrichment?: AnimalEnrichment | null;
+    listing?: AnimalListing | null;
+}
+
+export interface AnimalAssessment {
+    id: string;
+    animalId: string;
+    ageEstimatedLow: number | null;
+    ageEstimatedHigh: number | null;
+    ageConfidence: 'HIGH' | 'MEDIUM' | 'LOW' | 'NONE';
+    ageIndicators: string[];
+    detectedBreeds: string[];
+    breedConfidence: 'HIGH' | 'MEDIUM' | 'LOW' | 'NONE';
+    lifeExpectancyLow: number | null;
+    lifeExpectancyHigh: number | null;
+    bodyConditionScore: number | null;
+    coatCondition: string | null;
+    visibleConditions: string[];
+    healthNotes: string | null;
+    aggressionRisk: number | null;
+    fearIndicators: string[];
+    stressLevel: string | null;
+    behaviorNotes: string | null;
+    photoQuality: string | null;
+    likelyCareNeeds: string[];
+    estimatedCareLevel: string | null;
+    dataConflicts: string[];
+    dentalGrade: number | null;
+    tartarSeverity: string | null;
+    dentalNotes: string | null;
+    cataractStage: string | null;
+    eyeNotes: string | null;
+    estimatedWeightLbs: number | null;
+    mobilityAssessment: string | null;
+    mobilityNotes: string | null;
+    energyLevel: string | null;
+    groomingNeeds: string | null;
+}
+
+export interface AnimalEnrichment {
+    id: string;
+    animalId: string;
+    adoptionUrgency: string | null;
+    adoptionReadiness: string | null;
+    breedHealthRisk: number | null;
+    breedCommonConditions: string[];
+    estimatedAnnualCost: string | null;
+}
+
+export interface AnimalListing {
+    id: string;
+    animalId: string;
+    houseTrained: boolean | null;
+    goodWithCats: boolean | null;
+    goodWithDogs: boolean | null;
+    goodWithChildren: boolean | null;
+    specialNeeds: boolean | null;
+    description: string | null;
+    environmentNeeds: string[];
+    coatType: string | null;
+    coatColors: string[];
+    coatPattern: string | null;
+    isMixed: boolean | null;
+    isAltered: boolean | null;
+    isMicrochipped: boolean | null;
+    isVaccinated: boolean | null;
+    adoptionFee: string | null;
+    listingUrl: string | null;
+    isCourtesyListing: boolean | null;
+    weight: string | null;
+    birthday: Date | null;
+    isFosterHome: boolean | null;
 }
 
 export interface Source {

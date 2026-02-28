@@ -27,29 +27,30 @@ export async function POST(request: NextRequest) {
         const limit = typeof body.limit === 'number' ? Math.min(body.limit, 500) : 100;
 
         // Build filter
-        const where: Record<string, unknown> = {
-            ageSource: 'CV_ESTIMATED',
+        const assessmentWhere: Record<string, unknown> = {
             ageEstimatedLow: { not: null },
         };
-
         if (confidence) {
-            where.ageConfidence = confidence;
+            assessmentWhere.ageConfidence = confidence;
         }
 
+        const animalWhere: Record<string, unknown> = {
+            ageSource: 'CV_ESTIMATED',
+            assessment: assessmentWhere,
+        };
         if (shelterId) {
-            where.shelterId = shelterId;
+            animalWhere.shelterId = shelterId;
         }
-
         if (olderThanDays) {
             const cutoff = new Date();
             cutoff.setDate(cutoff.getDate() - olderThanDays);
-            where.updatedAt = { lt: cutoff };
+            animalWhere.updatedAt = { lt: cutoff };
         }
 
         // Find matching animals
         const animals = await prisma.animal.findMany({
-            where: where as any,
-            select: { id: true, name: true, ageConfidence: true },
+            where: animalWhere as any,
+            select: { id: true, name: true, assessment: { select: { id: true, ageConfidence: true } } },
             take: limit,
             orderBy: { updatedAt: 'asc' }, // oldest CV first
         });
@@ -61,11 +62,16 @@ export async function POST(request: NextRequest) {
             });
         }
 
-        // Clear age estimates so next scraper run re-processes them
+        const animalIds = animals.map(a => a.id);
+
+        // Clear assessment data so next scraper run re-processes them
+        await (prisma as any).animalAssessment.deleteMany({
+            where: { animalId: { in: animalIds } },
+        });
+
+        // Also clear old columns on animal for dual-write transition
         const result = await prisma.animal.updateMany({
-            where: {
-                id: { in: animals.map(a => a.id) },
-            },
+            where: { id: { in: animalIds } },
             data: {
                 ageEstimatedLow: null,
                 ageEstimatedHigh: null,

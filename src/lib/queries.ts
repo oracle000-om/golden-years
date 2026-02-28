@@ -77,7 +77,9 @@ function seniorThreshold(species: string, size: string | null): number {
 function _shouldExclude(animal: AnimalWithShelter): boolean {
     const threshold = seniorThreshold(animal.species, animal.size);
     if (animal.ageKnownYears !== null && animal.ageKnownYears < threshold) return true;
-    if (animal.ageEstimatedHigh !== null && animal.ageEstimatedHigh < threshold) return true;
+    // Read from assessment relation (preferred) or fall back to flat column (transition)
+    const cvHigh = (animal as any).assessment?.ageEstimatedHigh ?? animal.ageEstimatedHigh;
+    if (cvHigh !== null && cvHigh !== undefined && cvHigh < threshold) return true;
     return false;
 }
 
@@ -92,30 +94,30 @@ function buildSeniorExclusionClause(): Record<string, unknown> {
             OR: [
                 // --- CV estimate says not senior (any species/size) ---
                 // Cats: CV high < 10
-                { AND: [{ species: 'CAT' }, { ageEstimatedHigh: { lt: 10, not: null } }] },
+                { AND: [{ species: 'CAT' }, { assessment: { ageEstimatedHigh: { lt: 10 } } }] },
                 // Dog XLARGE: CV high < 5
-                { AND: [{ species: 'DOG' }, { size: 'XLARGE' }, { ageEstimatedHigh: { lt: 5, not: null } }] },
+                { AND: [{ species: 'DOG' }, { size: 'XLARGE' }, { assessment: { ageEstimatedHigh: { lt: 5 } } }] },
                 // Dog LARGE: CV high < 6
-                { AND: [{ species: 'DOG' }, { size: 'LARGE' }, { ageEstimatedHigh: { lt: 6, not: null } }] },
+                { AND: [{ species: 'DOG' }, { size: 'LARGE' }, { assessment: { ageEstimatedHigh: { lt: 6 } } }] },
                 // Dog MEDIUM: CV high < 7
-                { AND: [{ species: 'DOG' }, { size: 'MEDIUM' }, { ageEstimatedHigh: { lt: 7, not: null } }] },
+                { AND: [{ species: 'DOG' }, { size: 'MEDIUM' }, { assessment: { ageEstimatedHigh: { lt: 7 } } }] },
                 // Dog SMALL: CV high < 9
-                { AND: [{ species: 'DOG' }, { size: 'SMALL' }, { ageEstimatedHigh: { lt: 9, not: null } }] },
+                { AND: [{ species: 'DOG' }, { size: 'SMALL' }, { assessment: { ageEstimatedHigh: { lt: 9 } } }] },
                 // Dog unknown size: CV high < 7
-                { AND: [{ species: 'DOG' }, { size: null }, { ageEstimatedHigh: { lt: 7, not: null } }] },
+                { AND: [{ species: 'DOG' }, { size: null }, { assessment: { ageEstimatedHigh: { lt: 7 } } }] },
                 // --- Shelter-reported age says not senior (no CV data) ---
-                // Cats: shelter < 10, no CV
-                { AND: [{ species: 'CAT' }, { ageKnownYears: { lt: 10, not: null } }, { ageEstimatedHigh: null }] },
-                // Dog XLARGE: shelter < 5, no CV
-                { AND: [{ species: 'DOG' }, { size: 'XLARGE' }, { ageKnownYears: { lt: 5, not: null } }, { ageEstimatedHigh: null }] },
-                // Dog LARGE: shelter < 6, no CV
-                { AND: [{ species: 'DOG' }, { size: 'LARGE' }, { ageKnownYears: { lt: 6, not: null } }, { ageEstimatedHigh: null }] },
-                // Dog MEDIUM: shelter < 7, no CV
-                { AND: [{ species: 'DOG' }, { size: 'MEDIUM' }, { ageKnownYears: { lt: 7, not: null } }, { ageEstimatedHigh: null }] },
-                // Dog SMALL: shelter < 9, no CV
-                { AND: [{ species: 'DOG' }, { size: 'SMALL' }, { ageKnownYears: { lt: 9, not: null } }, { ageEstimatedHigh: null }] },
-                // Dog unknown size: shelter < 7, no CV
-                { AND: [{ species: 'DOG' }, { size: null }, { ageKnownYears: { lt: 7, not: null } }, { ageEstimatedHigh: null }] },
+                // Cats: shelter < 10, no assessment
+                { AND: [{ species: 'CAT' }, { ageKnownYears: { lt: 10, not: null } }, { assessment: null }] },
+                // Dog XLARGE: shelter < 5, no assessment
+                { AND: [{ species: 'DOG' }, { size: 'XLARGE' }, { ageKnownYears: { lt: 5, not: null } }, { assessment: null }] },
+                // Dog LARGE: shelter < 6, no assessment
+                { AND: [{ species: 'DOG' }, { size: 'LARGE' }, { ageKnownYears: { lt: 6, not: null } }, { assessment: null }] },
+                // Dog MEDIUM: shelter < 7, no assessment
+                { AND: [{ species: 'DOG' }, { size: 'MEDIUM' }, { ageKnownYears: { lt: 7, not: null } }, { assessment: null }] },
+                // Dog SMALL: shelter < 9, no assessment
+                { AND: [{ species: 'DOG' }, { size: 'SMALL' }, { ageKnownYears: { lt: 9, not: null } }, { assessment: null }] },
+                // Dog unknown size: shelter < 7, no assessment
+                { AND: [{ species: 'DOG' }, { size: null }, { ageKnownYears: { lt: 7, not: null } }, { assessment: null }] },
             ],
         },
     };
@@ -261,7 +263,7 @@ export async function getFilteredAnimals(filters: AnimalFilters): Promise<Pagina
     const [dbAnimals, count] = await Promise.all([
         prisma.animal.findMany({
             where,
-            include: { shelter: true },
+            include: { shelter: true, assessment: true, enrichment: true, listing: true },
             orderBy,
             skip,
             take,
@@ -376,7 +378,7 @@ async function applySearchIntent(
         andClauses.push({
             OR: [
                 { ageKnownYears: { gte: intent.minAge } },
-                { ageEstimatedLow: { gte: intent.minAge } },
+                { assessment: { ageEstimatedLow: { gte: intent.minAge } } },
             ],
         });
     }
@@ -386,7 +388,7 @@ async function applySearchIntent(
         andClauses.push({
             OR: [
                 { ageKnownYears: { lte: intent.maxAge } },
-                { ageEstimatedHigh: { lte: intent.maxAge } },
+                { assessment: { ageEstimatedHigh: { lte: intent.maxAge } } },
             ],
         });
     }
@@ -634,6 +636,9 @@ export async function getAnimalById(id: string): Promise<AnimalWithShelterAndSou
         include: {
             shelter: true,
             sources: true,
+            assessment: true,
+            enrichment: true,
+            listing: true,
         },
     });
 }

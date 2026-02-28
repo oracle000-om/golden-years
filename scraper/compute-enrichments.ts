@@ -151,18 +151,22 @@ async function main() {
         const animalsForBreed = await (prisma as any).animal.findMany({
             where: {
                 status: { in: ['AVAILABLE', 'URGENT'] },
-                breedHealthRisk: null, // not yet enriched
+                enrichment: null, // not yet enriched
                 OR: [
-                    { detectedBreeds: { isEmpty: false } },
+                    { assessment: { detectedBreeds: { isEmpty: false } } },
                     { breed: { not: null } },
                 ],
             },
             select: {
                 id: true,
-                detectedBreeds: true,
                 breed: true,
                 species: true,
-                estimatedCareLevel: true,
+                assessment: {
+                    select: {
+                        detectedBreeds: true,
+                        estimatedCareLevel: true,
+                    },
+                },
             },
         });
 
@@ -170,7 +174,7 @@ async function main() {
         for (const animal of animalsForBreed) {
             // Try CV-detected breeds first, then shelter-reported breed
             const breedsToCheck = [
-                ...(animal.detectedBreeds || []),
+                ...(animal.assessment?.detectedBreeds || []),
                 animal.breed,
             ].filter(Boolean) as string[];
 
@@ -208,7 +212,7 @@ async function main() {
                 };
 
                 // Estimated annual vet cost based on care level + breed risk
-                const careLevel = animal.estimatedCareLevel || 'moderate';
+                const careLevel = animal.assessment?.estimatedCareLevel || 'moderate';
                 const baseCost = CARE_COST_MAP[careLevel] || CARE_COST_MAP.moderate;
                 // Adjust by breed health risk: risk 7+ adds 30%, risk 4-6 adds 15%
                 const riskMultiplier = (match.healthRiskScore || 5) >= 7 ? 1.3
@@ -219,6 +223,12 @@ async function main() {
                 updates.estimatedAnnualCost = `$${adjLow}–$${adjHigh}`;
 
                 if (!dryRun) {
+                    await (prisma as any).animalEnrichment.upsert({
+                        where: { animalId: animal.id },
+                        update: updates,
+                        create: { animalId: animal.id, ...updates },
+                    });
+                    // Dual-write to animal table during transition
                     await (prisma as any).animal.update({
                         where: { id: animal.id },
                         data: updates,
@@ -275,6 +285,12 @@ async function main() {
         }
 
         if (!dryRun) {
+            await (prisma as any).animalEnrichment.upsert({
+                where: { animalId: animal.id },
+                update: { adoptionUrgency: urgency },
+                create: { animalId: animal.id, adoptionUrgency: urgency },
+            });
+            // Dual-write during transition
             await (prisma as any).animal.update({
                 where: { id: animal.id },
                 data: { adoptionUrgency: urgency },
@@ -296,17 +312,25 @@ async function main() {
         },
         select: {
             id: true,
-            houseTrained: true,
-            goodWithCats: true,
-            goodWithDogs: true,
-            goodWithChildren: true,
-            specialNeeds: true,
-            stressLevel: true,
-            aggressionRisk: true,
-            estimatedCareLevel: true,
-            isAltered: true,
-            isVaccinated: true,
-            isMicrochipped: true,
+            assessment: {
+                select: {
+                    stressLevel: true,
+                    aggressionRisk: true,
+                    estimatedCareLevel: true,
+                },
+            },
+            listing: {
+                select: {
+                    houseTrained: true,
+                    goodWithCats: true,
+                    goodWithDogs: true,
+                    goodWithChildren: true,
+                    specialNeeds: true,
+                    isAltered: true,
+                    isVaccinated: true,
+                    isMicrochipped: true,
+                },
+            },
         },
     });
 
@@ -316,24 +340,24 @@ async function main() {
         let score = 0;
         let signals = 0;
 
-        if (animal.houseTrained === true) { score += 2; signals++; }
-        if (animal.goodWithDogs === true) { score += 1; signals++; }
-        if (animal.goodWithCats === true) { score += 1; signals++; }
-        if (animal.goodWithChildren === true) { score += 1; signals++; }
-        if (animal.isAltered === true) { score += 1; signals++; }
-        if (animal.isVaccinated === true) { score += 1; signals++; }
-        if (animal.isMicrochipped === true) { score += 1; signals++; }
+        if (animal.listing?.houseTrained === true) { score += 2; signals++; }
+        if (animal.listing?.goodWithDogs === true) { score += 1; signals++; }
+        if (animal.listing?.goodWithCats === true) { score += 1; signals++; }
+        if (animal.listing?.goodWithChildren === true) { score += 1; signals++; }
+        if (animal.listing?.isAltered === true) { score += 1; signals++; }
+        if (animal.listing?.isVaccinated === true) { score += 1; signals++; }
+        if (animal.listing?.isMicrochipped === true) { score += 1; signals++; }
 
         // Negative signals
-        if (animal.specialNeeds === true) { score -= 2; signals++; }
-        if (animal.stressLevel === 'high') { score -= 1; signals++; }
-        if (animal.aggressionRisk && animal.aggressionRisk >= 3) { score -= 2; signals++; }
-        if (animal.estimatedCareLevel === 'high') { score -= 1; signals++; }
+        if (animal.listing?.specialNeeds === true) { score -= 2; signals++; }
+        if (animal.assessment?.stressLevel === 'high') { score -= 1; signals++; }
+        if (animal.assessment?.aggressionRisk && animal.assessment.aggressionRisk >= 3) { score -= 2; signals++; }
+        if (animal.assessment?.estimatedCareLevel === 'high') { score -= 1; signals++; }
 
         // Negative behavioral flags
-        if (animal.goodWithDogs === false) { score -= 1; signals++; }
-        if (animal.goodWithCats === false) { score -= 1; signals++; }
-        if (animal.goodWithChildren === false) { score -= 1; signals++; }
+        if (animal.listing?.goodWithDogs === false) { score -= 1; signals++; }
+        if (animal.listing?.goodWithCats === false) { score -= 1; signals++; }
+        if (animal.listing?.goodWithChildren === false) { score -= 1; signals++; }
 
         // Only score if we have enough signals
         let readiness: string | null = null;
@@ -346,6 +370,12 @@ async function main() {
 
         if (readiness) {
             if (!dryRun) {
+                await (prisma as any).animalEnrichment.upsert({
+                    where: { animalId: animal.id },
+                    update: { adoptionReadiness: readiness },
+                    create: { animalId: animal.id, adoptionReadiness: readiness },
+                });
+                // Dual-write during transition
                 await (prisma as any).animal.update({
                     where: { id: animal.id },
                     data: { adoptionReadiness: readiness },
@@ -380,6 +410,12 @@ async function main() {
         const costStr = `$${costs.low}–$${costs.high}`;
 
         if (!dryRun) {
+            await (prisma as any).animalEnrichment.upsert({
+                where: { animalId: animal.id },
+                update: { estimatedAnnualCost: costStr },
+                create: { animalId: animal.id, estimatedAnnualCost: costStr },
+            });
+            // Dual-write during transition
             await (prisma as any).animal.update({
                 where: { id: animal.id },
                 data: { estimatedAnnualCost: costStr },
@@ -470,6 +506,12 @@ async function main() {
                 const updated = currentNotes
                     ? `${currentNotes} | Trends: ${trendNotes}`
                     : `Trends: ${trendNotes}`;
+                await (prisma as any).animalAssessment.upsert({
+                    where: { animalId: animal.id },
+                    update: { healthNotes: updated },
+                    create: { animalId: animal.id, healthNotes: updated },
+                });
+                // Dual-write during transition
                 await (prisma as any).animal.update({
                     where: { id: animal.id },
                     data: { healthNotes: updated },

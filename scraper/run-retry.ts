@@ -16,6 +16,7 @@ import { getFailureSummary, processRetryQueue } from './lib/retry-queue';
 import { sendAlert } from './lib/alert';
 import { createPrismaClient } from './lib/prisma';
 import { startRun, finishRun } from './lib/scrape-run';
+import { upsertAnimalChildren } from './lib/upsert-children';
 
 async function main() {
     const pipelineArg = process.argv.find(a => a.startsWith('--pipeline='))?.split('=')[1];
@@ -89,7 +90,7 @@ async function main() {
                 const payload = failure.payload as Record<string, any>;
                 if (payload.data) {
                     // Attempt the upsert with the stored data
-                    await (prisma as any).animal.create({
+                    const record = await (prisma as any).animal.create({
                         data: {
                             shelterId,
                             intakeId,
@@ -98,6 +99,7 @@ async function main() {
                             daysInShelter: 0,
                         },
                     });
+                    await upsertAnimalChildren(prisma, record.id, payload.data);
                     console.log(`      ✅ ${intakeId} re-created from stored payload`);
                     return;
                 }

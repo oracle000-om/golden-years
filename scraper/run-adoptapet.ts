@@ -22,6 +22,7 @@ import { enqueueFailure } from './lib/retry-queue';
 import { checkScrapeHealth } from './lib/alert';
 import { reconcileAnimals } from './lib/reconcile';
 import { startRun, finishRun, failRun } from './lib/scrape-run';
+import { shouldScrape } from './lib/should-scrape';
 import type { ScrapedAnimal } from './types';
 
 const CONCURRENCY = 5;
@@ -50,6 +51,12 @@ async function main() {
     const totalShardsArg = process.argv.find(a => a.startsWith('--total-shards='))?.split('=')[1];
     const shard = shardArg != null ? parseInt(shardArg, 10) : undefined;
     const totalShards = totalShardsArg != null ? parseInt(totalShardsArg, 10) : undefined;
+
+    // Conditional scrape: skip if last successful run was recent
+    if (!dryRun && !shelterArg) {
+        const proceed = await shouldScrape('adoptapet', { shard, minIntervalMs: 6 * 60 * 60 * 1000 });
+        if (!proceed) process.exit(0);
+    }
 
     console.log(`🐾 Golden Years Club — Adopt-a-Pet Sync${dryRun ? ' (DRY RUN)' : ''}${noCv ? ' (NO CV)' : ''}${shard != null ? ` (SHARD ${shard + 1}/${totalShards})` : ''}`);
     if (shelterArg) console.log(`   Shelter filter: ${shelterArg}`);

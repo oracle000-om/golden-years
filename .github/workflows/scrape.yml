@@ -6,10 +6,11 @@
 # Schedule A (:00) — Petfinder(8) + Adopt-a-Pet(8) + RescueGroups(1) + Socrata(1) = 18 concurrent
 # Schedule B (:30) — Petango(4) + ShelterLuv(4) = 8 concurrent
 # Peak concurrent: 18 jobs (within free-tier limit of 20)
+# Frequency: 2x/day (6am + 6pm UTC) — most shelters update once daily
 #
 # Required repository secrets:
-#   DATABASE_URL        — Railway PostgreSQL connection string
-#   GEMINI_API_KEY      — Google Gemini for CV age estimation
+#   DATABASE_URL          — Railway PostgreSQL connection string
+#   GEMINI_API_KEY        — Google Gemini for CV age estimation
 #   RESCUE_GROUPS_API_KEY — RescueGroups.org API key
 
 name: Scrape
@@ -19,57 +20,32 @@ on:
   schedule:
     # Daily backup before scrapes
     - cron: '45 1 * * *'            # 1:45am UTC — pre-scrape backup
-    # Group A: Petfinder + Adopt-a-Pet + RescueGroups + Socrata (3x/day)
-    - cron: '0 2,10,18 * * *'       # 2am, 10am, 6pm UTC
-    # Group B: Petango + ShelterLuv (3x/day, offset 30min)
-    - cron: '30 2,10,18 * * *'      # 2:30am, 10:30am, 6:30pm UTC
+    # Group A: Petfinder + Adopt-a-Pet + RescueGroups + Socrata (2x/day)
+    - cron: '0 6,18 * * *'          # 6am, 6pm UTC
+    # Group B: Petango + ShelterLuv (2x/day, offset 30min)
+    - cron: '30 6,18 * * *'         # 6:30am, 6:30pm UTC
     # Open data stats: weekly on Sunday at 4am UTC
     - cron: '0 4 * * 0'
-    # Breed DB + shelter stats: 1st of every month at 5am UTC
+    # Monthly pipelines: 1st of every month at 5am UTC
     - cron: '0 5 1 * *'
     # Best Friends dashboard: annually on Jan 15 at 6am UTC
     - cron: '0 6 15 1 *'
 
-  # Manual trigger from GitHub UI
+  # ── Manual Trigger ──────────────────────────────────────
+  # Type a pipeline name to run just that one, or "all" to run everything.
+  # Valid names: backup, shelters, rescuegroups, petfinder, petango,
+  #   shelterluv, adoptapet, socrata-listings, opendata, breeds,
+  #   shelter-stats, state-reports, new-jersey, connecticut, maryland,
+  #   michigan, south-carolina, illinois, missouri, oregon, florida,
+  #   georgia, virginia, colorado, north-carolina, 990, aldf,
+  #   geocode, enrich, best-friends
   workflow_dispatch:
     inputs:
       pipeline:
-        description: 'Which pipeline to run'
+        description: 'Pipeline name (or "all")'
         required: true
         default: 'all'
-        type: choice
-        options:
-          - all
-          - backup
-          - shelters
-          - rescuegroups
-          - petfinder
-          - petango
-          - shelterluv
-          - adoptapet
-          - socrata-listings
-          - opendata
-          - breeds
-          - shelter-stats
-          - new-jersey
-          - connecticut
-          - maryland
-          - michigan
-          - south-carolina
-          - state-reports
-          - illinois
-          - missouri
-          - oregon
-          - florida
-          - georgia
-          - virginia
-          - 990
-          - aldf
-          - colorado
-          - north-carolina
-          - geocode
-          - enrich
-          - best-friends
+        type: string
 
 env:
   DATABASE_URL: ${{ secrets.DATABASE_URL }}
@@ -108,12 +84,26 @@ jobs:
         with:
           name: db-backup-${{ github.run_id }}
           path: ${{ env.BACKUP_FILE }}
-          retention-days: 30
+          retention-days: 90
+
+      # Optional: upload to S3-compatible storage for long-term retention.
+      # Activate by adding BACKUP_S3_BUCKET and AWS_* secrets.
+      - name: Upload to cloud storage
+        if: env.BACKUP_S3_BUCKET != ''
+        env:
+          BACKUP_S3_BUCKET: ${{ secrets.BACKUP_S3_BUCKET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ vars.AWS_DEFAULT_REGION || 'us-east-1' }}
+        run: |
+          pip install awscli --quiet
+          aws s3 cp "${BACKUP_FILE}" "s3://${BACKUP_S3_BUCKET}/backups/${BACKUP_FILE}"
+          echo "☁️  Uploaded to s3://${BACKUP_S3_BUCKET}/backups/${BACKUP_FILE}"
 
   # ── Shelter Scrapers (every 8 hours) ────────────────────
   scrape-shelters:
     if: >-
-      github.event.schedule == '0 2,10,18 * * *' ||
+      github.event.schedule == '0 6,18 * * *' ||
       (github.event_name == 'workflow_dispatch' &&
        (github.event.inputs.pipeline == 'all' ||
         github.event.inputs.pipeline == 'shelters'))
@@ -121,20 +111,13 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-
-      - run: npm ci
-      - run: npx prisma generate
+      - uses: ./.github/actions/setup
       - run: npm run scrape
 
   # ── RescueGroups (every 8 hours) ────────────────────────
   scrape-rescuegroups:
     if: >-
-      github.event.schedule == '0 2,10,18 * * *' ||
+      github.event.schedule == '0 6,18 * * *' ||
       (github.event_name == 'workflow_dispatch' &&
        (github.event.inputs.pipeline == 'all' ||
         github.event.inputs.pipeline == 'rescuegroups'))
@@ -142,45 +125,31 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-
-      - run: npm ci
-      - run: npx prisma generate
+      - uses: ./.github/actions/setup
       - run: npx tsx scraper/run-rescuegroups.ts
 
-  # ── Petfinder (every 8 hours, 4 parallel shards) ───────
+  # ── Petfinder (2x/day, 4 parallel shards) ──────────
   scrape-petfinder:
     if: >-
-      github.event.schedule == '0 2,10,18 * * *' ||
+      github.event.schedule == '0 6,18 * * *' ||
       (github.event_name == 'workflow_dispatch' &&
        (github.event.inputs.pipeline == 'all' ||
         github.event.inputs.pipeline == 'petfinder'))
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
-        shard: [0, 1, 2, 3, 4, 5, 6, 7]
+        shard: [0, 1, 2, 3]
     steps:
       - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-
-      - run: npm ci
-      - run: npx prisma generate
-      - run: npx tsx scraper/run-petfinder.ts --shard=${{ matrix.shard }} --total-shards=8
+      - uses: ./.github/actions/setup
+      - run: npx tsx scraper/run-petfinder.ts --shard=${{ matrix.shard }} --total-shards=4
 
   # ── Petango / 24PetConnect (every 8 hours) ──────────────
   scrape-petango:
     if: >-
-      github.event.schedule == '30 2,10,18 * * *' ||
+      github.event.schedule == '30 6,18 * * *' ||
       (github.event_name == 'workflow_dispatch' &&
        (github.event.inputs.pipeline == 'all' ||
         github.event.inputs.pipeline == 'petango'))
@@ -192,20 +161,13 @@ jobs:
         shard: [0, 1, 2, 3]
     steps:
       - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-
-      - run: npm ci
-      - run: npx prisma generate
+      - uses: ./.github/actions/setup
       - run: npx tsx scraper/run-petango.ts --shard=${{ matrix.shard }} --total-shards=4
 
   # ── Socrata Listings (every 8 hours) ────────────────────
   scrape-socrata-listings:
     if: >-
-      github.event.schedule == '0 2,10,18 * * *' ||
+      github.event.schedule == '0 6,18 * * *' ||
       (github.event_name == 'workflow_dispatch' &&
        (github.event.inputs.pipeline == 'all' ||
         github.event.inputs.pipeline == 'socrata-listings'))
@@ -213,20 +175,13 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-
-      - run: npm ci
-      - run: npx prisma generate
+      - uses: ./.github/actions/setup
       - run: npx tsx scraper/run-socrata-listings.ts
 
   # ── ShelterLuv (every 8 hours) ─────────────────────────
   scrape-shelterluv:
     if: >-
-      github.event.schedule == '30 2,10,18 * * *' ||
+      github.event.schedule == '30 6,18 * * *' ||
       (github.event_name == 'workflow_dispatch' &&
        (github.event.inputs.pipeline == 'all' ||
         github.event.inputs.pipeline == 'shelterluv'))
@@ -238,40 +193,26 @@ jobs:
         shard: [0, 1, 2, 3]
     steps:
       - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-
-      - run: npm ci
-      - run: npx prisma generate
+      - uses: ./.github/actions/setup
       - run: npx tsx scraper/run-shelterluv.ts --shard=${{ matrix.shard }} --total-shards=4
 
-  # ── Adopt-a-Pet (every 8 hours) ──────────────────────
+  # ── Adopt-a-Pet (2x/day, 4 parallel shards) ────────
   scrape-adoptapet:
     if: >-
-      github.event.schedule == '0 2,10,18 * * *' ||
+      github.event.schedule == '0 6,18 * * *' ||
       (github.event_name == 'workflow_dispatch' &&
        (github.event.inputs.pipeline == 'all' ||
         github.event.inputs.pipeline == 'adoptapet'))
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
-        shard: [0, 1, 2, 3, 4, 5, 6, 7]
+        shard: [0, 1, 2, 3]
     steps:
       - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-
-      - run: npm ci
-      - run: npx prisma generate
-      - run: npx tsx scraper/run-adoptapet.ts --shard=${{ matrix.shard }} --total-shards=8
+      - uses: ./.github/actions/setup
+      - run: npx tsx scraper/run-adoptapet.ts --shard=${{ matrix.shard }} --total-shards=4
 
   # ── Open Data Stats (weekly) ────────────────────────────
   scrape-stats:
@@ -284,19 +225,13 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - run: npm run scrape:opendata
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-
-      - run: npm ci
-      - run: npx prisma generate
-
-      - name: Run open data pipeline
-        run: npm run scrape:opendata
-
-  # ── Breed DB + Shelter Stats (monthly) ──────────────────
+  # ── Monthly Pipelines (1st of month, parallel matrix) ───
+  # Each pipeline runs as a separate parallel job. One failure
+  # does NOT cascade to others. Re-run individual entries from
+  # the GitHub Actions UI.
   scrape-monthly:
     if: >-
       github.event.schedule == '0 5 1 * *' ||
@@ -304,6 +239,7 @@ jobs:
        (github.event.inputs.pipeline == 'all' ||
         github.event.inputs.pipeline == 'breeds' ||
         github.event.inputs.pipeline == 'shelter-stats' ||
+        github.event.inputs.pipeline == 'state-reports' ||
         github.event.inputs.pipeline == 'new-jersey' ||
         github.event.inputs.pipeline == 'connecticut' ||
         github.event.inputs.pipeline == 'maryland' ||
@@ -320,166 +256,77 @@ jobs:
         github.event.inputs.pipeline == '990' ||
         github.event.inputs.pipeline == 'aldf' ||
         github.event.inputs.pipeline == 'geocode' ||
-        github.event.inputs.pipeline == 'enrich' ||
-        github.event.inputs.pipeline == 'state-reports'))
+        github.event.inputs.pipeline == 'enrich'))
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: breeds
+            cmd: npm run scrape:breeds
+          - name: shelter-stats
+            cmd: npm run scrape:shelter-stats
+          - name: new-jersey
+            cmd: npm run scrape:new-jersey
+            group: state-reports
+          - name: connecticut
+            cmd: npm run scrape:connecticut
+            group: state-reports
+          - name: maryland
+            cmd: npm run scrape:maryland
+            group: state-reports
+          - name: michigan
+            cmd: npm run scrape:michigan
+            group: state-reports
+          - name: south-carolina
+            cmd: npm run scrape:south-carolina
+            group: state-reports
+          - name: illinois
+            cmd: npm run scrape:illinois
+            group: state-reports
+          - name: oregon
+            cmd: npm run scrape:oregon
+            group: state-reports
+          - name: florida
+            cmd: npm run scrape:florida
+            group: state-reports
+          - name: georgia
+            cmd: npm run scrape:georgia
+            group: state-reports
+          - name: virginia
+            cmd: npm run scrape:virginia
+            group: state-reports
+          - name: colorado
+            cmd: npm run scrape:colorado
+            group: state-reports
+          - name: north-carolina
+            cmd: npm run scrape:north-carolina
+            group: state-reports
+          - name: missouri
+            cmd: npm run scrape:missouri
+            group: state-reports
+          - name: 990
+            cmd: npm run scrape:990
+          - name: aldf
+            cmd: npm run scrape:aldf
+          - name: geocode
+            cmd: npm run geocode
+          - name: enrich
+            cmd: npm run enrich
     steps:
       - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-
-      - run: npm ci
-      - run: npx prisma generate
-
-      - name: Run breed database
+      # Only run this matrix entry if it matches the dispatch input,
+      # or if running on schedule / "all" / "state-reports" group.
+      - name: Run ${{ matrix.name }}
         if: >-
           github.event.schedule == '0 5 1 * *' ||
           github.event.inputs.pipeline == 'all' ||
-          github.event.inputs.pipeline == 'breeds'
-        run: npm run scrape:breeds
-
-      - name: Run shelter stats
-        if: >-
-          github.event.schedule == '0 5 1 * *' ||
-          github.event.inputs.pipeline == 'all' ||
-          github.event.inputs.pipeline == 'shelter-stats'
-        run: npm run scrape:shelter-stats
-
-      - name: Run New Jersey state data
-        if: >-
-          github.event.schedule == '0 5 1 * *' ||
-          github.event.inputs.pipeline == 'all' ||
-          github.event.inputs.pipeline == 'new-jersey' ||
-          github.event.inputs.pipeline == 'state-reports'
-        run: npm run scrape:new-jersey
-
-      - name: Run Connecticut state data
-        if: >-
-          github.event.schedule == '0 5 1 * *' ||
-          github.event.inputs.pipeline == 'all' ||
-          github.event.inputs.pipeline == 'connecticut' ||
-          github.event.inputs.pipeline == 'state-reports'
-        run: npm run scrape:connecticut
-
-      - name: Run Maryland state data
-        if: >-
-          github.event.schedule == '0 5 1 * *' ||
-          github.event.inputs.pipeline == 'all' ||
-          github.event.inputs.pipeline == 'maryland' ||
-          github.event.inputs.pipeline == 'state-reports'
-        run: npm run scrape:maryland
-
-      - name: Run Michigan state data
-        if: >-
-          github.event.schedule == '0 5 1 * *' ||
-          github.event.inputs.pipeline == 'all' ||
-          github.event.inputs.pipeline == 'michigan' ||
-          github.event.inputs.pipeline == 'state-reports'
-        run: npm run scrape:michigan
-
-      - name: Run South Carolina state data
-        if: >-
-          github.event.schedule == '0 5 1 * *' ||
-          github.event.inputs.pipeline == 'all' ||
-          github.event.inputs.pipeline == 'south-carolina' ||
-          github.event.inputs.pipeline == 'state-reports'
-        run: npm run scrape:south-carolina
-
-      - name: Run Illinois state data
-        if: >-
-          github.event.schedule == '0 5 1 * *' ||
-          github.event.inputs.pipeline == 'all' ||
-          github.event.inputs.pipeline == 'illinois' ||
-          github.event.inputs.pipeline == 'state-reports'
-        run: npm run scrape:illinois
-
-      - name: Run Missouri state data
-        if: >-
-          github.event.schedule == '0 5 1 * *' ||
-          github.event.inputs.pipeline == 'all' ||
-          github.event.inputs.pipeline == 'missouri' ||
-          github.event.inputs.pipeline == 'state-reports'
-        run: npm run scrape:missouri
-
-      - name: Run Oregon state data
-        if: >-
-          github.event.schedule == '0 5 1 * *' ||
-          github.event.inputs.pipeline == 'all' ||
-          github.event.inputs.pipeline == 'oregon' ||
-          github.event.inputs.pipeline == 'state-reports'
-        run: npm run scrape:oregon
-
-      - name: Run Florida state data
-        if: >-
-          github.event.schedule == '0 5 1 * *' ||
-          github.event.inputs.pipeline == 'all' ||
-          github.event.inputs.pipeline == 'florida' ||
-          github.event.inputs.pipeline == 'state-reports'
-        run: npm run scrape:florida
-
-      - name: Run Georgia state data
-        if: >-
-          github.event.schedule == '0 5 1 * *' ||
-          github.event.inputs.pipeline == 'all' ||
-          github.event.inputs.pipeline == 'georgia' ||
-          github.event.inputs.pipeline == 'state-reports'
-        run: npm run scrape:georgia
-
-      - name: Run Virginia VDACS data
-        if: >-
-          github.event.schedule == '0 5 1 * *' ||
-          github.event.inputs.pipeline == 'all' ||
-          github.event.inputs.pipeline == 'virginia' ||
-          github.event.inputs.pipeline == 'state-reports'
-        run: npm run scrape:virginia
-
-      - name: Run Colorado state data
-        if: >-
-          github.event.schedule == '0 5 1 * *' ||
-          github.event.inputs.pipeline == 'all' ||
-          github.event.inputs.pipeline == 'colorado' ||
-          github.event.inputs.pipeline == 'state-reports'
-        run: npm run scrape:colorado
-
-      - name: Run North Carolina state data
-        if: >-
-          github.event.schedule == '0 5 1 * *' ||
-          github.event.inputs.pipeline == 'all' ||
-          github.event.inputs.pipeline == 'north-carolina' ||
-          github.event.inputs.pipeline == 'state-reports'
-        run: npm run scrape:north-carolina
-
-      - name: Run IRS 990 financial data
-        if: >-
-          github.event.schedule == '0 5 1 * *' ||
-          github.event.inputs.pipeline == 'all' ||
-          github.event.inputs.pipeline == '990'
-        run: npm run scrape:990
-
-      - name: Run ALDF state rankings
-        if: >-
-          github.event.schedule == '0 5 1 * *' ||
-          github.event.inputs.pipeline == 'all' ||
-          github.event.inputs.pipeline == 'aldf'
-        run: npm run scrape:aldf
-
-      - name: Geocode shelters
-        if: >-
-          github.event.schedule == '0 5 1 * *' ||
-          github.event.inputs.pipeline == 'all' ||
-          github.event.inputs.pipeline == 'geocode'
-        run: npm run geocode
-
-      - name: Compute enrichments
-        if: >-
-          github.event.schedule == '0 5 1 * *' ||
-          github.event.inputs.pipeline == 'all' ||
-          github.event.inputs.pipeline == 'enrich'
-        run: npm run enrich
+          github.event.inputs.pipeline == matrix.name ||
+          (github.event.inputs.pipeline == 'state-reports' && matrix.group == 'state-reports')
+        run: ${{ matrix.cmd }}
 
   # ── Best Friends Dashboard (annual, Jan 15) ─────────────
   scrape-best-friends:
@@ -491,31 +338,18 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
+      - uses: ./.github/actions/setup
         with:
-          node-version: 22
-          cache: npm
-
-      - run: npm ci
-      - run: npx prisma generate
-      - run: npx playwright install chromium --with-deps
+          install-playwright: 'true'
       - run: npm run scrape:best-friends
 
   # ── Retry Queue (after all 8h scrape jobs) ──────────────
   retry-queue:
     needs: [scrape-shelters, scrape-rescuegroups, scrape-petfinder, scrape-petango, scrape-socrata-listings, scrape-shelterluv, scrape-adoptapet]
-    if: always() && github.event.schedule == '0 2,10,18 * * *'
+    if: always() && github.event.schedule == '0 6,18 * * *'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-
-      - run: npm ci
-      - run: npx prisma generate
+      - uses: ./.github/actions/setup
       - run: npx tsx scraper/run-retry.ts

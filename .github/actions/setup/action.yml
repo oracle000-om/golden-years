@@ -52,6 +52,10 @@ runs:
       shell: bash
       run: npx prisma generate
 
+    - name: Apply pending migrations
+      shell: bash
+      run: npx prisma migrate deploy
+
     - name: Install Playwright
       if: inputs.install-playwright == 'true'
       shell: bash

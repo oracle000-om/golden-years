@@ -436,7 +436,21 @@ export function createGeminiProvider(apiKey: string): AgeEstimationProvider {
                     parsed = JSON.parse(text);
                 } catch {
                     const cleaned = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-                    parsed = JSON.parse(cleaned);
+                    try {
+                        parsed = JSON.parse(cleaned);
+                    } catch {
+                        // Attempt JSON repair: truncate to last valid closing brace
+                        const lastBrace = cleaned.lastIndexOf('}');
+                        if (lastBrace > 0) {
+                            try {
+                                parsed = JSON.parse(cleaned.substring(0, lastBrace + 1));
+                            } catch {
+                                throw new Error(`Malformed JSON from Gemini (${cleaned.length} chars)`);
+                            }
+                        } else {
+                            throw new Error(`No JSON object found in Gemini response`);
+                        }
+                    }
                 }
 
                 const estimate = validateResponse(parsed);

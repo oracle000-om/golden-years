@@ -27,7 +27,7 @@ async function main() {
     console.log(`   Mode: ${shouldMerge ? '⚠️  MERGE (will merge duplicates)' : '📋 REPORT ONLY'}\n`);
 
     // ── Step 1: Backfill hashes ──
-    const unhashed = await (prisma as any).animal.findMany({
+    const unhashed = await prisma.animal.findMany({
         where: {
             photoUrl: { not: null },
             photoHash: null,
@@ -43,9 +43,9 @@ async function main() {
     for (let i = 0; i < unhashed.length; i++) {
         const animal = unhashed[i];
         try {
-            const hash = await computePhotoHash(animal.photoUrl);
+            const hash = await computePhotoHash(animal.photoUrl!);
             if (hash) {
-                await (prisma as any).animal.update({
+                await prisma.animal.update({
                     where: { id: animal.id },
                     data: { photoHash: hash },
                 });
@@ -71,7 +71,7 @@ async function main() {
     console.log(`🔎 Scanning for duplicates...\n`);
 
     // Get all animals with photo data
-    const allAnimals = await (prisma as any).animal.findMany({
+    const allAnimals = await prisma.animal.findMany({
         select: {
             id: true,
             intakeId: true,
@@ -141,17 +141,17 @@ async function main() {
             if (shouldMerge) {
                 try {
                     // Move sources from duplicate to canonical
-                    await (prisma as any).source.updateMany({
+                    await prisma.source.updateMany({
                         where: { animalId: duplicate.id },
                         data: { animalId: canonical.id },
                     });
                     // Move snapshots from duplicate to canonical
-                    await (prisma as any).animalSnapshot.updateMany({
+                    await prisma.animalSnapshot.updateMany({
                         where: { animalId: duplicate.id },
                         data: { animalId: canonical.id },
                     });
                     // Delete the duplicate
-                    await (prisma as any).animal.delete({
+                    await prisma.animal.delete({
                         where: { id: duplicate.id },
                     });
                     console.log(`      ✅ Merged!\n`);

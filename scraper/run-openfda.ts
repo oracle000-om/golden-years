@@ -50,7 +50,7 @@ async function main() {
         where.name = { contains: breedFilter, mode: 'insensitive' };
     }
 
-    let breeds = await (prisma as any).breedProfile.findMany({
+    let breeds = await prisma.breedProfile.findMany({
         where,
         select: {
             id: true,
@@ -113,11 +113,11 @@ async function main() {
                 continue;
             }
 
-            await (prisma as any).breedProfile.update({
+            await prisma.breedProfile.update({
                 where: { id: breed.id },
                 data: {
-                    fdaAdverseReactions: data.topReactions,
-                    fdaDrugWarnings: data.topDrugs,
+                    fdaAdverseReactions: data.topReactions as any,
+                    fdaDrugWarnings: data.topDrugs as any,
                     fdaEventCount: data.eventCount,
                     fdaLastEnriched: new Date(),
                 },

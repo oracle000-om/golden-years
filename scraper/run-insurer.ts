@@ -69,7 +69,7 @@ async function main() {
         where.name = { contains: breedFilter, mode: 'insensitive' };
     }
 
-    let breeds = await (prisma as any).breedProfile.findMany({
+    let breeds = await prisma.breedProfile.findMany({
         where,
         select: {
             id: true,
@@ -114,11 +114,11 @@ async function main() {
                 console.log(`   ${progress} 🔍 ${cleanName} (${breed.species}) — NW:${nwCount} TR:${trCount} ($${data.estimatedAnnualCostLow}-$${data.estimatedAnnualCostHigh}/yr)`);
                 enriched++;
             } else {
-                await (prisma as any).breedProfile.update({
+                await prisma.breedProfile.update({
                     where: { id: breed.id },
                     data: {
-                        nationwideConditions: data.nationwideConditions,
-                        trupanionConditions: data.trupanionConditions,
+                        nationwideConditions: data.nationwideConditions as any,
+                        trupanionConditions: data.trupanionConditions as any,
                         insurerLastEnriched: new Date(),
                     },
                 });

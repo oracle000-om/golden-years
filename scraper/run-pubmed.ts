@@ -55,7 +55,7 @@ async function main() {
         whereClause.pubmedLastEnriched = null;
     }
 
-    const breedProfiles = await (prisma as any).breedProfile.findMany({
+    const breedProfiles = await prisma.breedProfile.findMany({
         where: whereClause,
         orderBy: { name: 'asc' },
         ...(limit ? { take: limit } : {}),
@@ -125,7 +125,7 @@ async function main() {
                 const speciesTags = extractSpeciesTags(article);
                 const breedTags = extractBreedTags(article, breed);
 
-                await (prisma as any).vetArticle.upsert({
+                await prisma.vetArticle.upsert({
                     where: { pmid: article.pmid },
                     update: {
                         title: article.title,
@@ -168,7 +168,7 @@ async function main() {
                     // Update VetArticle records with extracted condition names
                     for (const condition of extraction.conditions) {
                         for (const pmid of condition.citationPmids) {
-                            await (prisma as any).vetArticle.update({
+                            await prisma.vetArticle.update({
                                 where: { pmid },
                                 data: { conditions: { push: condition.condition } },
                             }).catch(() => { });
@@ -182,16 +182,16 @@ async function main() {
                     const estimatedAnnualVetCost = computeEstimatedVetCost(extraction.conditions);
 
                     // Update BreedProfile with ALL extracted data
-                    await (prisma as any).breedProfile.update({
+                    await prisma.breedProfile.update({
                         where: { name_species: { name: rawBreed, species } },
                         data: {
-                            pubmedConditions: extraction.conditions,
-                            pubmedTreatments: extraction.treatments,
-                            pubmedDrugSensitivities: extraction.drugSensitivities,
-                            pubmedNutrition: extraction.nutrition,
-                            pubmedBehavioral: extraction.behavioral,
-                            pubmedMortality: extraction.mortality,
-                            pubmedDiagnostics: extraction.diagnostics,
+                            pubmedConditions: extraction.conditions as any,
+                            pubmedTreatments: extraction.treatments as any,
+                            pubmedDrugSensitivities: extraction.drugSensitivities as any,
+                            pubmedNutrition: extraction.nutrition as any,
+                            pubmedBehavioral: extraction.behavioral as any,
+                            pubmedMortality: extraction.mortality as any,
+                            pubmedDiagnostics: extraction.diagnostics as any,
                             pubmedArticleCount: result.articles.length,
                             pubmedLastEnriched: new Date(),
                             healthRiskScoreV2,

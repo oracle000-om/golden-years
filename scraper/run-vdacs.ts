@@ -117,7 +117,7 @@ async function main() {
         const dbId = `vdacs-${report.sysFacNo}`;
         try {
             // Store prior year data before updating
-            const existing = await (prisma as any).shelter.findUnique({
+            const existing = await prisma.shelter.findUnique({
                 where: { id: dbId },
                 select: { totalIntakeAnnual: true, totalEuthanizedAnnual: true, dataYear: true },
             });
@@ -138,7 +138,7 @@ async function main() {
                 data.priorDataYear = existing.dataYear;
             }
 
-            const result = await (prisma as any).shelter.upsert({
+            const result = await prisma.shelter.upsert({
                 where: { id: dbId },
                 update: data,
                 create: {

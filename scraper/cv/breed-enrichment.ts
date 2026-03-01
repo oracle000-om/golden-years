@@ -51,7 +51,7 @@ export async function enrichWithBreedProfile(
     const results: BreedEnrichment[] = [];
 
     // Load all breed profiles for the species (cached per species)
-    const profiles = await (prisma as any).breedProfile.findMany({
+    const profiles = await prisma.breedProfile.findMany({
         where: { species },
         select: {
             name: true,

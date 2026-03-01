@@ -60,11 +60,11 @@ async function main() {
     for (const r of qualifying) {
         const dbId = `co-pacfa-${r.facilityName.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 60)}`;
         try {
-            const existing = await (prisma as any).shelter.findUnique({ where: { id: dbId }, select: { totalIntakeAnnual: true, totalEuthanizedAnnual: true, dataYear: true } });
+            const existing = await prisma.shelter.findUnique({ where: { id: dbId }, select: { totalIntakeAnnual: true, totalEuthanizedAnnual: true, dataYear: true } });
             const data: Record<string, any> = { totalIntakeAnnual: r.totalIntake, totalEuthanizedAnnual: r.totalEuthanized, dataYear: 2024, dataSourceName: 'Colorado PACFA', dataSourceUrl: `https://docs.google.com/spreadsheets/d/${SHEET_ID}`, lastScrapedAt: new Date() };
             if (existing?.dataYear && existing.dataYear !== 2024 && existing.totalIntakeAnnual > 0) { data.priorYearIntake = existing.totalIntakeAnnual; data.priorYearEuthanized = existing.totalEuthanizedAnnual; data.priorDataYear = existing.dataYear; }
             const county = r.facilityName.match(/^(.+?)\s+County\b/i)?.[1]?.trim() || '';
-            await (prisma as any).shelter.upsert({ where: { id: dbId }, update: data, create: { id: dbId, name: r.facilityName, county, state: 'CO', shelterType: r.liveReleaseRate >= 90 ? 'NO_KILL' : 'MUNICIPAL', ...data } });
+            await prisma.shelter.upsert({ where: { id: dbId }, update: data, create: { id: dbId, name: r.facilityName, county, state: 'CO', shelterType: r.liveReleaseRate >= 90 ? 'NO_KILL' : 'MUNICIPAL', ...data } });
             if (existing) updated++; else created++;
         } catch (err) { console.error(`   ❌ ${r.facilityName}: ${(err as Error).message?.substring(0, 100)}`); }
     }

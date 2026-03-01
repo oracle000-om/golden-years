@@ -39,7 +39,7 @@ async function main() {
     };
     if (speciesArg) where.species = speciesArg;
 
-    const total = await (prisma as any).animal.count({ where });
+    const total = await prisma.animal.count({ where });
     console.log(`   ${total} animals with photos${speciesArg ? ` (${speciesArg} only)` : ''}`);
 
     if (dryRun) {
@@ -65,7 +65,7 @@ async function main() {
     const existingCount = await workers[0].count();
     console.log(`   ${storeName} already has ${existingCount} vectors`);
 
-    const animals = await (prisma as any).animal.findMany({
+    const animals = await prisma.animal.findMany({
         where,
         select: {
             id: true,

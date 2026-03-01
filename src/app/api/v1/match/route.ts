@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
 
     // ── Hydrate from Postgres ──
     const animalIds = matches.map(m => m.id);
-    const animals = await (prisma as any).animal.findMany({
+    const animals = await prisma.animal.findMany({
         where: { id: { in: animalIds } },
         select: {
             id: true,

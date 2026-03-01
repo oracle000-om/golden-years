@@ -35,14 +35,14 @@ export async function GET(
     }
 
     // ── Fetch alert ──
-    const alert = await (prisma as any).petAlert.findUnique({ where: { id } });
+    const alert = await prisma.petAlert.findUnique({ where: { id } });
     if (!alert) {
         return NextResponse.json({ error: 'Alert not found' }, { status: 404 });
     }
 
     // ── Check expiration ──
     if (alert.status === 'ACTIVE' && new Date() > alert.expiresAt) {
-        await (prisma as any).petAlert.update({
+        await prisma.petAlert.update({
             where: { id },
             data: { status: 'EXPIRED' },
         });
@@ -63,7 +63,7 @@ export async function GET(
 
             if (searchResults.length > 0) {
                 const animalIds = searchResults.map(m => m.id);
-                const animals = await (prisma as any).animal.findMany({
+                const animals = await prisma.animal.findMany({
                     where: { id: { in: animalIds } },
                     select: {
                         id: true,
@@ -117,7 +117,7 @@ export async function DELETE(
         return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
     }
 
-    const alert = await (prisma as any).petAlert.findUnique({ where: { id } });
+    const alert = await prisma.petAlert.findUnique({ where: { id } });
     if (!alert) {
         return NextResponse.json({ error: 'Alert not found' }, { status: 404 });
     }
@@ -126,7 +126,7 @@ export async function DELETE(
         return NextResponse.json({ success: true, status: 'DEACTIVATED' });
     }
 
-    await (prisma as any).petAlert.update({
+    await prisma.petAlert.update({
         where: { id },
         data: { status: 'DEACTIVATED', deactivatedAt: new Date() },
     });

@@ -99,7 +99,7 @@ async function main() {
 
     for (const s of PARTIAL_DATA_STATES) {
         try {
-            const existing = await (prisma as any).statePolicy.findUnique({ where: { state: s.state } });
+            const existing = await prisma.statePolicy.findUnique({ where: { state: s.state } });
             const data: Record<string, any> = {
                 mandatoryReporting: s.mandatoryReporting,
                 reportingBody: s.reportingBody,
@@ -108,7 +108,7 @@ async function main() {
                 lastScrapedAt: new Date(),
             };
 
-            await (prisma as any).statePolicy.upsert({
+            await prisma.statePolicy.upsert({
                 where: { state: s.state },
                 update: data,
                 create: {

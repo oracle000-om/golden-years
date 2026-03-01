@@ -4,7 +4,7 @@ import Link from 'next/link';
 export const dynamic = 'force-dynamic';
 
 async function getReEntryCandidates(status: string) {
-    return (prisma as any).reEntryCandidate.findMany({
+    return prisma.reEntryCandidate.findMany({
         where: { status },
         orderBy: { similarity: 'desc' },
         take: 100,
@@ -31,9 +31,9 @@ async function getReEntryCandidates(status: string) {
 
 async function getCounts() {
     const [pending, confirmed, rejected] = await Promise.all([
-        (prisma as any).reEntryCandidate.count({ where: { status: 'PENDING_REVIEW' } }),
-        (prisma as any).reEntryCandidate.count({ where: { status: 'CONFIRMED' } }),
-        (prisma as any).reEntryCandidate.count({ where: { status: 'REJECTED' } }),
+        prisma.reEntryCandidate.count({ where: { status: 'PENDING_REVIEW' } }),
+        prisma.reEntryCandidate.count({ where: { status: 'CONFIRMED' } }),
+        prisma.reEntryCandidate.count({ where: { status: 'REJECTED' } }),
     ]);
     return { pending, confirmed, rejected };
 }

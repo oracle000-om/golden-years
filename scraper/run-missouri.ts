@@ -33,7 +33,7 @@ async function main() {
     for (const r of qualifying) {
         const dbId = `mo-acfa-${r.facilityName.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 60)}`;
         try {
-            const existing = await (prisma as any).shelter.findUnique({ where: { id: dbId }, select: { totalIntakeAnnual: true, totalEuthanizedAnnual: true, dataYear: true } });
+            const existing = await prisma.shelter.findUnique({ where: { id: dbId }, select: { totalIntakeAnnual: true, totalEuthanizedAnnual: true, dataYear: true } });
             const data: Record<string, any> = {
                 totalIntakeAnnual: r.totalIntake, totalEuthanizedAnnual: r.totalEuthanized,
                 totalReturnedToOwner: r.totalReturnedToOwner, totalTransferred: r.totalTransferred,
@@ -46,7 +46,7 @@ async function main() {
                 data.priorYearEuthanized = existing.totalEuthanizedAnnual;
                 data.priorDataYear = existing.dataYear;
             }
-            await (prisma as any).shelter.upsert({
+            await prisma.shelter.upsert({
                 where: { id: dbId }, update: data,
                 create: {
                     id: dbId, name: r.facilityName, county: r.city, state: 'MO',

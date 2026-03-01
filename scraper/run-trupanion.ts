@@ -45,7 +45,7 @@ async function main() {
         where.name = { contains: breedFilter, mode: 'insensitive' };
     }
 
-    let breeds = await (prisma as any).breedProfile.findMany({
+    let breeds = await prisma.breedProfile.findMany({
         where,
         select: {
             id: true,
@@ -106,10 +106,10 @@ async function main() {
             if (!breed) continue;
 
             try {
-                await (prisma as any).breedProfile.update({
+                await prisma.breedProfile.update({
                     where: { id: breed.id },
                     data: {
-                        trupanionConditions: result.conditions,
+                        trupanionConditions: result.conditions as any,
                         insurerLastEnriched: new Date(),
                     },
                 });

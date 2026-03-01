@@ -56,7 +56,7 @@ async function main() {
         whereClause.pubmedLastEnriched = null;
     }
 
-    const breedProfiles = await (prisma as any).breedProfile.findMany({
+    const breedProfiles = await prisma.breedProfile.findMany({
         where: whereClause,
         orderBy: { name: 'asc' },
     });
@@ -79,7 +79,7 @@ async function main() {
             .trim();
 
         // Find articles for this breed in VetArticle
-        const articles = await (prisma as any).vetArticle.findMany({
+        const articles = await prisma.vetArticle.findMany({
             where: {
                 breeds: { has: cleanName },
             },
@@ -121,16 +121,16 @@ async function main() {
                 const healthRiskScoreV2 = computeHealthRiskScore(extraction.conditions);
                 const estimatedAnnualVetCost = computeEstimatedVetCost(extraction.conditions);
 
-                await (prisma as any).breedProfile.update({
+                await prisma.breedProfile.update({
                     where: { name_species: { name: profile.name, species } },
                     data: {
-                        pubmedConditions: extraction.conditions,
-                        pubmedTreatments: extraction.treatments,
-                        pubmedDrugSensitivities: extraction.drugSensitivities,
-                        pubmedNutrition: extraction.nutrition,
-                        pubmedBehavioral: extraction.behavioral,
-                        pubmedMortality: extraction.mortality,
-                        pubmedDiagnostics: extraction.diagnostics,
+                        pubmedConditions: extraction.conditions as any,
+                        pubmedTreatments: extraction.treatments as any,
+                        pubmedDrugSensitivities: extraction.drugSensitivities as any,
+                        pubmedNutrition: extraction.nutrition as any,
+                        pubmedBehavioral: extraction.behavioral as any,
+                        pubmedMortality: extraction.mortality as any,
+                        pubmedDiagnostics: extraction.diagnostics as any,
                         pubmedArticleCount: articles.length,
                         pubmedLastEnriched: new Date(),
                         healthRiskScoreV2,
@@ -145,7 +145,7 @@ async function main() {
                 console.log(`   ${icon} ${cleanName}: ${extraction.conditions.length}C ${extraction.treatments.length}T ${extraction.drugSensitivities.length}D ${extraction.nutrition.length}N ${extraction.behavioral.length}B ${extraction.mortality.length}M ${extraction.diagnostics.length}Dx | risk=${healthRiskScoreV2.toFixed(1)} cost=$${estimatedAnnualVetCost}`);
             } else {
                 // Mark as enriched even if no items found (no articles had relevant data)
-                await (prisma as any).breedProfile.update({
+                await prisma.breedProfile.update({
                     where: { name_species: { name: profile.name, species } },
                     data: { pubmedLastEnriched: new Date(), pubmedArticleCount: articles.length },
                 });

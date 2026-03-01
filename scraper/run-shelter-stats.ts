@@ -25,7 +25,7 @@ async function main() {
     const prisma = await createPrismaClient();
 
     // Fetch all existing shelters from DB
-    const shelters = await (prisma as any).shelter.findMany({
+    const shelters = await prisma.shelter.findMany({
         select: {
             id: true,
             name: true,
@@ -87,7 +87,7 @@ async function main() {
                 }
 
                 try {
-                    await (prisma as any).shelter.update({
+                    await prisma.shelter.update({
                         where: { id: match.id },
                         data: {
                             totalIntakeAnnual: sacShelter.totalIntake,

@@ -109,7 +109,7 @@ async function main() {
     let sheltersCreated = 0;
     for (const [pfId, s] of shelters) {
         try {
-            await (prisma as any).shelter.upsert({
+            await prisma.shelter.upsert({
                 where: { id: pfId },
                 update: { lastScrapedAt: new Date(), state: s.state },
                 create: {
@@ -135,7 +135,7 @@ async function main() {
     // Step 3: Preload photo hashes for dedup
     const existingHashes: Map<string, string> = new Map();
     try {
-        const hashRecords = await (prisma as any).animal.findMany({
+        const hashRecords = await prisma.animal.findMany({
             where: { photoHash: { not: null } },
             select: { id: true, photoHash: true },
         });
@@ -174,7 +174,7 @@ async function main() {
             }
 
             const existing = match
-                ? await (prisma as any).animal.findUnique({ where: { id: match.animalId } })
+                ? await prisma.animal.findUnique({ where: { id: match.animalId } })
                 : null;
 
             if (match && match.tier > 1) { dedupMerged++; }
@@ -306,7 +306,7 @@ async function main() {
                     // Auto-recovery: restore status
                     data.status = animal.status;
                 }
-                await (prisma as any).animal.update({
+                await prisma.animal.update({
                     where: { id: existing.id }, data: {
                         ...data,
                         daysInShelter: existing.firstSeenAt
@@ -316,7 +316,7 @@ async function main() {
                 animalId = existing.id; updated++;
                 await upsertAnimalChildren(prisma, animalId, data);
             } else {
-                const record = await (prisma as any).animal.create({
+                const record = await prisma.animal.create({
                     data: { shelterId, intakeId: animal.intakeId, ...data, firstSeenAt: now, daysInShelter: 0 },
                 });
                 animalId = record.id; created++;
@@ -341,7 +341,7 @@ async function main() {
                 console.log(`      📊 CV diff: ${cvDiff.summary}`);
             }
 
-            await (prisma as any).animalSnapshot.create({
+            await prisma.animalSnapshot.create({
                 data: {
                     animalId, listingSource: `petfinder:${shelterId}`,
                     status: animal.status, name: animal.name, photoUrl: animal.photoUrl,

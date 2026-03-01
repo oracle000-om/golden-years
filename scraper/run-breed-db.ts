@@ -71,7 +71,7 @@ async function main() {
 
     for (const breed of breeds) {
         try {
-            await (prisma as any).breedProfile.upsert({
+            await prisma.breedProfile.upsert({
                 where: {
                     name_species: {
                         name: breed.name,

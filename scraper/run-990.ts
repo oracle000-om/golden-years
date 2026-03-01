@@ -62,7 +62,7 @@ async function main() {
     const prisma = await createPrismaClient();
 
     // Load all non-municipal shelters
-    const shelters = await (prisma as any).shelter.findMany({
+    const shelters = await prisma.shelter.findMany({
         where: {
             shelterType: { in: ['RESCUE', 'NO_KILL', 'FOSTER_BASED'] },
             ...(filterState ? { state: filterState } : {}),
@@ -178,7 +178,7 @@ async function main() {
                     `         Filings:  ${filings.length} years of data`,
                 ].join('\n'));
             } else {
-                await (prisma as any).shelterFinancials.upsert({
+                await prisma.shelterFinancials.upsert({
                     where: { shelterId: shelter.id },
                     create: {
                         shelterId: shelter.id,

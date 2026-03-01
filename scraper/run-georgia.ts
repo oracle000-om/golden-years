@@ -109,7 +109,7 @@ async function main() {
     for (const report of qualifying) {
         const dbId = `gda-${report.licenseNumber}`;
         try {
-            const existing = await (prisma as any).shelter.findUnique({
+            const existing = await prisma.shelter.findUnique({
                 where: { id: dbId },
                 select: { totalIntakeAnnual: true, totalEuthanizedAnnual: true, dataYear: true },
             });
@@ -131,7 +131,7 @@ async function main() {
                 lastScrapedAt: new Date(),
             };
 
-            await (prisma as any).shelter.upsert({
+            await prisma.shelter.upsert({
                 where: { id: dbId },
                 update: data,
                 create: {

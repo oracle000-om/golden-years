@@ -14,7 +14,7 @@ import { Prisma } from '../../../../generated/prisma/client';
 export async function GET() {
     try {
         // 1. Confidence distribution
-        const confidenceCounts = await (prisma as any).animalAssessment.groupBy({
+        const confidenceCounts = await prisma.animalAssessment.groupBy({
             by: ['ageConfidence'],
             _count: { id: true },
         });
@@ -25,7 +25,7 @@ export async function GET() {
         }
 
         // 2. Average age range span by confidence
-        const cvAnimals = await (prisma as any).animalAssessment.findMany({
+        const cvAnimals = await prisma.animalAssessment.findMany({
             where: {
                 ageEstimatedLow: { not: null },
                 ageEstimatedHigh: { not: null },
@@ -52,14 +52,14 @@ export async function GET() {
 
         // 3. Data conflict rate
         const totalCvAnimals = cvAnimals.length;
-        const withConflicts = await (prisma as any).animalAssessment.count({
+        const withConflicts = await prisma.animalAssessment.count({
             where: {
                 dataConflicts: { isEmpty: false },
             },
         });
 
         // 4. Photo quality distribution
-        const qualityCounts = await (prisma as any).animalAssessment.groupBy({
+        const qualityCounts = await prisma.animalAssessment.groupBy({
             by: ['photoQuality'],
             _count: { id: true },
         });
@@ -71,7 +71,7 @@ export async function GET() {
 
         // 5. Confidence × photo quality cross-tab
         const crossTab: Record<string, Record<string, number>> = {};
-        const crossData = await (prisma as any).animalAssessment.findMany({
+        const crossData = await prisma.animalAssessment.findMany({
             select: { ageConfidence: true, photoQuality: true },
         });
         for (const row of crossData) {

@@ -31,9 +31,9 @@ async function main() {
     for (const r of qualifying) {
         const dbId = r.registrationNumber ? `mdard-${r.registrationNumber}` : `mdard-${r.shelterName.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 60)}`;
         try {
-            const existing = await (prisma as any).shelter.findUnique({ where: { id: dbId } });
+            const existing = await prisma.shelter.findUnique({ where: { id: dbId } });
             const data: Record<string, any> = { totalIntakeAnnual: r.totalIntake, totalEuthanizedAnnual: r.totalEuthanized, dataYear: 2023, dataSourceName: 'Michigan MDARD', dataSourceUrl: 'https://www.michigan.gov/mdard/animals/animal-shelters/annual-reports', lastScrapedAt: new Date() };
-            await (prisma as any).shelter.upsert({ where: { id: dbId }, update: data, create: { id: dbId, name: r.shelterName, county: r.city, state: 'MI', shelterType: 'MUNICIPAL', ...data } });
+            await prisma.shelter.upsert({ where: { id: dbId }, update: data, create: { id: dbId, name: r.shelterName, county: r.city, state: 'MI', shelterType: 'MUNICIPAL', ...data } });
             if (existing) updated++; else created++;
         } catch (err) { console.error(`   ❌ ${r.shelterName}: ${(err as Error).message?.substring(0, 100)}`); }
     }

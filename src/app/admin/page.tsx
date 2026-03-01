@@ -39,7 +39,7 @@ export default async function AdminDashboard() {
         [data, deltas, pendingReEntries] = await Promise.all([
             getAdminOverview(),
             get24hDeltas(),
-            (prisma as any).reEntryCandidate.count({ where: { status: 'PENDING_REVIEW' } }).catch(() => 0),
+            prisma.reEntryCandidate.count({ where: { status: 'PENDING_REVIEW' } }).catch(() => 0),
         ]);
     } catch (err) {
         return (

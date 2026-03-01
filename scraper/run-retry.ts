@@ -71,7 +71,7 @@ async function main() {
             }
 
             // Check if the animal was already successfully upserted in a later run
-            const existing = await (prisma as any).animal.findFirst({
+            const existing = await prisma.animal.findFirst({
                 where: {
                     shelterId,
                     intakeId,
@@ -90,7 +90,7 @@ async function main() {
                 const payload = failure.payload as Record<string, any>;
                 if (payload.data) {
                     // Attempt the upsert with the stored data
-                    const record = await (prisma as any).animal.create({
+                    const record = await prisma.animal.create({
                         data: {
                             shelterId,
                             intakeId,

@@ -10,11 +10,11 @@ async function main() {
 
     const sources = await prisma.source.deleteMany({});
     console.log('Deleted sources:', sources.count);
-    const assessments = await (prisma as any).animalAssessment.deleteMany({});
+    const assessments = await prisma.animalAssessment.deleteMany({});
     console.log('Deleted assessments:', assessments.count);
-    const enrichments = await (prisma as any).animalEnrichment.deleteMany({});
+    const enrichments = await prisma.animalEnrichment.deleteMany({});
     console.log('Deleted enrichments:', enrichments.count);
-    const listings = await (prisma as any).animalListing.deleteMany({});
+    const listings = await prisma.animalListing.deleteMany({});
     console.log('Deleted listings:', listings.count);
     const animals = await prisma.animal.deleteMany({});
     console.log('Deleted animals:', animals.count);

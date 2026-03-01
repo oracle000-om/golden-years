@@ -147,7 +147,7 @@ async function main() {
 
     if (cityOnly) {
         // ── City-only mode: geocode using just city + state via Nominatim ──
-        const shelters = await (prisma as any).shelter.findMany({
+        const shelters = await prisma.shelter.findMany({
             where: {
                 latitude: null,
                 county: { not: '' },
@@ -209,7 +209,7 @@ async function main() {
 
             if (result) {
                 for (const shelter of group) {
-                    await (prisma as any).shelter.update({
+                    await prisma.shelter.update({
                         where: { id: shelter.id },
                         data: {
                             latitude: result.lat,
@@ -247,7 +247,7 @@ async function main() {
     }
 
     // ── Standard mode: geocode shelters with street address but no lat/lng ──
-    const shelters = await (prisma as any).shelter.findMany({
+    const shelters = await prisma.shelter.findMany({
         where: {
             address: { not: null },
             latitude: null,
@@ -290,7 +290,7 @@ async function main() {
         const result = await geocodeAddress(shelter.address || '', city, shelter.state);
 
         if (result) {
-            await (prisma as any).shelter.update({
+            await prisma.shelter.update({
                 where: { id: shelter.id },
                 data: {
                     latitude: result.lat,

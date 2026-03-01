@@ -183,7 +183,7 @@ async function main() {
     for (const s of qualifying) {
         const dbId = `fl-${s.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 60)}`;
         try {
-            const existing = await (prisma as any).shelter.findUnique({ where: { id: dbId } });
+            const existing = await prisma.shelter.findUnique({ where: { id: dbId } });
 
             const data: Record<string, any> = {
                 totalIntakeAnnual: s.totalIntake,
@@ -194,7 +194,7 @@ async function main() {
                 lastScrapedAt: new Date(),
             };
 
-            await (prisma as any).shelter.upsert({
+            await prisma.shelter.upsert({
                 where: { id: dbId },
                 update: data,
                 create: {

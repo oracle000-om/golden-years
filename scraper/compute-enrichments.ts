@@ -37,7 +37,7 @@ async function main() {
     // ══════════════════════════════════════════════════════
     console.log('\n📊 Computing shelter-level metrics...');
 
-    const shelters = await (prisma as any).shelter.findMany({
+    const shelters = await prisma.shelter.findMany({
         select: {
             id: true,
             name: true,
@@ -83,7 +83,7 @@ async function main() {
         }
 
         // Median days to outcome (from delisted animals at this shelter)
-        const delistedAnimals = await (prisma as any).animal.findMany({
+        const delistedAnimals = await prisma.animal.findMany({
             where: {
                 shelterId: shelter.id,
                 status: 'DELISTED',
@@ -99,7 +99,7 @@ async function main() {
         }
 
         // Senior count (active animals)
-        const seniorCount = await (prisma as any).animal.count({
+        const seniorCount = await prisma.animal.count({
             where: {
                 shelterId: shelter.id,
                 status: { in: ['AVAILABLE', 'URGENT'] },
@@ -111,7 +111,7 @@ async function main() {
             if (dryRun) {
                 console.log(`   ${shelter.name}: ${JSON.stringify(updates)}`);
             } else {
-                await (prisma as any).shelter.update({
+                await prisma.shelter.update({
                     where: { id: shelter.id },
                     data: updates,
                 });
@@ -128,7 +128,7 @@ async function main() {
     console.log('\n🐕 Wiring breed enrichment...');
 
     // Load all breed profiles
-    const breedProfiles = await (prisma as any).breedProfile.findMany({
+    const breedProfiles = await prisma.breedProfile.findMany({
         select: {
             name: true,
             commonConditions: true,
@@ -148,7 +148,7 @@ async function main() {
         }
 
         // Fetch all animals with detected breeds that need enrichment
-        const animalsForBreed = await (prisma as any).animal.findMany({
+        const animalsForBreed = await prisma.animal.findMany({
             where: {
                 status: { in: ['AVAILABLE', 'URGENT'] },
                 enrichment: null, // not yet enriched
@@ -223,13 +223,13 @@ async function main() {
                 updates.estimatedAnnualCost = `$${adjLow}–$${adjHigh}`;
 
                 if (!dryRun) {
-                    await (prisma as any).animalEnrichment.upsert({
+                    await prisma.animalEnrichment.upsert({
                         where: { animalId: animal.id },
                         update: updates,
                         create: { animalId: animal.id, ...updates },
                     });
                     // Dual-write to animal table during transition
-                    await (prisma as any).animal.update({
+                    await prisma.animal.update({
                         where: { id: animal.id },
                         data: updates,
                     });
@@ -248,7 +248,7 @@ async function main() {
     // ══════════════════════════════════════════════════════
     console.log('\n⏱️  Computing adoption urgency scores...');
 
-    const activeAnimals = await (prisma as any).animal.findMany({
+    const activeAnimals = await prisma.animal.findMany({
         where: {
             status: { in: ['AVAILABLE', 'URGENT'] },
         },
@@ -285,13 +285,13 @@ async function main() {
         }
 
         if (!dryRun) {
-            await (prisma as any).animalEnrichment.upsert({
+            await prisma.animalEnrichment.upsert({
                 where: { animalId: animal.id },
                 update: { adoptionUrgency: urgency },
                 create: { animalId: animal.id, adoptionUrgency: urgency },
             });
             // Dual-write during transition
-            await (prisma as any).animal.update({
+            await prisma.animal.update({
                 where: { id: animal.id },
                 data: { adoptionUrgency: urgency },
             });
@@ -306,7 +306,7 @@ async function main() {
     // ══════════════════════════════════════════════════════
     console.log('\n🏠 Computing adoption readiness scores...');
 
-    const animalsForReadiness = await (prisma as any).animal.findMany({
+    const animalsForReadiness = await prisma.animal.findMany({
         where: {
             status: { in: ['AVAILABLE', 'URGENT'] },
         },
@@ -370,13 +370,13 @@ async function main() {
 
         if (readiness) {
             if (!dryRun) {
-                await (prisma as any).animalEnrichment.upsert({
+                await prisma.animalEnrichment.upsert({
                     where: { animalId: animal.id },
                     update: { adoptionReadiness: readiness },
                     create: { animalId: animal.id, adoptionReadiness: readiness },
                 });
                 // Dual-write during transition
-                await (prisma as any).animal.update({
+                await prisma.animal.update({
                     where: { id: animal.id },
                     data: { adoptionReadiness: readiness },
                 });
@@ -392,7 +392,7 @@ async function main() {
     // ══════════════════════════════════════════════════════
     console.log('\n💰 Estimating annual vet costs...');
 
-    const animalsNeedingCost = await (prisma as any).animal.findMany({
+    const animalsNeedingCost = await prisma.animal.findMany({
         where: {
             status: { in: ['AVAILABLE', 'URGENT'] },
             estimatedAnnualCost: null,
@@ -406,17 +406,17 @@ async function main() {
 
     let costUpdated = 0;
     for (const animal of animalsNeedingCost) {
-        const costs = CARE_COST_MAP[animal.estimatedCareLevel] || CARE_COST_MAP.moderate;
+        const costs = CARE_COST_MAP[animal.estimatedCareLevel!] || CARE_COST_MAP.moderate;
         const costStr = `$${costs.low}–$${costs.high}`;
 
         if (!dryRun) {
-            await (prisma as any).animalEnrichment.upsert({
+            await prisma.animalEnrichment.upsert({
                 where: { animalId: animal.id },
                 update: { estimatedAnnualCost: costStr },
                 create: { animalId: animal.id, estimatedAnnualCost: costStr },
             });
             // Dual-write during transition
-            await (prisma as any).animal.update({
+            await prisma.animal.update({
                 where: { id: animal.id },
                 data: { estimatedAnnualCost: costStr },
             });
@@ -432,7 +432,7 @@ async function main() {
     console.log('\n📈 Computing temporal trends from snapshots...');
 
     // Find animals with 2+ snapshots for BCS and stress analysis
-    const animalsWithSnapshots = await (prisma as any).animal.findMany({
+    const animalsWithSnapshots = await prisma.animal.findMany({
         where: {
             status: { in: ['AVAILABLE', 'URGENT'] },
             snapshots: { some: {} },
@@ -495,7 +495,7 @@ async function main() {
         // Write trends to healthNotes (append, don't overwrite)
         const trendNotes = [...bcsTrend, ...stressTrend].join('; ');
         if (trendNotes && !dryRun) {
-            const existing = await (prisma as any).animal.findUnique({
+            const existing = await prisma.animal.findUnique({
                 where: { id: animal.id },
                 select: { healthNotes: true },
             });
@@ -506,13 +506,13 @@ async function main() {
                 const updated = currentNotes
                     ? `${currentNotes} | Trends: ${trendNotes}`
                     : `Trends: ${trendNotes}`;
-                await (prisma as any).animalAssessment.upsert({
+                await prisma.animalAssessment.upsert({
                     where: { animalId: animal.id },
                     update: { healthNotes: updated },
                     create: { animalId: animal.id, healthNotes: updated },
                 });
                 // Dual-write during transition
-                await (prisma as any).animal.update({
+                await prisma.animal.update({
                     where: { id: animal.id },
                     data: { healthNotes: updated },
                 });
@@ -531,7 +531,7 @@ async function main() {
     console.log('\n🏆 Computing shelter quality index...');
 
     // Re-fetch shelters with computed metrics
-    const sheltersForQuality = await (prisma as any).shelter.findMany({
+    const sheltersForQuality = await prisma.shelter.findMany({
         select: {
             id: true,
             name: true,
@@ -602,14 +602,14 @@ async function main() {
     // ══════════════════════════════════════════════════════
     console.log('\n⚡ Surfacing data conflicts...');
 
-    const animalsWithConflicts = await (prisma as any).animal.count({
+    const animalsWithConflicts = await prisma.animal.count({
         where: {
             status: { in: ['AVAILABLE', 'URGENT'] },
             dataConflicts: { isEmpty: false },
         },
     });
 
-    const totalActive = await (prisma as any).animal.count({
+    const totalActive = await prisma.animal.count({
         where: { status: { in: ['AVAILABLE', 'URGENT'] } },
     });
 
@@ -617,7 +617,7 @@ async function main() {
 
     if (animalsWithConflicts > 0) {
         // Sample top conflicts for reporting
-        const sampleConflicts = await (prisma as any).animal.findMany({
+        const sampleConflicts = await prisma.animal.findMany({
             where: {
                 status: { in: ['AVAILABLE', 'URGENT'] },
                 dataConflicts: { isEmpty: false },
@@ -635,18 +635,18 @@ async function main() {
     // ══════════════════════════════════════════════════════
     console.log('\n🔄 Computing re-entry rates...');
 
-    const sheltersForReentry = await (prisma as any).shelter.findMany({
+    const sheltersForReentry = await prisma.shelter.findMany({
         select: { id: true, name: true },
     });
 
     let reentryComputed = 0;
     for (const shelter of sheltersForReentry) {
-        const total = await (prisma as any).animal.count({
+        const total = await prisma.animal.count({
             where: { shelterId: shelter.id },
         });
         if (total < 5) continue;
 
-        const repeats = await (prisma as any).animal.count({
+        const repeats = await prisma.animal.count({
             where: {
                 shelterId: shelter.id,
                 shelterEntryCount: { gte: 2 },
@@ -669,7 +669,7 @@ async function main() {
     // ══════════════════════════════════════════════════════
     console.log('\n📸 Detecting photo updates...');
 
-    const animalsWithPhotoSnapshots = await (prisma as any).animal.findMany({
+    const animalsWithPhotoSnapshots = await prisma.animal.findMany({
         where: {
             status: { in: ['AVAILABLE', 'URGENT'] },
             snapshots: { some: {} },
@@ -703,7 +703,7 @@ async function main() {
     // ══════════════════════════════════════════════════════
     console.log('\n💲 Extracting adoption fees from descriptions...');
 
-    const animalsNeedingFee = await (prisma as any).animal.findMany({
+    const animalsNeedingFee = await prisma.animal.findMany({
         where: {
             status: { in: ['AVAILABLE', 'URGENT'] },
             adoptionFee: null,
@@ -754,7 +754,7 @@ async function main() {
         }
 
         if (fee && !dryRun) {
-            await (prisma as any).animal.update({
+            await prisma.animal.update({
                 where: { id: animal.id },
                 data: { adoptionFee: fee },
             });
@@ -771,7 +771,7 @@ async function main() {
     // ══════════════════════════════════════════════════════
     console.log('\n🗺️  Computing regional comparisons...');
 
-    const sheltersWithState = await (prisma as any).shelter.findMany({
+    const sheltersWithState = await prisma.shelter.findMany({
         where: { liveReleaseRate: { not: null } },
         select: {
             id: true,
@@ -786,7 +786,7 @@ async function main() {
     for (const s of sheltersWithState) {
         if (!s.state) continue;
         if (!stateGroups[s.state]) stateGroups[s.state] = { lrrs: [], shelterIds: [] };
-        stateGroups[s.state].lrrs.push(s.liveReleaseRate);
+        stateGroups[s.state].lrrs.push(s.liveReleaseRate!);
         stateGroups[s.state].shelterIds.push(s.id);
     }
 
@@ -808,7 +808,7 @@ async function main() {
     // ══════════════════════════════════════════════════════
     console.log('\n📅 Analyzing seasonal intake patterns...');
 
-    const animalsWithIntake = await (prisma as any).animal.findMany({
+    const animalsWithIntake = await prisma.animal.findMany({
         where: {
             intakeDate: { not: null },
         },
@@ -824,7 +824,7 @@ async function main() {
     }
 
     for (const animal of animalsWithIntake) {
-        const month = new Date(animal.intakeDate).getMonth();
+        const month = new Date(animal.intakeDate!).getMonth();
         monthlyIntake[month].total++;
         if (animal.species === 'DOG') monthlyIntake[month].dogs++;
         else if (animal.species === 'CAT') monthlyIntake[month].cats++;
@@ -851,7 +851,7 @@ async function main() {
         const threeYearsAgo = new Date();
         threeYearsAgo.setFullYear(threeYearsAgo.getFullYear() - 3);
 
-        const breederCounts = await (prisma as any).$queryRaw`
+        const breederCounts = await prisma.$queryRaw`
             SELECT state,
                    COUNT(DISTINCT cert_number) as total_breeders,
                    COUNT(DISTINCT CASE WHEN critical_violations > 0 THEN cert_number END) as flagged_breeders,
@@ -874,7 +874,7 @@ async function main() {
         console.log(`   📊 Breeder data for ${breederByState.size} states`);
 
         // Update each shelter with its state's breeder stats
-        const allShelters = await (prisma as any).shelter.findMany({
+        const allShelters = await prisma.shelter.findMany({
             select: { id: true, name: true, state: true },
         });
 

@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
         const animalIds = animals.map(a => a.id);
 
         // Clear assessment data so next scraper run re-processes them
-        await (prisma as any).animalAssessment.deleteMany({
+        await prisma.animalAssessment.deleteMany({
             where: { animalId: { in: animalIds } },
         });
 

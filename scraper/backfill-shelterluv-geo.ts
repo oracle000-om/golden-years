@@ -57,7 +57,7 @@ async function main() {
     const prisma = await createPrismaClient();
 
     // Step 1: Find ShelterLuv shelters with unknown geo
-    const targetShelters = await (prisma as any).shelter.findMany({
+    const targetShelters = await prisma.shelter.findMany({
         where: {
             id: { startsWith: 'shelterluv-' },
             state: 'US',
@@ -73,7 +73,7 @@ async function main() {
     }
 
     // Step 2: Get all geo-known shelters (for cross-referencing)
-    const geoShelters = await (prisma as any).shelter.findMany({
+    const geoShelters = await prisma.shelter.findMany({
         where: {
             state: { not: 'US' },
         },
@@ -87,7 +87,7 @@ async function main() {
     console.log(`   Geo-known shelters: ${geoShelterMap.size}`);
 
     // Step 3: Get all animals with photoHash from geo-known shelters (for pHash matching)
-    const geoHashedAnimals = await (prisma as any).animal.findMany({
+    const geoHashedAnimals = await prisma.animal.findMany({
         where: {
             photoHash: { not: null },
             shelter: { state: { not: 'US' } },
@@ -102,7 +102,7 @@ async function main() {
 
     for (const target of targetShelters) {
         // Get animals belonging to this shelter
-        const animals = await (prisma as any).animal.findMany({
+        const animals = await prisma.animal.findMany({
             where: { shelterId: target.id },
             select: { id: true, photoUrl: true, photoHash: true },
         });
@@ -116,7 +116,7 @@ async function main() {
         for (const animal of animals) {
             // Strategy 1: photoUrl match
             if (animal.photoUrl) {
-                const urlMatch = await (prisma as any).animal.findFirst({
+                const urlMatch = await prisma.animal.findFirst({
                     where: {
                         photoUrl: animal.photoUrl,
                         shelterId: { not: target.id },
@@ -140,7 +140,7 @@ async function main() {
             if (animal.photoHash) {
                 for (const candidate of geoHashedAnimals) {
                     if (candidate.shelterId === target.id) continue;
-                    const dist = hammingDistance(animal.photoHash, candidate.photoHash);
+                    const dist = hammingDistance(animal.photoHash!, candidate.photoHash!);
                     if (dist <= PHASH_THRESHOLD) {
                         const key = candidate.shelterId;
                         const existing = shelterVotes.get(key);
@@ -230,7 +230,7 @@ async function main() {
     let dbUpdated = 0;
     for (const r of usResolved) {
         try {
-            await (prisma as any).shelter.update({
+            await prisma.shelter.update({
                 where: { id: r.shelterId },
                 data: {
                     county: r.city,

@@ -63,10 +63,10 @@ async function handleFormData(request: NextRequest) {
 
     // Create PetAlert
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-    const alert = await (prisma as any).petAlert.create({
+    const alert = await prisma.petAlert.create({
         data: {
             type,
-            species: ['DOG', 'CAT', 'OTHER'].includes(species) ? species : 'OTHER',
+            species: (['DOG', 'CAT', 'OTHER'].includes(species) ? species : 'OTHER') as any,
             name: petName.trim() || null,
             description: notes.trim() || null,
             photoEmbedding: embedding ?? [],
@@ -123,10 +123,10 @@ async function handleJson(request: NextRequest) {
     }
 
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-    const alert = await (prisma as any).petAlert.create({
+    const alert = await prisma.petAlert.create({
         data: {
             type: type.toUpperCase(),
-            species: ['DOG', 'CAT', 'OTHER'].includes(normalizedSpecies) ? normalizedSpecies : 'OTHER',
+            species: (['DOG', 'CAT', 'OTHER'].includes(normalizedSpecies) ? normalizedSpecies : 'OTHER') as any,
             breed: breed?.trim() || null,
             name: name?.trim() || null,
             description: description?.trim() || null,

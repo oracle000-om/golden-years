@@ -79,7 +79,7 @@ async function main() {
                 : Math.round(stats.totalOutcomes * annualFactor);
             const annualEuth = Math.round(stats.totalEuthanasia * annualFactor);
 
-            await (prisma as any).shelter.upsert({
+            await prisma.shelter.upsert({
                 where: { id: stats.shelterId },
                 update: {
                     totalIntakeAnnual: annualIntake,

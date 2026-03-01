@@ -55,9 +55,9 @@ async function main() {
     for (const r of qualifying) {
         const dbId = `ncda-${r.licenseNumber}`;
         try {
-            const existing = await (prisma as any).shelter.findUnique({ where: { id: dbId }, select: { totalIntakeAnnual: true, totalEuthanizedAnnual: true, dataYear: true } });
+            const existing = await prisma.shelter.findUnique({ where: { id: dbId }, select: { totalIntakeAnnual: true, totalEuthanizedAnnual: true, dataYear: true } });
             const data: Record<string, any> = { totalIntakeAnnual: r.totalIntake, totalEuthanizedAnnual: r.totalEuthanized, dataYear: r.year, dataSourceName: 'North Carolina NCDA&CS (LRR excludes deaths-in-care)', dataSourceUrl: 'https://www.ncagr.gov/divisions/veterinary/spay-and-neuter-reports', lastScrapedAt: new Date() };
-            await (prisma as any).shelter.upsert({ where: { id: dbId }, update: data, create: { id: dbId, name: r.facilityName, county: r.county, state: 'NC', shelterType: r.liveReleaseRate >= 90 ? 'NO_KILL' : 'MUNICIPAL', ...data } });
+            await prisma.shelter.upsert({ where: { id: dbId }, update: data, create: { id: dbId, name: r.facilityName, county: r.county, state: 'NC', shelterType: r.liveReleaseRate >= 90 ? 'NO_KILL' : 'MUNICIPAL', ...data } });
             if (existing) updated++; else created++;
         } catch (err) { console.error(`   ❌ ${r.facilityName}: ${(err as Error).message?.substring(0, 100)}`); }
     }

@@ -64,7 +64,7 @@ async function main() {
 
         for (const insp of batch) {
             try {
-                const result = await (prisma as any).breederInspection.upsert({
+                const result = await prisma.breederInspection.upsert({
                     where: {
                         certNumber_inspectionDate: {
                             certNumber: insp.certNumber,

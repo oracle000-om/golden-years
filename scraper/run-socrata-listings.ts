@@ -84,7 +84,7 @@ async function main() {
     for (const config of configs) {
         const dbId = `socrata-${config.id}`;
         try {
-            await (prisma as any).shelter.upsert({
+            await prisma.shelter.upsert({
                 where: { id: dbId },
                 update: {
                     name: config.shelterName,
@@ -130,7 +130,7 @@ async function main() {
         try {
             const match = await findDuplicate(prisma, animal.intakeId, shelterId, animal.photoUrl, photoHash);
             existing = match
-                ? await (prisma as any).animal.findUnique({ where: { id: match.animalId } })
+                ? await prisma.animal.findUnique({ where: { id: match.animalId } })
                 : null;
         } catch { /* non-fatal */ }
 
@@ -267,7 +267,7 @@ async function main() {
                         console.log(`      🔄 Re-entry #${data.shelterEntryCount}: ${animal.name || animal.intakeId}`);
                     }
                 }
-                await (prisma as any).animal.update({
+                await prisma.animal.update({
                     where: { id: existing.id },
                     data: {
                         ...data,
@@ -288,7 +288,7 @@ async function main() {
                     });
                 }
             } else {
-                const record = await (prisma as any).animal.create({
+                const record = await prisma.animal.create({
                     data: { shelterId, intakeId: animal.intakeId, ...data, firstSeenAt: now, daysInShelter: 0 },
                 });
                 created++;

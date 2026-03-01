@@ -15,7 +15,7 @@ export const dynamic = 'force-dynamic';
  * Inlined here because scraper/ is outside src/ and can't be imported.
  */
 async function buildJourneyTimeline(identityId: string) {
-    const animals = await (prisma as any).animal.findMany({
+    const animals = await prisma.animal.findMany({
         where: { identityId },
         select: {
             id: true, name: true, status: true,
@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status') || 'PENDING_REVIEW';
 
-    const candidates = await (prisma as any).reEntryCandidate.findMany({
+    const candidates = await prisma.reEntryCandidate.findMany({
         where: { status },
         orderBy: { createdAt: 'desc' },
         take: 100,
@@ -115,7 +115,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     // Fetch the candidate
-    const candidate = await (prisma as any).reEntryCandidate.findUnique({
+    const candidate = await prisma.reEntryCandidate.findUnique({
         where: { id },
         include: {
             animal: { select: { id: true, shelterId: true, createdAt: true } },
@@ -128,7 +128,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     if (action === 'REJECT') {
-        await (prisma as any).reEntryCandidate.update({
+        await prisma.reEntryCandidate.update({
             where: { id },
             data: {
                 status: 'REJECTED',
@@ -146,7 +146,7 @@ export async function PATCH(request: NextRequest) {
         : candidate.matchedAnimal;
 
     // Check if either animal already has an identity
-    const existingAnimals = await (prisma as any).animal.findMany({
+    const existingAnimals = await prisma.animal.findMany({
         where: { id: { in: [candidate.animalId, candidate.matchedAnimalId] } },
         select: { id: true, identityId: true },
     });
@@ -161,7 +161,7 @@ export async function PATCH(request: NextRequest) {
 
     if (!identityId) {
         // Create new identity
-        const identity = await (prisma as any).animalIdentity.create({
+        const identity = await prisma.animalIdentity.create({
             data: {
                 firstSeenAt: earlierAnimal.createdAt,
                 isReEntry: true,
@@ -170,27 +170,27 @@ export async function PATCH(request: NextRequest) {
         identityId = identity.id;
     } else {
         // Update existing identity
-        await (prisma as any).animalIdentity.update({
+        await prisma.animalIdentity.update({
             where: { id: identityId },
             data: { isReEntry: true },
         });
     }
 
     // Link both animals to the identity
-    await (prisma as any).animal.updateMany({
+    await prisma.animal.updateMany({
         where: { id: { in: [candidate.animalId, candidate.matchedAnimalId] } },
         data: { identityId },
     });
 
     // Build journey timeline
     const journey = await buildJourneyTimeline(identityId!);
-    await (prisma as any).animalIdentity.update({
+    await prisma.animalIdentity.update({
         where: { id: identityId },
         data: { journeyJson: journey },
     });
 
     // Update candidate status
-    await (prisma as any).reEntryCandidate.update({
+    await prisma.reEntryCandidate.update({
         where: { id },
         data: {
             status: 'CONFIRMED',

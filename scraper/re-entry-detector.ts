@@ -174,7 +174,7 @@ async function main() {
 
     if (animalIdArg) {
         // Single animal mode
-        const animal = await (prisma as any).animal.findUnique({
+        const animal = await prisma.animal.findUnique({
             where: { id: animalIdArg },
             select: { id: true, name: true, photoUrl: true, shelterId: true },
         });
@@ -185,7 +185,7 @@ async function main() {
         animals = [animal];
     } else {
         // Backfill mode — all animals with photos (embeddings live in Zilliz, not Postgres)
-        animals = await (prisma as any).animal.findMany({
+        animals = await prisma.animal.findMany({
             where: {
                 photoUrl: { not: null },
                 species: { not: 'OTHER' },

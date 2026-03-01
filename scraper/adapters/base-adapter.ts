@@ -18,7 +18,7 @@ const BACKOFF_BASE_MS = 1_000;
 const USER_AGENT = 'GoldenYearsClub/1.0 (shelter-data-aggregator)';
 
 /** Default senior age threshold by species (no size info available) */
-export const SENIOR_AGE: Record<string, number> = {
+const SENIOR_AGE: Record<string, number> = {
     DOG: 7,
     CAT: 10,
     OTHER: 7,
@@ -43,7 +43,7 @@ const DOG_SENIOR_BY_SIZE: Record<string, number> = {
 
 // ── safeFetch ──────────────────────────────────────────
 
-export interface SafeFetchOptions {
+interface SafeFetchOptions {
     /** Timeout per attempt in ms (default: 15s) */
     timeoutMs?: number;
     /** Number of retry attempts (default: 3) */
@@ -166,9 +166,68 @@ export function classifyAgeSegment(
     return 'ADULT';
 }
 
+// ── Breed-Aware Age Thresholds (Phase 3) ──────────────
+
+/**
+ * Breed-aware senior check. Queries BreedProfile.seniorAgeThreshold
+ * for the specific breed. Falls back to size-based → species-default
+ * thresholds when no breed profile is found.
+ *
+ * Usage: await isSeniorBreedAware(8, 'DOG', 'Golden Retriever', 'LARGE')
+ */
+export async function isSeniorBreedAware(
+    ageYears: number | null | undefined,
+    species: 'DOG' | 'CAT' | 'OTHER',
+    breed: string | null | undefined,
+    size?: 'SMALL' | 'MEDIUM' | 'LARGE' | 'XLARGE' | null,
+): Promise<boolean> {
+    if (ageYears == null) return false;
+
+    // Try breed-specific threshold from BreedProfile
+    if (breed) {
+        try {
+            // Lazy import prisma to avoid circular deps
+            const { createPrismaClient } = await import('../lib/prisma');
+            const prisma = createPrismaClient();
+            const profile = await (prisma as any).breedProfile.findFirst({
+                where: {
+                    name: { contains: breed, mode: 'insensitive' },
+                    species: species === 'DOG' ? 'DOG' : species === 'CAT' ? 'CAT' : undefined,
+                },
+                select: { seniorAgeThreshold: true },
+            });
+            if (profile?.seniorAgeThreshold) {
+                return ageYears >= profile.seniorAgeThreshold;
+            }
+        } catch {
+            // DB unavailable — fall through to size-based
+        }
+    }
+
+    // Fall back to size-based thresholds
+    return isSenior(ageYears, species, size);
+}
+
+/**
+ * Breed-aware age segment classification. Uses breed-specific senior
+ * thresholds from BreedProfile when available.
+ */
+export async function classifyAgeSegmentBreedAware(
+    ageYears: number | null | undefined,
+    species: 'DOG' | 'CAT' | 'OTHER',
+    breed: string | null | undefined,
+    size?: 'SMALL' | 'MEDIUM' | 'LARGE' | 'XLARGE' | null,
+): Promise<AgeSegment> {
+    if (ageYears == null) return 'UNKNOWN';
+    if (await isSeniorBreedAware(ageYears, species, breed, size)) return 'SENIOR';
+    if (ageYears < 1) return 'PUPPY';
+    if (ageYears < 3) return 'YOUNG';
+    return 'ADULT';
+}
+
 // ── validateAnimal ─────────────────────────────────────
 
-export interface ValidationResult {
+interface ValidationResult {
     valid: boolean;
     warnings: string[];
     errors: string[];
@@ -209,7 +268,7 @@ export function validateAnimal(animal: Partial<ScrapedAnimal>): ValidationResult
 
 // ── Health Report ──────────────────────────────────────
 
-export interface AdapterHealth {
+interface AdapterHealth {
     shelterId: string;
     shelterName: string;
     success: boolean;
@@ -225,7 +284,7 @@ export interface AdapterHealth {
  * Wraps an adapter function with health tracking and error isolation.
  * If the adapter throws, returns an empty array + health report with the error.
  */
-export function withHealthReport(
+function withHealthReport(
     shelterId: string,
     shelterName: string,
     adapterFn: () => Promise<ScrapedAnimal[]>,
@@ -287,7 +346,7 @@ export function withHealthReport(
 /**
  * Log a health report summary to console.
  */
-export function logHealthReport(reports: AdapterHealth[]): void {
+function logHealthReport(reports: AdapterHealth[]): void {
     console.log(`\n═══════════════════════════════════════════`);
     console.log(`🏥 Adapter Health Report`);
     console.log(`═══════════════════════════════════════════`);
@@ -383,3 +442,57 @@ export async function validatePhotoUrl(url: string): Promise<boolean> {
         return false;
     }
 }
+
+// ── Confiscation Sub-Classification ───────────────────
+
+const MILL_KEYWORDS = [
+    'breeding operation', 'commercial breeder', 'puppy mill', 'puppy-mill',
+    'mill', 'breeder', 'breeding', 'usda', 'licensed breeder', 'kennel operation',
+    'breeding facility', 'puppy farm', 'kitten mill',
+];
+
+const HOARDING_KEYWORDS = [
+    'hoarding', 'hoarder', 'excessive animals', 'animal collector',
+    'too many animals', 'overcrowded home',
+];
+
+const CRUELTY_KEYWORDS = [
+    'cruelty', 'abuse', 'neglect', 'fighting', 'dog fighting',
+    'animal fighting', 'torture', 'starvation', 'malnutrition',
+    'animal cruelty', 'inhumane',
+];
+
+/**
+ * Sub-classify a CONFISCATE intake reason based on text signals.
+ * Searches intake type, notes, and description for keywords that indicate
+ * mill, hoarding, or cruelty origins.
+ *
+ * Returns CONFISCATE_MILL, CONFISCATE_HOARDING, CONFISCATE_CRUELTY,
+ * or CONFISCATE as fallback for ambiguous cases.
+ */
+export function classifyConfiscateSubType(
+    texts: (string | null | undefined)[],
+): 'CONFISCATE' | 'CONFISCATE_MILL' | 'CONFISCATE_HOARDING' | 'CONFISCATE_CRUELTY' {
+    const combined = texts
+        .filter(Boolean)
+        .map(t => (t as string).toLowerCase())
+        .join(' ');
+
+    if (!combined) return 'CONFISCATE';
+
+    // Check mill first (most common sub-type)
+    for (const kw of MILL_KEYWORDS) {
+        if (combined.includes(kw)) return 'CONFISCATE_MILL';
+    }
+    // Then hoarding
+    for (const kw of HOARDING_KEYWORDS) {
+        if (combined.includes(kw)) return 'CONFISCATE_HOARDING';
+    }
+    // Then cruelty
+    for (const kw of CRUELTY_KEYWORDS) {
+        if (combined.includes(kw)) return 'CONFISCATE_CRUELTY';
+    }
+
+    return 'CONFISCATE';
+}
+

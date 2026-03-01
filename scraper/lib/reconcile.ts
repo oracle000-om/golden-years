@@ -46,7 +46,7 @@ const MAX_TRANSITION_FRACTION = 0.20;
 const MAX_TRANSITIONS_PER_RUN = 200;
 
 
-export interface ReconcileOptions {
+interface ReconcileOptions {
     /** Pipeline name for logging/alerts */
     pipeline: string;
     /** Prisma client (typed as any to avoid adapter cast issues) */
@@ -59,7 +59,7 @@ export interface ReconcileOptions {
     updated: number;
 }
 
-export interface ReconcileResult {
+interface ReconcileResult {
     totalDelisted: number;
     totalStaled: number;
     totalMissIncremented: number;

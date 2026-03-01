@@ -52,7 +52,7 @@ export interface ScrapedAnimal {
     notes: string | null;
 
     /** Intake reason category */
-    intakeReason: 'OWNER_SURRENDER' | 'STRAY' | 'OWNER_DECEASED' | 'CONFISCATE' | 'RETURN' | 'TRANSFER' | 'INJURED' | 'OTHER' | 'UNKNOWN';
+    intakeReason: 'OWNER_SURRENDER' | 'STRAY' | 'OWNER_DECEASED' | 'CONFISCATE' | 'CONFISCATE_MILL' | 'CONFISCATE_HOARDING' | 'CONFISCATE_CRUELTY' | 'RETURN' | 'TRANSFER' | 'INJURED' | 'OTHER' | 'UNKNOWN';
 
     /** Free-text intake reason detail */
     intakeReasonDetail: string | null;
@@ -120,33 +120,4 @@ export interface ScrapedAnimal {
     _shelterCity?: string | null;
     /** Shelter state */
     _shelterState?: string | null;
-}
-
-export interface ShelterConfig {
-    /** Unique identifier for this shelter */
-    id: string;
-
-    /** Display name */
-    name: string;
-
-    /** County */
-    county: string;
-
-    /** State */
-    state: string;
-
-    /** Address */
-    address: string | null;
-
-    /** Phone */
-    phone: string | null;
-
-    /** Website URL */
-    websiteUrl: string | null;
-
-    /** URL where animal listings are found */
-    listingsUrl: string;
-
-    /** Function that scrapes and returns normalized animals */
-    adapter: () => Promise<ScrapedAnimal[]>;
 }

@@ -182,7 +182,7 @@ const CONDITION_MAP: Record<string, string> = {
  * Returns the canonical name if a mapping exists, otherwise returns
  * the input in Title Case for consistency.
  */
-export function normalizeCondition(condition: string): string {
+function normalizeCondition(condition: string): string {
     if (!condition) return condition;
     const key = condition.toLowerCase().trim();
     if (CONDITION_MAP[key]) return CONDITION_MAP[key];
@@ -196,7 +196,7 @@ export function normalizeCondition(condition: string): string {
 /**
  * Normalize an array of condition names, deduplicating after normalization.
  */
-export function normalizeConditions(conditions: string[]): string[] {
+function normalizeConditions(conditions: string[]): string[] {
     const seen = new Set<string>();
     const result: string[] = [];
     for (const c of conditions) {

@@ -73,6 +73,12 @@ async function main() {
         }
     }
 
+    // Init embedding provider
+    let embedHelper: EmbeddingHelper | null = null;
+    if (!noCv) {
+        embedHelper = await createEmbeddingHelper(prisma);
+    }
+
     // Step 2: Upsert shelters
     let sheltersUpserted = 0;
     for (const config of configs) {
@@ -272,12 +278,30 @@ async function main() {
                 });
                 updated++;
                 await upsertAnimalChildren(prisma, existing.id, data);
+
+                // Generate visual embedding (Phase 2 — Zilliz Cloud)
+                if (embedHelper && animal.photoUrl) {
+                    await embedHelper.embedAnimal(existing.id, animal.photoUrl, {
+                        species: animal.species,
+                        shelterId: animal._shelterId || undefined,
+                        ageSegment: animal.ageSegment,
+                    });
+                }
             } else {
                 const record = await (prisma as any).animal.create({
                     data: { shelterId, intakeId: animal.intakeId, ...data, firstSeenAt: now, daysInShelter: 0 },
                 });
                 created++;
                 await upsertAnimalChildren(prisma, record.id, data);
+
+                // Generate visual embedding (Phase 2 — Zilliz Cloud)
+                if (embedHelper && animal.photoUrl) {
+                    await embedHelper.embedAnimal(record.id, animal.photoUrl, {
+                        species: animal.species,
+                        shelterId: animal._shelterId || undefined,
+                        ageSegment: animal.ageSegment,
+                    });
+                }
             }
         } catch (err) {
             errors++;
@@ -306,6 +330,11 @@ async function main() {
     console.log(`\n🏁 Done in ${((Date.now() - startTime) / 1000).toFixed(0)}s!`);
     console.log(`   Animals: ${created} created, ${updated} updated, ${totalDelisted} delisted, ${errors} errors`);
     console.log(`   CV: ${cvProcessed} new estimates, ${cvSkipped} reused from previous run`);
+    if (embedHelper) {
+        const es = embedHelper.stats();
+        console.log(`   Embeddings: ${es.generated} new, ${es.skipped} skipped, ${es.failed} failed`);
+        await embedHelper.shutdown();
+    }
     console.log(`   Shelters: ${sheltersUpserted}`);
     checkScrapeHealth('socrata-listings', created + updated, errors, Date.now() - startTime);
     await finishRun(runId, { created, updated, errors, delisted: totalDelisted, errorSummary: errors > 0 ? `${errors} animal upsert failures` : undefined });

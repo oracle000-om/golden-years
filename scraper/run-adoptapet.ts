@@ -308,6 +308,15 @@ async function main() {
                 if (photoHash) existingHashes.set(animalId, photoHash);
             }
 
+            // Generate visual embedding (Phase 2 — Zilliz Cloud)
+            if (embedHelper) {
+                await embedHelper.embedAnimal(animalId, animal.photoUrl, {
+                    species: animal.species,
+                    shelterId: animal._shelterId || undefined,
+                    ageSegment: animal.ageSegment,
+                });
+            }
+
             const cvDiff = (cvEstimate && existing)
                 ? computeAssessmentDiff(existing, cvEstimate)
                 : null;

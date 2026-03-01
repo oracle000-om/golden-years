@@ -96,6 +96,12 @@ async function main() {
         }
     }
 
+    // Init embedding provider
+    let embedHelper: EmbeddingHelper | null = null;
+    if (!noCv) {
+        embedHelper = await createEmbeddingHelper(prisma);
+    }
+
     // State name → 2-letter abbreviation map
     const STATE_ABBREV: Record<string, string> = {
         'alabama': 'AL', 'alaska': 'AK', 'arizona': 'AZ', 'arkansas': 'AR', 'california': 'CA',
@@ -398,6 +404,15 @@ async function main() {
                 if (photoHash) existingHashes.set(animalId, photoHash);
             }
 
+            // Generate visual embedding (Phase 2 — Zilliz Cloud)
+            if (embedHelper) {
+                await embedHelper.embedAnimal(animalId, animal.photoUrl, {
+                    species: animal.species,
+                    shelterId: animal._shelterId || undefined,
+                    ageSegment: animal.ageSegment,
+                });
+            }
+
             // Create temporal snapshot with diff logging
             const cvDiff = (cvEstimate && existing)
                 ? computeAssessmentDiff(existing, cvEstimate)
@@ -464,6 +479,11 @@ async function main() {
     console.log(`   CV: ${cvProcessed} new estimates, ${cvSkipped} reused from previous run`);
     console.log(`   Cross-source dedup merges: ${dedupMerged}`);
     console.log(`   Non-photo images skipped: ${skippedNonPhoto}`);
+    if (embedHelper) {
+        const es = embedHelper.stats();
+        console.log(`   Embeddings: ${es.generated} new, ${es.skipped} skipped, ${es.failed} failed`);
+        await embedHelper.shutdown();
+    }
     console.log(`   Shelters: ${sheltersCreated}`);
     checkScrapeHealth('rescuegroups', created + updated, errors, Date.now() - startTime);
     await finishRun(runId, { created, updated, errors, delisted: totalDelisted, errorSummary: errors > 0 ? `${errors} animal upsert failures` : undefined });

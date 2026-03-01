@@ -103,7 +103,7 @@ scraper/
 ├── run-shelter-stats.ts        # Shelter Animals Count stats
 ├── run-breed-db.ts             # Breed database population
 ├── dedup.ts                    # 3-tier duplicate detection (exact/URL/pHash)
-├── shelters.ts                 # Shelter configuration (direct + web + socrata)
+├── shelters.ts                 # Shelter configuration (direct + socrata)
 ├── types.ts                    # Scraper-specific types
 ├── config/                     # JSON configs for data sources
 │   ├── shelterluv-config.json  # ShelterLuv org IDs
@@ -119,12 +119,6 @@ scraper/
 │   ├── breed-lifespan.ts       # Breed life expectancy lookup
 │   └── text-fallback.ts        # Text-based age estimation fallback
 └── adapters/                   # Data source adapters
-    ├── la-county.ts            # LA County Animal Care (direct API)
-    ├── oc-animal-care.ts       # OC Animal Care (direct API)
-    ├── nyc-acc.ts              # Animal Care Centers of NYC (direct API)
-    ├── maricopa.ts             # Maricopa County Animal Care (direct API)
-    ├── harris-county.ts        # Harris County Pets (direct API)
-    ├── web-shelters.ts         # Config-driven web scraper (multiple shelters)
     ├── rescuegroups.ts         # RescueGroups.org API
     ├── shelterluv.ts           # ShelterLuv API
     ├── petfinder.ts            # Petfinder GraphQL (no API key)
@@ -156,13 +150,11 @@ prisma/
 
 | Source | Type | Coverage | Status |
 |---|---|---|---|
-| Municipal shelter APIs (LA, OC, NYC, Maricopa, Harris County) | Direct API | 5 major metro areas | ✅ Active |
 | RescueGroups.org | JSON API | ~600+ rescue orgs nationwide | ✅ Active |
 | Petfinder | GraphQL | ~2,400+ orgs nationwide | ✅ Active |
 | ShelterLuv | JSON API | ~200+ orgs | ✅ Active |
 | Petango / 24PetConnect | JSON API | ~50+ orgs | ✅ Active |
 | Adopt-a-Pet | JSON API | Configured shelters | ✅ Active |
-| Web shelter scraper | HTML scraping | Config-driven, multi-shelter | ✅ Active |
 | Socrata open data portals | JSON API | Austin, Dallas, King County, Sonoma, Norfolk, Bloomington | ✅ Active |
 | Shelter Animals Count (ASPCA) | JSON API | Shelter intake/outcome stats | ✅ Active |
 | AKC/CFA Breed Database | JSON API | Breed profiles + lifespans | ✅ Active |

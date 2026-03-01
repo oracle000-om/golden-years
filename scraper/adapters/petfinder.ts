@@ -13,7 +13,7 @@
  */
 
 import type { ScrapedAnimal } from '../types';
-import { isSenior } from './base-adapter';
+import { classifyAgeSegment } from './base-adapter';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
@@ -220,7 +220,6 @@ async function fetchOrgAnimals(
             sort: [],
             filters: {
                 animal_type: [animalType],
-                age: ['SENIOR'],
                 adoption_status: ['ADOPTABLE'],
                 record_status: ['PUBLISHED'],
                 organization_id: [config.petfinderOrgId],
@@ -261,7 +260,7 @@ async function fetchOrgAnimals(
         if (page === 0) {
             const total = searchResult.totalCount ?? 0;
             totalPages = Math.min(Math.ceil(total / pageSize), 10); // cap
-            console.log(`      ${animalType}s: ${total} senior animals, ${totalPages} page(s)`);
+            console.log(`      ${animalType}s: ${total} animals, ${totalPages} page(s)`);
         }
 
         for (const pf of searchResult.animals) {
@@ -270,8 +269,6 @@ async function fetchOrgAnimals(
 
             const size = mapSize(pf.physical?.size?.label);
             const ageYears = parseAge(pf.physical?.age?.value);
-
-            if (!isSenior(ageYears, species, size)) continue;
 
             // Extract photos and videos from _media (type field removed from schema, infer from URL)
             const media = pf._media || [];
@@ -378,6 +375,7 @@ async function fetchOrgAnimals(
                 _shelterName: orgName,
                 _shelterCity: orgCity,
                 _shelterState: orgState,
+                ageSegment: classifyAgeSegment(ageYears, species, size),
             });
         }
 
@@ -471,7 +469,7 @@ export async function scrapePetfinder(opts?: {
             completed++;
             if (completed % 50 === 0 || completed === filtered.length) {
                 const elapsed = ((Date.now() - startMs) / 1000).toFixed(0);
-                console.log(`   📈 Progress: ${completed}/${filtered.length} shelters (${allAnimals.length} seniors, ${timedOut} timeouts) — ${elapsed}s`);
+                console.log(`   📈 Progress: ${completed}/${filtered.length} shelters (${allAnimals.length} animals, ${timedOut} timeouts) — ${elapsed}s`);
             }
         }
     }
@@ -499,7 +497,7 @@ export async function scrapePetfinder(opts?: {
         scheduleNext();
     });
 
-    console.log(`   Total Petfinder seniors: ${allAnimals.length} from ${shelterMap.size} shelters (${timedOut} timed out)`);
+    console.log(`   Total Petfinder animals: ${allAnimals.length} from ${shelterMap.size} shelters (${timedOut} timed out)`);
     return { animals: allAnimals, shelters: shelterMap };
 }
 

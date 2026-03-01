@@ -148,6 +148,24 @@ export function isSenior(
     return ageYears >= (SENIOR_AGE[species] ?? 7);
 }
 
+export type AgeSegment = 'PUPPY' | 'YOUNG' | 'ADULT' | 'SENIOR' | 'UNKNOWN';
+
+/**
+ * Classify an animal's age into a product segment.
+ * Used for multi-product filtering: GYC=SENIOR, LBC=PUPPY/YOUNG, Sniff=ALL.
+ */
+export function classifyAgeSegment(
+    ageYears: number | null | undefined,
+    species: 'DOG' | 'CAT' | 'OTHER',
+    size?: 'SMALL' | 'MEDIUM' | 'LARGE' | 'XLARGE' | null,
+): AgeSegment {
+    if (ageYears == null) return 'UNKNOWN';
+    if (isSenior(ageYears, species, size)) return 'SENIOR';
+    if (ageYears < 1) return 'PUPPY';
+    if (ageYears < 3) return 'YOUNG';
+    return 'ADULT';
+}
+
 // ── validateAnimal ─────────────────────────────────────
 
 export interface ValidationResult {

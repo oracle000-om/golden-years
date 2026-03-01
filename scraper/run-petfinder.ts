@@ -24,6 +24,7 @@ import { startRun, finishRun, failRun } from './lib/scrape-run';
 import { shouldScrape } from './lib/should-scrape';
 import type { ScrapedAnimal } from './types';
 import { upsertAnimalChildren } from './lib/upsert-children';
+import { createEmbeddingHelper, type EmbeddingHelper } from './lib/embed-helper';
 
 const CONCURRENCY = 5;
 
@@ -96,6 +97,12 @@ async function main() {
         if (!cvProvider) {
             console.warn('⚠ CV disabled (no GEMINI_API_KEY). Proceeding without age estimation.');
         }
+    }
+
+    // Init embedding provider
+    let embedHelper: EmbeddingHelper | null = null;
+    if (!noCv) {
+        embedHelper = await createEmbeddingHelper(prisma);
     }
 
     // Step 2: Upsert shelters
@@ -215,6 +222,7 @@ async function main() {
                 intakeReason: animal.intakeReason, intakeReasonDetail: sanitizeText(animal.intakeReasonDetail),
                 euthScheduledAt: animal.euthScheduledAt, intakeDate: animal.intakeDate,
                 notes: sanitizeText(animal.notes), lastSeenAt: now,
+                ageSegment: animal.ageSegment || 'UNKNOWN',
                 // v10: Reset listing protection counters
                 consecutiveMisses: 0, staleSince: null,
                 // v6: Behavioral data
@@ -382,6 +390,11 @@ async function main() {
     console.log(`\n🏁 Done in ${((Date.now() - startTime) / 1000).toFixed(0)}s!`);
     console.log(`   Animals: ${created} created, ${updated} updated, ${totalDelisted} delisted, ${errors} errors`);
     console.log(`   CV: ${cvProcessed} new, ${cvSkipped} reused | Dedup: ${dedupMerged} | Non-photo: ${skippedNonPhoto}`);
+    if (embedHelper) {
+        const es = embedHelper.stats();
+        console.log(`   Embeddings: ${es.generated} new, ${es.skipped} skipped, ${es.failed} failed`);
+        await embedHelper.shutdown();
+    }
     console.log(`   Shelters: ${sheltersCreated}`);
     checkScrapeHealth('petfinder', created + updated, errors, Date.now() - startTime);
     await finishRun(runId, { created, updated, errors, delisted: totalDelisted, errorSummary: errors > 0 ? `${errors} animal upsert failures` : undefined });

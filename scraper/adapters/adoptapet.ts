@@ -20,7 +20,7 @@
  */
 
 import type { ScrapedAnimal } from '../types';
-import { safeFetchText, isSenior, mapSex, mapSpecies, mapSize, parseAge, validatePhotoUrl } from './base-adapter';
+import { safeFetchText, classifyAgeSegment, mapSex, mapSpecies, mapSize, parseAge, validatePhotoUrl } from './base-adapter';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
@@ -332,7 +332,7 @@ async function fetchShelterAnimals(config: AdoptaPetConfig): Promise<ScrapedAnim
                         breedLower.includes('rottweiler') || breedLower.includes('malinois') ? 'DOG'
                         : 'OTHER';
 
-            if (!isSenior(ageYears, resolvedSpecies)) continue;
+
 
             animals.push({
                 intakeId: `AAP-${config.id}-${petId}`,
@@ -360,12 +360,13 @@ async function fetchShelterAnimals(config: AdoptaPetConfig): Promise<ScrapedAnim
                 _shelterName: config.shelterName,
                 _shelterCity: config.city,
                 _shelterState: config.state,
+                ageSegment: classifyAgeSegment(ageYears, resolvedSpecies, inferSizeFromBreed(detail.breed)),
             });
         }
 
         // Progress indicator for large shelters
         if (detailsFetched % 25 < PET_DETAIL_CONCURRENCY) {
-            console.log(`      ... ${detailsFetched}/${petEntries.length} details fetched, ${animals.length} seniors found`);
+            console.log(`      ... ${detailsFetched}/${petEntries.length} details fetched, ${animals.length} animals found`);
         }
 
         // Rate limit between batches (500ms)
@@ -374,7 +375,7 @@ async function fetchShelterAnimals(config: AdoptaPetConfig): Promise<ScrapedAnim
         }
     }
 
-    console.log(`      Seniors with photos: ${animals.length} (from ${detailsFetched} details fetched)`);
+    console.log(`      Animals with photos: ${animals.length} (from ${detailsFetched} details fetched)`);
     return animals;
 }
 
@@ -446,7 +447,7 @@ export async function scrapeAdoptaPet(opts?: {
             completed++;
             if (completed % 25 === 0 || completed === filtered.length) {
                 const elapsed = ((Date.now() - startMs) / 1000).toFixed(0);
-                console.log(`   📈 Progress: ${completed}/${filtered.length} shelters (${allAnimals.length} seniors, ${timedOut} timeouts) — ${elapsed}s`);
+                console.log(`   📈 Progress: ${completed}/${filtered.length} shelters (${allAnimals.length} animals, ${timedOut} timeouts) — ${elapsed}s`);
             }
         }
     }
@@ -474,7 +475,7 @@ export async function scrapeAdoptaPet(opts?: {
         scheduleNext();
     });
 
-    console.log(`   Total Adopt-a-Pet seniors: ${allAnimals.length} from ${shelterMap.size} shelters (${timedOut} timed out)`);
+    console.log(`   Total Adopt-a-Pet animals: ${allAnimals.length} from ${shelterMap.size} shelters (${timedOut} timed out)`);
     return { animals: allAnimals, shelters: shelterMap };
 }
 

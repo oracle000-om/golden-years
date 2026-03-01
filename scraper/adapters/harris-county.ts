@@ -13,7 +13,7 @@
  */
 
 import type { ScrapedAnimal } from '../types';
-import { safeFetchText, safeFetchJSON, isSenior, mapSex, mapSpecies, mapSize, parseAge } from './base-adapter';
+import { safeFetchText, safeFetchJSON, classifyAgeSegment, mapSex, mapSpecies, mapSize, parseAge } from './base-adapter';
 
 // ── Constants ──────────────────────────────────────────
 
@@ -286,7 +286,7 @@ export async function scrapeHarrisCounty(): Promise<ScrapedAnimal[]> {
     const DETAIL_CONCURRENCY = 10;
     const animals: ScrapedAnimal[] = [];
     let detailsFetched = 0;
-    let seniorCount = 0;
+
 
     async function fetchDetail(r: PetConnectAnimal): Promise<void> {
         const detailUrl = `https://24petconnect.com/HarrisCountyAdoptablePets/Details/${r.shelterCode}/${r.id}`;
@@ -299,9 +299,6 @@ export async function scrapeHarrisCounty(): Promise<ScrapedAnimal[]> {
 
             const species = mapSpecies(detail.species);
             const ageYears = parseAge(detail.age);
-
-            if (!isSenior(ageYears, species)) return;
-            seniorCount++;
 
             animals.push({
                 intakeId: r.id,
@@ -319,6 +316,7 @@ export async function scrapeHarrisCounty(): Promise<ScrapedAnimal[]> {
                 notes: detail.notes,
                 intakeReason: 'UNKNOWN',
                 intakeReasonDetail: null,
+                ageSegment: classifyAgeSegment(ageYears, species),
             });
         } catch {
             // Non-fatal — skip this animal
@@ -330,13 +328,13 @@ export async function scrapeHarrisCounty(): Promise<ScrapedAnimal[]> {
         await Promise.allSettled(batch.map(r => fetchDetail(r)));
 
         if ((i + DETAIL_CONCURRENCY) % 100 < DETAIL_CONCURRENCY || i + DETAIL_CONCURRENCY >= raw.length) {
-            console.log(`      ... ${Math.min(i + DETAIL_CONCURRENCY, raw.length)}/${raw.length} details (${seniorCount} seniors so far)`);
+            console.log(`      ... ${Math.min(i + DETAIL_CONCURRENCY, raw.length)}/${raw.length} details (${animals.length} animals so far)`);
         }
 
         await new Promise(r => setTimeout(r, 300)); // Rate limit between batches
     }
 
-    console.log(`      Seniors: ${animals.length} (${animals.filter(a => a.photoUrl).length} with photos)`);
+    console.log(`      Total animals: ${animals.length} (${animals.filter(a => a.photoUrl).length} with photos)`);
 
     // Fetch and log stats
     console.log('      Fetching ArcGIS shelter stats...');

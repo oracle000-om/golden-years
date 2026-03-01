@@ -39,6 +39,9 @@ export interface ScrapedAnimal {
     /** Age source */
     ageSource: 'SHELTER_REPORTED' | 'CV_ESTIMATED' | 'UNKNOWN';
 
+    /** Age segment for product segmentation (GYC=SENIOR, LBC=PUPPY/YOUNG) */
+    ageSegment?: 'PUPPY' | 'YOUNG' | 'ADULT' | 'SENIOR' | 'UNKNOWN';
+
     /** Scheduled euthanasia date, if known */
     euthScheduledAt: Date | null;
 

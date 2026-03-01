@@ -30,6 +30,7 @@ import { reconcileAnimals } from './lib/reconcile';
 import { startRun, finishRun, failRun } from './lib/scrape-run';
 import type { ScrapedAnimal } from './types';
 import { upsertAnimalChildren } from './lib/upsert-children';
+import { createEmbeddingHelper, type EmbeddingHelper } from './lib/embed-helper';
 
 async function main() {
     const dryRun = process.argv.includes('--dry-run');
@@ -181,6 +182,7 @@ async function main() {
                 intakeDate: animal.intakeDate,
                 notes: sanitizeText(animal.notes),
                 lastSeenAt: now,
+                ageSegment: animal.ageSegment || 'UNKNOWN',
                 // v6: Behavioral data
                 houseTrained: animal.houseTrained ?? null,
                 goodWithCats: animal.goodWithCats ?? null,

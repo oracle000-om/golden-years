@@ -11,7 +11,7 @@
  */
 
 import type { ScrapedAnimal } from '../types';
-import { safeFetchJSON, isSenior, mapSex, mapSpecies, mapSize, parseAge, validatePhotoUrl } from './base-adapter';
+import { safeFetchJSON, classifyAgeSegment, mapSex, mapSpecies, mapSize, parseAge, validatePhotoUrl } from './base-adapter';
 
 // ── Config ─────────────────────────────────────────────
 
@@ -199,8 +199,6 @@ async function fetchSocrataListings(config: SocrataListingConfig): Promise<Scrap
         ageStr = ageStr.replace(/<[^>]+>/g, '').trim(); // Strip HTML tags
         const ageYears = parseAge(ageStr);
 
-        if (!isSenior(ageYears, species)) continue;
-
         const id = String(r[fields.animalId] || '');
         if (!id) continue;
 
@@ -248,10 +246,11 @@ async function fetchSocrataListings(config: SocrataListingConfig): Promise<Scrap
             _shelterName: config.shelterName,
             _shelterCity: config.city,
             _shelterState: config.state,
+            ageSegment: classifyAgeSegment(ageYears, species),
         });
     }
 
-    console.log(`      Seniors with data: ${animals.length} (${animals.filter(a => a.photoUrl).length} with photos)`);
+    console.log(`      Animals with data: ${animals.length} (${animals.filter(a => a.photoUrl).length} with photos)`);
     return animals;
 }
 
@@ -271,7 +270,7 @@ export async function scrapeSocrataListings(opts?: {
         await new Promise(r => setTimeout(r, 500));
     }
 
-    console.log(`   Total Socrata listings: ${allAnimals.length} seniors from ${configs.length} portals`);
+    console.log(`   Total Socrata listings: ${allAnimals.length} animals from ${configs.length} portals`);
     return { animals: allAnimals, configs };
 }
 

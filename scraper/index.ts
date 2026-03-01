@@ -219,6 +219,7 @@ async function main() {
                     notes: sanitizeText(animal.notes),
                     // v2: temporal tracking
                     lastSeenAt: now,
+                    ageSegment: (animal as any).ageSegment || 'UNKNOWN',
                     // v10: Reset listing protection counters
                     consecutiveMisses: 0,
                     staleSince: null,

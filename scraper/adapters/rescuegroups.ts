@@ -13,7 +13,7 @@
  */
 
 import type { ScrapedAnimal } from '../types';
-import { isSenior } from './base-adapter';
+import { classifyAgeSegment } from './base-adapter';
 
 const API_BASE = 'https://api.rescuegroups.org/v5/public/animals/search/available';
 const PAGE_LIMIT = 100; // max per page
@@ -208,7 +208,7 @@ export async function scrapeRescueGroups(options: ScrapeOptions = {}): Promise<{
         let totalPages = 1;
         let speciesTotal = 0;
 
-        console.log(`   Fetching senior ${species}...`);
+        console.log(`   Fetching ${species}...`);
 
         while (page <= totalPages) {
             const url = new URL(`${API_BASE}/${species}`);
@@ -220,10 +220,7 @@ export async function scrapeRescueGroups(options: ScrapeOptions = {}): Promise<{
             );
             url.searchParams.set('fields[orgs]', 'name,citystate,state,city,postalcode,phone,url');
 
-            // Build filter body — fetch seniors from ALL org types (shelters, rescues, sanctuaries, etc.)
-            const filters: Array<{ fieldName: string; operation: string; criteria: string }> = [
-                { fieldName: 'animals.ageGroup', operation: 'equals', criteria: 'Senior' },
-            ];
+            const filters: Array<{ fieldName: string; operation: string; criteria: string }> = [];
 
             // Location filters
             const filterRadius: Record<string, unknown> = {};
@@ -262,7 +259,7 @@ export async function scrapeRescueGroups(options: ScrapeOptions = {}): Promise<{
                 // Update pagination
                 if (page === 1) {
                     totalPages = json.meta?.pages || 1;
-                    console.log(`   ${species.toUpperCase()}: ${json.meta?.count || 0} senior animals across ${totalPages} pages`);
+                    console.log(`   ${species.toUpperCase()}: ${json.meta?.count || 0} animals across ${totalPages} pages`);
                 }
 
                 // Build lookup map for included resources
@@ -277,12 +274,8 @@ export async function scrapeRescueGroups(options: ScrapeOptions = {}): Promise<{
 
                     // Parse age
                     const ageYears = parseAgeFromString(attrs.ageString);
-
-                    // RescueGroups' "Senior" ageGroup uses lower thresholds
-                    // than Golden Years (e.g. 8yr cats). Apply our own gate.
                     const resolvedSpeciesEarly: 'DOG' | 'CAT' | 'OTHER' = species === 'dogs' ? 'DOG'
                         : species === 'cats' ? 'CAT' : 'OTHER';
-                    if (!isSenior(ageYears, resolvedSpeciesEarly, mapSize(attrs.sizeGroup))) continue;
 
                     // Get all photos
                     const allPhotos = getAllPhotoUrls(animal, includedMap);
@@ -366,6 +359,7 @@ export async function scrapeRescueGroups(options: ScrapeOptions = {}): Promise<{
                         _shelterName: org?.attributes.name || null,
                         _shelterCity: org?.attributes.city || null,
                         _shelterState: org?.attributes.state || null,
+                        ageSegment: classifyAgeSegment(finalAge, resolvedSpecies, mapSize(attrs.sizeGroup)),
                     };
 
                     allAnimals.push(scraped);
@@ -384,9 +378,9 @@ export async function scrapeRescueGroups(options: ScrapeOptions = {}): Promise<{
             }
         }
 
-        console.log(`   ${species.toUpperCase()}: ${speciesTotal} seniors fetched`);
+        console.log(`   ${species.toUpperCase()}: ${speciesTotal} animals fetched`);
     }
 
-    console.log(`   Total seniors found: ${allAnimals.length} from ${shelterMap.size} shelters`);
+    console.log(`   Total animals found: ${allAnimals.length} from ${shelterMap.size} shelters`);
     return { animals: allAnimals, shelters: shelterMap };
 }

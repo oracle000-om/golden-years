@@ -8,7 +8,7 @@
  * Site: https://pets.maricopa.gov/adopt
  */
 import type { ScrapedAnimal } from '../types';
-import { safeFetchJSON, safeFetchText, isSenior, mapSex, mapSize, parseAge } from './base-adapter';
+import { safeFetchJSON, safeFetchText, classifyAgeSegment, mapSex, mapSize, parseAge } from './base-adapter';
 
 const SEARCH_BASE = 'https://apps.pets.maricopa.gov';
 
@@ -81,7 +81,6 @@ export async function scrapeMaricopa(): Promise<ScrapedAnimal[]> {
                         : 'OTHER' as const;
 
         const ageYears = r.ageYears ?? parseAge(r.age);
-        if (!isSenior(ageYears, species)) continue;
 
         const id = r.animalId || r.animalID || '';
         const photoUrl = r.photoUrl || r.photo || r.imageUrl || null;
@@ -106,9 +105,10 @@ export async function scrapeMaricopa(): Promise<ScrapedAnimal[]> {
             intakeReason: r.intakeType?.toLowerCase().includes('stray') ? 'STRAY'
                 : r.intakeType?.toLowerCase().includes('owner') ? 'OWNER_SURRENDER' : 'UNKNOWN',
             intakeReasonDetail: r.location || r.kennel || null,
+            ageSegment: classifyAgeSegment(ageYears, species),
         });
     }
 
-    console.log(`   Maricopa seniors with photos: ${animals.length}`);
+    console.log(`   Maricopa animals with photos: ${animals.length}`);
     return animals;
 }

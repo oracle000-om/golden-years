@@ -14,7 +14,7 @@
  */
 
 import type { ScrapedAnimal } from '../types';
-import { safeFetchText, isSenior, mapSex, mapSpecies, mapSize, parseAge, SENIOR_AGE } from './base-adapter';
+import { safeFetchText, classifyAgeSegment, mapSex, mapSpecies, mapSize, parseAge } from './base-adapter';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
@@ -267,7 +267,6 @@ export async function scrapePetango(opts?: {
             try {
                 const animals = await searchAdoptable(config.authkey, speciesId.toString());
                 // Count total and filter for seniors
-                let seniorCount = 0;
                 console.log(`      ${speciesNameMap[speciesId] ?? 'OTHER'}: ${animals.length} total found`);
 
                 for (const animal of animals) {
@@ -278,10 +277,6 @@ export async function scrapePetango(opts?: {
                     const ageMonths = parseInt(animal.age, 10);
                     const ageYears = !isNaN(ageMonths) ? Math.floor(ageMonths / 12) : parseAge(animal.age);
                     const species = mapSpecies(animal.species) || speciesNameMap[speciesId] || 'OTHER';
-
-                    // Skip non-seniors
-                    if (!isSenior(ageYears, species)) continue;
-                    seniorCount++;
 
                     // Detect foster from location field
                     const locationLower = (animal.location || '').toLowerCase();
@@ -333,11 +328,12 @@ export async function scrapePetango(opts?: {
                         _shelterName: config.shelterName,
                         _shelterCity: config.city,
                         _shelterState: config.state,
+                        ageSegment: classifyAgeSegment(ageYears, species, mapSize(animal.size)),
                     };
 
                     allAnimals.push(scraped);
                 }
-                console.log(`      → ${seniorCount} seniors (≥${SENIOR_AGE[speciesNameMap[speciesId]] ?? 7}yr)`);
+                console.log(`      → ${animals.length} animals from this species`);
             } catch (err) {
                 console.error(`      ❌ ${speciesNameMap[speciesId] ?? speciesId}: ${(err as Error).message?.substring(0, 100)}`);
             }
@@ -350,6 +346,6 @@ export async function scrapePetango(opts?: {
         await new Promise(r => setTimeout(r, 1000));
     }
 
-    console.log(`   Total Petango seniors: ${allAnimals.length} from ${shelterMap.size} shelters`);
+    console.log(`   Total Petango animals: ${allAnimals.length} from ${shelterMap.size} shelters`);
     return { animals: allAnimals, shelters: shelterMap };
 }

@@ -8,7 +8,7 @@
  * Data likely via: https://nycacc.app API or embedded data
  */
 import type { ScrapedAnimal } from '../types';
-import { safeFetchJSON, safeFetchText, isSenior, mapSex, mapSpecies, mapSize, parseAge } from './base-adapter';
+import { safeFetchJSON, safeFetchText, classifyAgeSegment, mapSex, mapSpecies, mapSize, parseAge } from './base-adapter';
 
 const SEARCH_URL = 'https://nycacc.org/adopt';
 
@@ -92,7 +92,6 @@ export async function scrapeNycAcc(): Promise<ScrapedAnimal[]> {
     for (const r of raw) {
         const species = mapSpecies(r.species);
         const ageYears = parseAge(r.age);
-        if (!isSenior(ageYears, species)) continue;
 
         const id = r.animalID || r.id || '';
         const photoUrl = r.photo || r.photoUrl || null;
@@ -117,9 +116,10 @@ export async function scrapeNycAcc(): Promise<ScrapedAnimal[]> {
             intakeReason: r.intakeType?.toLowerCase().includes('stray') ? 'STRAY'
                 : r.intakeType?.toLowerCase().includes('owner') ? 'OWNER_SURRENDER' : 'UNKNOWN',
             intakeReasonDetail: r.location || null,
+            ageSegment: classifyAgeSegment(ageYears, species),
         });
     }
 
-    console.log(`   NYC ACC seniors with photos: ${animals.length}`);
+    console.log(`   NYC ACC animals with photos: ${animals.length}`);
     return animals;
 }

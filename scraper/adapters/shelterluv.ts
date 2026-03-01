@@ -11,7 +11,7 @@
  */
 
 import type { ScrapedAnimal } from '../types';
-import { safeFetchJSON, isSenior, mapSex, mapSpecies, mapSize, parseAge } from './base-adapter';
+import { safeFetchJSON, classifyAgeSegment, mapSex, mapSpecies, mapSize, parseAge } from './base-adapter';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
@@ -182,7 +182,6 @@ async function fetchShelterLuvAnimals(config: ShelterLuvConfig): Promise<Scraped
     for (const raw of rawAnimals) {
         const species = mapSpecies(raw.species);
         const ageYears = parseAgeFromShelterLuv(raw);
-        if (!isSenior(ageYears, species)) continue;
 
         const id = raw.uniqueId || raw.nid || '';
         if (!id) continue;
@@ -277,10 +276,11 @@ async function fetchShelterLuvAnimals(config: ShelterLuvConfig): Promise<Scraped
             _shelterName: config.shelterName,
             _shelterCity: config.city,
             _shelterState: config.state,
+            ageSegment: classifyAgeSegment(ageYears, species, size),
         });
     }
 
-    console.log(`      Seniors with photos: ${animals.length}`);
+    console.log(`      Animals with photos: ${animals.length}`);
     return animals;
 }
 
@@ -346,7 +346,7 @@ export async function scrapeShelterLuv(opts?: {
         await new Promise(r => setTimeout(r, 1000));
     }
 
-    console.log(`   Total ShelterLuv seniors: ${allAnimals.length} from ${shelterMap.size} shelters`);
+    console.log(`   Total ShelterLuv animals: ${allAnimals.length} from ${shelterMap.size} shelters`);
     return { animals: allAnimals, shelters: shelterMap };
 }
 

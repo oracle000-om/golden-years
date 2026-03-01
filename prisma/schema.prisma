@@ -85,6 +85,7 @@ model Animal {
   ageConfidence         AgeConfidence @default(NONE) @map("age_confidence")
   ageIndicators         String[]    @default([]) @map("age_indicators")
   ageSource             AgeSource   @default(UNKNOWN) @map("age_source")
+  ageSegment            AgeSegment  @default(UNKNOWN) @map("age_segment")
   detectedBreeds        String[]    @default([]) @map("detected_breeds")
   breedConfidence       AgeConfidence @default(NONE) @map("breed_confidence")
   lifeExpectancyLow     Int?        @map("life_expectancy_low")
@@ -353,6 +354,14 @@ enum Species {
 enum Sex {
   MALE
   FEMALE
+  UNKNOWN
+}
+
+enum AgeSegment {
+  PUPPY
+  YOUNG
+  ADULT
+  SENIOR
   UNKNOWN
 }
 
@@ -700,4 +709,87 @@ model BreederInspection {
   @@unique([certNumber, inspectionDate])
   @@index([state])
   @@map("breeder_inspections")
+}
+
+// ── PetAlert: Lost/Found pet matching alerts ──
+model PetAlert {
+  id              String          @id @default(uuid())
+  type            PetAlertType
+  status          PetAlertStatus  @default(ACTIVE)
+  species         Species         @default(DOG)
+  breed           String?
+  name            String?                               // Pet name (if known)
+  description     String?
+  photoUrl        String?         @map("photo_url")
+  photoEmbedding  Float[]         @default([]) @map("photo_embedding")
+  embeddingModel  String?         @map("embedding_model")
+
+  // Location
+  latitude        Float?
+  longitude       Float?
+  locationText    String?         @map("location_text")  // "Near Main St, Austin TX"
+  radiusMiles     Float           @default(25) @map("radius_miles")
+
+  // Contact
+  contactEmail    String          @map("contact_email")
+  contactPhone    String?         @map("contact_phone")
+  contactName     String?         @map("contact_name")
+
+  // Matching
+  matchCount      Int             @default(0) @map("match_count")
+
+  // Lifecycle
+  expiresAt       DateTime        @map("expires_at")     // Auto-expire after 30 days
+  deactivatedAt   DateTime?       @map("deactivated_at")
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
+
+  @@index([status, species])
+  @@index([expiresAt])
+  @@map("pet_alerts")
+}
+
+enum PetAlertType {
+  LOST
+  FOUND
+}
+
+enum PetAlertStatus {
+  ACTIVE
+  MATCHED
+  EXPIRED
+  DEACTIVATED
+}
+
+// ── AnimalIdentity: links the same physical animal across intake records ──
+model AnimalIdentity {
+  id              String   @id @default(uuid())
+  firstSeenAt     DateTime @map("first_seen_at")
+  journeyJson     Json?    @map("journey_json")   // [{shelterId, shelterName, event, date}]
+  isReEntry       Boolean  @default(false) @map("is_re_entry")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  animals         Animal[]
+
+  @@map("animal_identities")
+}
+
+// ── ReEntryCandidate: pending/confirmed/rejected re-entry matches ──
+model ReEntryCandidate {
+  id              String    @id @default(uuid())
+  animalId        String    @map("animal_id")
+  matchedAnimalId String    @map("matched_animal_id")
+  similarity      Float
+  status          String    @default("PENDING_REVIEW")  // PENDING_REVIEW, CONFIRMED, REJECTED
+  reviewedBy      String?   @map("reviewed_by")
+  reviewedAt      DateTime? @map("reviewed_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  animal          Animal    @relation("reEntrySource", fields: [animalId], references: [id])
+  matchedAnimal   Animal    @relation("reEntryMatch", fields: [matchedAnimalId], references: [id])
+
+  @@index([status])
+  @@index([animalId])
+  @@map("re_entry_candidates")
 }

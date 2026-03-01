@@ -29,7 +29,7 @@ import { checkScrapeHealth } from './lib/alert';
 import { reconcileAnimals } from './lib/reconcile';
 import { startRun, finishRun, failRun } from './lib/scrape-run';
 import type { ScrapedAnimal } from './types';
-import { upsertAnimalChildren } from './lib/upsert-children';
+import { upsertAnimalChildren, stripChildFields } from './lib/upsert-children';
 import { createEmbeddingHelper, type EmbeddingHelper } from './lib/embed-helper';
 
 async function main() {
@@ -270,7 +270,7 @@ async function main() {
                 await prisma.animal.update({
                     where: { id: existing.id },
                     data: {
-                        ...data,
+                        ...stripChildFields(data),
                         daysInShelter: existing.firstSeenAt
                             ? Math.floor((now.getTime() - new Date(existing.firstSeenAt).getTime()) / (1000 * 60 * 60 * 24))
                             : 0,
@@ -289,7 +289,7 @@ async function main() {
                 }
             } else {
                 const record = await prisma.animal.create({
-                    data: { shelterId, intakeId: animal.intakeId, ...data, firstSeenAt: now, daysInShelter: 0 },
+                    data: { shelterId, intakeId: animal.intakeId, ...stripChildFields(data), firstSeenAt: now, daysInShelter: 0 },
                 });
                 created++;
                 await upsertAnimalChildren(prisma, record.id, data);

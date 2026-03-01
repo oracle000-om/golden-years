@@ -28,7 +28,7 @@ import { enqueueFailure } from './lib/retry-queue';
 import { checkScrapeHealth } from './lib/alert';
 import { reconcileAnimals } from './lib/reconcile';
 import { startRun, finishRun } from './lib/scrape-run';
-import { upsertAnimalChildren } from './lib/upsert-children';
+import { upsertAnimalChildren, stripChildFields } from './lib/upsert-children';
 
 
 
@@ -282,7 +282,7 @@ async function main() {
                     await prisma.animal.update({
                         where: { id: existing.id },
                         data: {
-                            ...data,
+                            ...stripChildFields(data),
                             daysInShelter: existing.firstSeenAt
                                 ? Math.floor((now.getTime() - existing.firstSeenAt.getTime()) / (1000 * 60 * 60 * 24))
                                 : 0,
@@ -296,7 +296,7 @@ async function main() {
                         data: {
                             shelterId: shelter.id,
                             intakeId: animal.intakeId,
-                            ...data,
+                            ...stripChildFields(data),
                             firstSeenAt: now,
                             daysInShelter: 0,
                         },

@@ -109,3 +109,26 @@ export async function upsertAnimalChildren(
 }
 
 export { ASSESSMENT_FIELDS, ENRICHMENT_FIELDS, LISTING_FIELDS, extractFields };
+
+/**
+ * Strip child-table fields from a data object so it can be safely
+ * passed to prisma.animal.create/update without referencing dropped columns.
+ *
+ * Note: 'description' and 'listingUrl' exist on BOTH Animal and AnimalListing,
+ * so they are NOT stripped.
+ */
+const FIELDS_ON_BOTH = new Set(['description', 'listingUrl']);
+const CHILD_FIELD_SET = new Set<string>(
+    [...ASSESSMENT_FIELDS, ...ENRICHMENT_FIELDS, ...LISTING_FIELDS]
+        .filter(f => !FIELDS_ON_BOTH.has(f)),
+);
+
+export function stripChildFields(data: Record<string, unknown>): Record<string, unknown> {
+    const result: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(data)) {
+        if (!CHILD_FIELD_SET.has(key)) {
+            result[key] = value;
+        }
+    }
+    return result;
+}

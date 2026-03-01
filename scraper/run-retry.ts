@@ -16,7 +16,7 @@ import { getFailureSummary, processRetryQueue } from './lib/retry-queue';
 import { sendAlert } from './lib/alert';
 import { createPrismaClient } from './lib/prisma';
 import { startRun, finishRun } from './lib/scrape-run';
-import { upsertAnimalChildren } from './lib/upsert-children';
+import { upsertAnimalChildren, stripChildFields } from './lib/upsert-children';
 
 async function main() {
     const pipelineArg = process.argv.find(a => a.startsWith('--pipeline='))?.split('=')[1];
@@ -94,7 +94,7 @@ async function main() {
                         data: {
                             shelterId,
                             intakeId,
-                            ...payload.data,
+                            ...stripChildFields(payload.data),
                             firstSeenAt: new Date(),
                             daysInShelter: 0,
                         },

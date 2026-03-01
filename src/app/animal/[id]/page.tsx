@@ -312,7 +312,13 @@ export default async function AnimalDetailPage({
                                     <span className={`animal-detail__detail-value ${sizeDisplay.inferred ? 'cv-estimated' : ''}`}>{sizeDisplay.text}</span>
                                 </div>
                             )}
-                            {a?.estimatedWeightLbs && (
+                            {l?.weight && (
+                                <div className="animal-detail__detail-row">
+                                    <span className="animal-detail__detail-label">Weight</span>
+                                    <span className="animal-detail__detail-value">{l.weight}</span>
+                                </div>
+                            )}
+                            {!l?.weight && a?.estimatedWeightLbs && (
                                 <div className="animal-detail__detail-row">
                                     <span className="animal-detail__detail-label">Est. weight</span>
                                     <span className="animal-detail__detail-value cv-estimated">~{a.estimatedWeightLbs} lbs</span>

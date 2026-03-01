@@ -70,29 +70,27 @@ function seniorThreshold(species: string, size: string | null): number {
 }
 
 /**
- * Determine if an animal should be excluded — EITHER the shelter-reported age
- * OR our CV age estimate indicates the animal is NOT a senior.
- * CV analyzes the actual photo, so it's authoritative on its own.
+ * Determine if an animal should be excluded — ONLY the CV age estimate
+ * is used. Shelter-reported age is not authoritative for exclusion.
  */
 function _shouldExclude(animal: AnimalWithShelter): boolean {
     const threshold = seniorThreshold(animal.species, animal.size);
-    if (animal.ageKnownYears !== null && animal.ageKnownYears < threshold) return true;
-    // Read from assessment relation (child table is canonical)
+    // Only CV assessment can exclude
     const cvHigh = (animal as any).assessment?.ageEstimatedHigh;
     if (cvHigh !== null && cvHigh !== undefined && cvHigh < threshold) return true;
     return false;
 }
 
 /**
- * Build a NOT clause that excludes animals where EITHER the shelter-reported
- * age OR the CV estimate says the animal is below the senior threshold.
- * CV analyzes the actual photo and should be trusted on its own.
+ * Build a NOT clause that excludes animals where the CV estimate says
+ * the animal is below the senior threshold. Shelter-reported age is
+ * NOT used for exclusion — CV is the platform authority.
+ * Animals without a CV assessment are never excluded by age.
  */
 function buildSeniorExclusionClause(): Record<string, unknown> {
     return {
         NOT: {
             OR: [
-                // --- CV estimate says not senior (any species/size) ---
                 // Cats: CV high < 10
                 { AND: [{ species: 'CAT' }, { assessment: { ageEstimatedHigh: { lt: 10 } } }] },
                 // Dog XLARGE: CV high < 5
@@ -105,19 +103,6 @@ function buildSeniorExclusionClause(): Record<string, unknown> {
                 { AND: [{ species: 'DOG' }, { size: 'SMALL' }, { assessment: { ageEstimatedHigh: { lt: 9 } } }] },
                 // Dog unknown size: CV high < 7
                 { AND: [{ species: 'DOG' }, { size: null }, { assessment: { ageEstimatedHigh: { lt: 7 } } }] },
-                // --- Shelter-reported age says not senior (no CV data) ---
-                // Cats: shelter < 10, no assessment
-                { AND: [{ species: 'CAT' }, { ageKnownYears: { lt: 10, not: null } }, { assessment: null }] },
-                // Dog XLARGE: shelter < 5, no assessment
-                { AND: [{ species: 'DOG' }, { size: 'XLARGE' }, { ageKnownYears: { lt: 5, not: null } }, { assessment: null }] },
-                // Dog LARGE: shelter < 6, no assessment
-                { AND: [{ species: 'DOG' }, { size: 'LARGE' }, { ageKnownYears: { lt: 6, not: null } }, { assessment: null }] },
-                // Dog MEDIUM: shelter < 7, no assessment
-                { AND: [{ species: 'DOG' }, { size: 'MEDIUM' }, { ageKnownYears: { lt: 7, not: null } }, { assessment: null }] },
-                // Dog SMALL: shelter < 9, no assessment
-                { AND: [{ species: 'DOG' }, { size: 'SMALL' }, { ageKnownYears: { lt: 9, not: null } }, { assessment: null }] },
-                // Dog unknown size: shelter < 7, no assessment
-                { AND: [{ species: 'DOG' }, { size: null }, { ageKnownYears: { lt: 7, not: null } }, { assessment: null }] },
             ],
         },
     };

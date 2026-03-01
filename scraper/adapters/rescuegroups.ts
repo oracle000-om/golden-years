@@ -216,7 +216,7 @@ export async function scrapeRescueGroups(options: ScrapeOptions = {}): Promise<{
             url.searchParams.set('page', page.toString());
             url.searchParams.set('include', 'orgs,pictures');
             url.searchParams.set('fields[animals]',
-                'name,species,breedPrimary,breedSecondary,breedString,breedsMixed,sex,ageGroup,ageString,sizeGroup,descriptionText,pictureThumbnailUrl,birthDate,foundDate,isSpecialNeeds,isSenior,isHouseTrained,isAltered,isMicrochipped,isCurrentVaccinations,adoptionFeeString,colorDetails,pattern,isCourtesyListing'
+                'name,species,breedPrimary,breedSecondary,breedString,breedsMixed,sex,ageGroup,ageString,sizeGroup,descriptionText,pictureThumbnailUrl,birthDate,adoptedDate,foundDate,isSpecialNeeds,isSenior,isHouseTrained,isAltered,isMicrochipped,isCurrentVaccinations,adoptionFeeString,colorDetails,pattern,isCourtesyListing'
             );
             url.searchParams.set('fields[orgs]', 'name,citystate,state,city,postalcode,phone,url');
 
@@ -335,7 +335,22 @@ export async function scrapeRescueGroups(options: ScrapeOptions = {}): Promise<{
                         ageSource: finalAge !== null ? 'SHELTER_REPORTED' : 'UNKNOWN',
                         euthScheduledAt: null,
                         intakeDate: attrs.foundDate ? new Date(attrs.foundDate) : null,
-                        notes: attrs.descriptionText || null,
+                        notes: (() => {
+                            const parts: string[] = [];
+                            if (attrs.descriptionText) parts.push(attrs.descriptionText);
+                            // Adoption velocity: if animal was adopted, record how long it took
+                            if (attrs.adoptedDate && attrs.foundDate) {
+                                const found = new Date(attrs.foundDate);
+                                const adopted = new Date(attrs.adoptedDate);
+                                const daysToAdopt = Math.round((adopted.getTime() - found.getTime()) / (1000 * 60 * 60 * 24));
+                                if (daysToAdopt >= 0 && daysToAdopt < 3650) {
+                                    parts.push(`Adopted in ${daysToAdopt} days.`);
+                                }
+                            } else if (attrs.adoptedDate) {
+                                parts.push(`Adopted: ${attrs.adoptedDate}`);
+                            }
+                            return parts.length > 0 ? parts.join(' ') : null;
+                        })(),
                         intakeReason: 'UNKNOWN',
                         intakeReasonDetail: null,
                         // v6: Structured fields

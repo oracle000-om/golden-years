@@ -324,6 +324,13 @@ async function fetchOrgAnimals(
             if (goodWithCats) behaviorParts.push('Good with cats');
             if (goodWithDogs) behaviorParts.push('Good with dogs');
             if (goodWithChildren) behaviorParts.push('Good with children');
+
+            // Append Petfinder shelter-assigned tags (e.g., "Playful", "Couch potato")
+            const tags = pf.tags?.filter(t => t?.trim()) || [];
+            if (tags.length > 0) {
+                behaviorParts.push(...tags.map(t => t.trim()));
+            }
+
             const behaviorNote = behaviorParts.length > 0 ? behaviorParts.join('. ') + '.' : null;
 
             // Full description from Petfinder listing

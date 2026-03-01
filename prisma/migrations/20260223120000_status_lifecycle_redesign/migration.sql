@@ -29,20 +29,24 @@ ALTER TABLE "animals" RENAME COLUMN "status_new" TO "status";
 ALTER TABLE "animals" ALTER COLUMN "status" SET NOT NULL;
 ALTER TABLE "animals" ALTER COLUMN "status" SET DEFAULT 'AVAILABLE'::"AnimalStatus_new";
 
--- Step 5: Same for animal_snapshots table
-ALTER TABLE "animal_snapshots" ADD COLUMN "status_new" "AnimalStatus_new";
-UPDATE "animal_snapshots" SET "status_new" = CASE
-    WHEN "status"::text = 'LISTED' THEN 'AVAILABLE'::"AnimalStatus_new"
-    WHEN "status"::text = 'PULLED' THEN 'RESCUE_PULL'::"AnimalStatus_new"
-    WHEN "status"::text = 'UNKNOWN' THEN 'DELISTED'::"AnimalStatus_new"
-    WHEN "status"::text = 'URGENT' THEN 'URGENT'::"AnimalStatus_new"
-    WHEN "status"::text = 'ADOPTED' THEN 'ADOPTED'::"AnimalStatus_new"
-    WHEN "status"::text = 'EUTHANIZED' THEN 'EUTHANIZED'::"AnimalStatus_new"
-    ELSE 'AVAILABLE'::"AnimalStatus_new"
-END;
-ALTER TABLE "animal_snapshots" DROP COLUMN "status";
-ALTER TABLE "animal_snapshots" RENAME COLUMN "status_new" TO "status";
-ALTER TABLE "animal_snapshots" ALTER COLUMN "status" SET NOT NULL;
+-- Step 5: Same for animal_snapshots table (if it exists)
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'animal_snapshots') THEN
+    ALTER TABLE "animal_snapshots" ADD COLUMN "status_new" "AnimalStatus_new";
+    UPDATE "animal_snapshots" SET "status_new" = CASE
+        WHEN "status"::text = 'LISTED' THEN 'AVAILABLE'::"AnimalStatus_new"
+        WHEN "status"::text = 'PULLED' THEN 'RESCUE_PULL'::"AnimalStatus_new"
+        WHEN "status"::text = 'UNKNOWN' THEN 'DELISTED'::"AnimalStatus_new"
+        WHEN "status"::text = 'URGENT' THEN 'URGENT'::"AnimalStatus_new"
+        WHEN "status"::text = 'ADOPTED' THEN 'ADOPTED'::"AnimalStatus_new"
+        WHEN "status"::text = 'EUTHANIZED' THEN 'EUTHANIZED'::"AnimalStatus_new"
+        ELSE 'AVAILABLE'::"AnimalStatus_new"
+    END;
+    ALTER TABLE "animal_snapshots" DROP COLUMN "status";
+    ALTER TABLE "animal_snapshots" RENAME COLUMN "status_new" TO "status";
+    ALTER TABLE "animal_snapshots" ALTER COLUMN "status" SET NOT NULL;
+  END IF;
+END $$;
 
 -- Step 6: Drop the old enum, rename new one
 DROP TYPE "AnimalStatus";

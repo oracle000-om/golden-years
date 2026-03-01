@@ -328,6 +328,9 @@ enum IntakeReason {
   STRAY
   OWNER_DECEASED
   CONFISCATE
+  CONFISCATE_MILL
+  CONFISCATE_HOARDING
+  CONFISCATE_CRUELTY
   RETURN
   TRANSFER
   INJURED
@@ -539,6 +542,17 @@ enum RunStatus {
   FAILED
 }
 
+enum DataSource {
+  USDA_APHIS
+  MO_STATE
+  PA_STATE
+  IA_STATE
+  OH_STATE
+  KS_STATE
+  CURATED
+  HORRIBLE_HUNDRED
+}
+
 model StatePolicy {
   id                    String   @id @default(uuid())
   state                 String   @unique  // 2-letter code (e.g., "TX")
@@ -562,6 +576,9 @@ model StatePolicy {
   crossReporting           Boolean? @map("cross_reporting")           // Animal ↔ child abuse cross-reporting?
   catDeclawingBan          Boolean? @map("cat_declawing_ban")
   cosmeticsTestingBan      Boolean? @map("cosmetics_testing_ban")
+  beagleBill               Boolean? @map("beagle_bill")              // Lab animal adoption mandate?
+  beagleBillYear           Int?     @map("beagle_bill_year")         // Year enacted
+  beagleBillDetails        String?  @map("beagle_bill_details")      // Scope/provisions
   policyNotes              String?  @map("policy_notes")              // Free-text notes
 
   // ── Metadata ──
@@ -615,26 +632,65 @@ model Feedback {
 }
 
 model BreederInspection {
-  id                 String   @id @default(uuid())
-  certNumber         String   @map("cert_number")         // USDA license number
-  licenseType        String   @map("license_type")        // A=Breeder, B=Dealer
-  legalName          String   @map("legal_name")
-  siteName           String?  @map("site_name")
+  id                 String     @id @default(uuid())
+  certNumber         String     @map("cert_number")         // USDA license number
+  licenseType        String     @map("license_type")        // A=Breeder, B=Dealer
+  legalName          String     @map("legal_name")
+  siteName           String?    @map("site_name")
   city               String?
   state              String
-  zipCode            String?  @map("zip_code")
-  inspectionDate     DateTime @map("inspection_date")
-  inspectionType     String?  @map("inspection_type")     // ROUTINE, FOCUSED, etc.
-  criticalViolations Int      @default(0) @map("critical_violations")
-  nonCritical        Int      @default(0) @map("non_critical")
-  animalCount        Int?     @map("animal_count")        // pdf_animals_total
+  zipCode            String?    @map("zip_code")
+  inspectionDate     DateTime   @map("inspection_date")
+  inspectionType     String?    @map("inspection_type")     // ROUTINE, FOCUSED, etc.
+  criticalViolations Int        @default(0) @map("critical_violations")
+  nonCritical        Int        @default(0) @map("non_critical")
+  animalCount        Int?       @map("animal_count")        // pdf_animals_total
   latitude           Float?
   longitude          Float?
-  lastScrapedAt      DateTime @default(now()) @map("last_scraped_at")
+  dataSource         DataSource @default(USDA_APHIS) @map("data_source")
+  narrativeExcerpt   String?    @map("narrative_excerpt")   // violation summary text
+  reportUrl          String?    @map("report_url")          // link to original report
+  lastScrapedAt      DateTime   @default(now()) @map("last_scraped_at")
 
   @@unique([certNumber, inspectionDate])
   @@index([state])
+  @@index([dataSource])
   @@map("breeder_inspections")
+}
+
+model BreederEnforcement {
+  id              String     @id @default(uuid())
+  certNumber      String     @map("cert_number")
+  legalName       String     @map("legal_name")
+  state           String
+  actionType      String     @map("action_type")    // FINE, SUSPENSION, REVOCATION, WARNING
+  actionDate      DateTime   @map("action_date")
+  fineAmount      Int?       @map("fine_amount")     // in cents
+  citationCodes   String[]   @default([]) @map("citation_codes")
+  narrative       String?
+  dataSource      DataSource @default(USDA_APHIS) @map("data_source")
+  lastScrapedAt   DateTime   @default(now()) @map("last_scraped_at")
+
+  @@unique([certNumber, actionDate, actionType])
+  @@index([state])
+  @@map("breeder_enforcements")
+}
+
+model HorribleHundredEntry {
+  id              String   @id @default(uuid())
+  certNumber      String?  @map("cert_number")     // USDA license if known
+  facilityName    String   @map("facility_name")
+  state           String
+  city            String?
+  reportYear      Int      @map("report_year")      // e.g., 2024
+  yearsOnList     Int      @default(1) @map("years_on_list")
+  narrative       String?                            // curated description
+  violationTypes  String[] @default([]) @map("violation_types")
+  lastScrapedAt   DateTime @default(now()) @map("last_scraped_at")
+
+  @@unique([facilityName, state, reportYear])
+  @@index([state])
+  @@map("horrible_hundred_entries")
 }
 
 // ── PetAlert: Lost/Found pet matching alerts ──
@@ -718,4 +774,139 @@ model ReEntryCandidate {
   @@index([status])
   @@index([animalId])
   @@map("re_entry_candidates")
+}
+
+// ── Research Facility: USDA lab animal usage (Class R licenses) ──
+model ResearchFacility {
+  id              String   @id @default(uuid())
+  certNumber      String   @map("cert_number")          // USDA R-certificate
+  name            String
+  state           String
+  city            String?
+  totalDogs       Int      @default(0) @map("total_dogs")
+  totalCats       Int      @default(0) @map("total_cats")
+  totalAnimals    Int      @default(0) @map("total_animals")
+  painCategoryC   Int      @default(0) @map("pain_category_c")   // pain w/ drugs
+  painCategoryD   Int      @default(0) @map("pain_category_d")   // pain w/o drugs
+  painCategoryE   Int      @default(0) @map("pain_category_e")   // no pain
+  reportYear      Int      @map("report_year")
+  lastScrapedAt   DateTime @default(now()) @map("last_scraped_at")
+
+  @@unique([certNumber, reportYear])
+  @@index([state])
+  @@map("research_facilities")
+}
+
+// ── Shelter Intake Stats: national intake/outcome benchmarks ──
+model ShelterIntakeStats {
+  id              String   @id @default(uuid())
+  state           String
+  month           Int
+  year            Int
+  intakeDogs      Int      @default(0) @map("intake_dogs")
+  intakeCats      Int      @default(0) @map("intake_cats")
+  surrenderCount  Int      @default(0) @map("surrender_count")
+  strayCount      Int      @default(0) @map("stray_count")
+  seizureCount    Int      @default(0) @map("seizure_count")
+  euthDogs        Int      @default(0) @map("euth_dogs")
+  euthCats        Int      @default(0) @map("euth_cats")
+  liveReleaseRate Float?   @map("live_release_rate")
+  lastScrapedAt   DateTime @default(now()) @map("last_scraped_at")
+
+  @@unique([state, month, year])
+  @@map("shelter_intake_stats")
+}
+
+// ── Confiscation Event: cruelty/hoarding seizures ──
+model ConfiscationEvent {
+  id              String   @id @default(uuid())
+  state           String
+  county          String?
+  date            DateTime
+  animalCount     Int      @map("animal_count")
+  species         String[] @default([])
+  chargeType      String?  @map("charge_type")    // HOARDING, CRUELTY, NEGLECT, FIGHTING
+  narrative       String?
+  sourceUrl       String?  @map("source_url")
+  lastScrapedAt   DateTime @default(now()) @map("last_scraped_at")
+
+  @@index([state])
+  @@index([date])
+  @@map("confiscation_events")
+}
+
+// ── Housing Pressure: economic correlation with shelter intake ──
+model HousingPressure {
+  id                   String   @id @default(uuid())
+  county               String
+  state                String
+  year                 Int
+  medianRent           Int?     @map("median_rent")
+  rentChangeYoY        Float?   @map("rent_change_yoy")
+  evictionRate         Float?   @map("eviction_rate")
+  shelterIntakeChange  Float?   @map("shelter_intake_change")
+  correlationScore     Float?   @map("correlation_score")
+  lastScrapedAt        DateTime @default(now()) @map("last_scraped_at")
+
+  @@unique([county, state, year])
+  @@map("housing_pressure")
+}
+
+// ── Pet Store Ban: statewide + municipal retail pet sale bans ──
+model PetStoreBan {
+  id              String    @id @default(uuid())
+  state           String
+  municipality    String?                            // null = statewide
+  banType         String    @map("ban_type")          // STATEWIDE, MUNICIPAL
+  effectiveDate   DateTime? @map("effective_date")
+  speciesCovered  String[]  @default([]) @map("species_covered")
+  sourceUrl       String?   @map("source_url")
+  lastScrapedAt   DateTime  @default(now()) @map("last_scraped_at")
+
+  @@unique([state, municipality])
+  @@index([state])
+  @@map("pet_store_bans")
+}
+
+// ── AKC Breed Ranking: annual breed popularity rankings ──
+model AkcBreedRanking {
+  id              String   @id @default(uuid())
+  breedName       String   @map("breed_name")
+  rank            Int
+  reportYear      Int      @map("report_year")
+  priorYearRank   Int?     @map("prior_year_rank")
+  lastScrapedAt   DateTime @default(now()) @map("last_scraped_at")
+
+  @@unique([breedName, reportYear])
+  @@map("akc_breed_rankings")
+}
+
+// ── Puppy Import: international dog imports by country ──
+model PuppyImport {
+  id              String   @id @default(uuid())
+  originCountry   String   @map("origin_country")
+  dogCount        Int      @map("dog_count")
+  puppyCount      Int?     @map("puppy_count")
+  importerType    String?  @map("importer_type")     // BROKER, PERSONAL, RESCUE
+  reportYear      Int      @map("report_year")
+  reportMonth     Int      @default(0) @map("report_month")  // 0 = annual aggregate
+  lastScrapedAt   DateTime @default(now()) @map("last_scraped_at")
+
+  @@unique([originCountry, reportYear, reportMonth])
+  @@map("puppy_imports")
+}
+
+// ── Cruelty Registry Entry: aggregate counts from state cruelty registries (no PII) ──
+model CrueltyRegistryEntry {
+  id              String   @id @default(uuid())
+  state           String
+  jurisdiction    String?                            // null = statewide
+  registrySource  String   @map("registry_source")   // TN_TBI, NYC_HEALTH, etc.
+  offenseType     String   @map("offense_type")       // CRUELTY, FIGHTING, AGGRAVATED_CRUELTY
+  count           Int      @default(0)
+  isActive        Boolean  @default(true) @map("is_active")
+  lastScrapedAt   DateTime @default(now()) @map("last_scraped_at")
+
+  @@index([state])
+  @@map("cruelty_registry_entries")
 }

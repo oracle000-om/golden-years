@@ -11,8 +11,8 @@ name: Health Check
 
 on:
   schedule:
-    # Twice daily: 6am and 6pm UTC (offset from scraper runs at 2/10/18 UTC)
-    - cron: '0 6,18 * * *'
+    # Twice daily: 8am and 8pm UTC (offset 2h after scraper runs to catch stale data)
+    - cron: '0 8,20 * * *'
   workflow_dispatch: {}
 
 jobs:

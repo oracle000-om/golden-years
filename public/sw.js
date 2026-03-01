@@ -80,17 +80,19 @@ self.addEventListener('fetch', (event) => {
             })
             .catch(async () => {
                 const cached = await caches.match(request);
-                if (!cached) return cached;
+                if (!cached) {
+                    return new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
+                }
 
                 // Check if cached response is too old
                 const cachedDate = cached.headers.get('date');
                 if (cachedDate) {
                     const age = Date.now() - new Date(cachedDate).getTime();
                     if (age > PAGE_CACHE_MAX_AGE_MS) {
-                        // Stale — delete from cache and return nothing
+                        // Stale — delete from cache and return offline error
                         const cache = await caches.open(CACHE_NAME);
                         await cache.delete(request);
-                        return undefined;
+                        return new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
                     }
                 }
                 return cached;

@@ -2,6 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   async headers() {
+    const corsOrigins = process.env.CORS_ALLOWED_ORIGINS || '*';
     return [
       {
         source: '/(.*)',
@@ -11,6 +12,15 @@ const nextConfig: NextConfig = {
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
           { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
           { key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains' },
+        ],
+      },
+      {
+        source: '/api/v1/:path*',
+        headers: [
+          { key: 'Access-Control-Allow-Origin', value: corsOrigins },
+          { key: 'Access-Control-Allow-Methods', value: 'GET, POST, DELETE, OPTIONS' },
+          { key: 'Access-Control-Allow-Headers', value: 'Content-Type, X-API-Key, Authorization' },
+          { key: 'Access-Control-Max-Age', value: '86400' },
         ],
       },
     ];

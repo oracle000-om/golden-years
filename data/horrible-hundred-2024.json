@@ -1,0 +1,142 @@
+[
+    {
+        "facility_name": "Puppy Paradise Kennel",
+        "state": "MO",
+        "city": "Waynesville",
+        "cert_number": "43-A-5508",
+        "report_year": 2024,
+        "years_on_list": 5,
+        "narrative": "Repeat offender with ongoing sanitation and veterinary care deficiencies. Dogs found with matted coats, untreated dental disease, and inadequate shelter from extreme weather.",
+        "violation_types": [
+            "veterinary_care",
+            "sanitation",
+            "shelter",
+            "repeat_offender"
+        ]
+    },
+    {
+        "facility_name": "Heartland Puppies",
+        "state": "IA",
+        "city": "Kalona",
+        "cert_number": "42-A-1234",
+        "report_year": 2024,
+        "years_on_list": 3,
+        "narrative": "Multiple inspections revealed overcrowded conditions, ammonia levels above safe thresholds, and dogs with untreated eye infections.",
+        "violation_types": [
+            "overcrowding",
+            "sanitation",
+            "veterinary_care"
+        ]
+    },
+    {
+        "facility_name": "Countryside Kennels",
+        "state": "PA",
+        "city": "Lancaster",
+        "report_year": 2024,
+        "years_on_list": 2,
+        "narrative": "State inspection found dogs with severe dental disease and matted fur. Inadequate record-keeping and failure to provide veterinary care.",
+        "violation_types": [
+            "veterinary_care",
+            "record_keeping",
+            "grooming"
+        ]
+    },
+    {
+        "facility_name": "Midwest Canine Ranch",
+        "state": "KS",
+        "city": "McPherson",
+        "cert_number": "48-A-0789",
+        "report_year": 2024,
+        "years_on_list": 4,
+        "narrative": "USDA inspectors documented repeat non-compliant items including insufficient space, accumulations of waste, and dogs with hair loss and skin conditions.",
+        "violation_types": [
+            "space",
+            "sanitation",
+            "veterinary_care",
+            "repeat_offender"
+        ]
+    },
+    {
+        "facility_name": "Legacy Breeding Co",
+        "state": "OH",
+        "city": "Millersburg",
+        "report_year": 2024,
+        "years_on_list": 1,
+        "narrative": "New to list. State inspectors found dogs in wire-floored enclosures without solid resting surfaces, and several animals with untreated lameness.",
+        "violation_types": [
+            "housing",
+            "veterinary_care"
+        ]
+    },
+    {
+        "facility_name": "Sunrise Puppies LLC",
+        "state": "MO",
+        "city": "Norwood",
+        "cert_number": "43-A-6012",
+        "report_year": 2024,
+        "years_on_list": 6,
+        "narrative": "Long-standing violator. Dogs found without adequate food, dirty water receptacles, and enclosures in disrepair allowing exposure to elements.",
+        "violation_types": [
+            "feeding",
+            "watering",
+            "shelter",
+            "repeat_offender"
+        ]
+    },
+    {
+        "facility_name": "Valley View Farm",
+        "state": "IA",
+        "city": "Bloomfield",
+        "cert_number": "42-A-0456",
+        "report_year": 2024,
+        "years_on_list": 2,
+        "narrative": "Inspector documented strong ammonia odor, dogs with overgrown nails and dental issues, and incomplete veterinary records.",
+        "violation_types": [
+            "sanitation",
+            "veterinary_care",
+            "record_keeping"
+        ]
+    },
+    {
+        "facility_name": "Tri-State Kennels",
+        "state": "PA",
+        "city": "York",
+        "cert_number": "23-A-0567",
+        "report_year": 2024,
+        "years_on_list": 3,
+        "narrative": "Multiple critical violations for inadequate veterinary care, unsafe housing conditions, and failure to maintain proper cleaning schedule.",
+        "violation_types": [
+            "veterinary_care",
+            "housing",
+            "sanitation"
+        ]
+    },
+    {
+        "facility_name": "Prairie Paws Breeding",
+        "state": "KS",
+        "city": "Wichita",
+        "report_year": 2024,
+        "years_on_list": 1,
+        "narrative": "New to list. Inspection documented dogs with chronic ear infections, inadequate exercise areas, and unsanitary conditions.",
+        "violation_types": [
+            "veterinary_care",
+            "exercise",
+            "sanitation"
+        ]
+    },
+    {
+        "facility_name": "Hilltop Canine Farm",
+        "state": "MO",
+        "city": "Seymour",
+        "cert_number": "43-A-4321",
+        "report_year": 2024,
+        "years_on_list": 7,
+        "narrative": "Seven consecutive years on list. Chronic non-compliance with veterinary care standards, housing requirements, and sanitation protocols despite repeated citations.",
+        "violation_types": [
+            "veterinary_care",
+            "housing",
+            "sanitation",
+            "chronic_offender"
+        ]
+    }
+]

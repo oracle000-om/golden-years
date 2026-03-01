@@ -76,6 +76,7 @@ async function main() {
                         nonCritical: insp.nonCritical,
                         animalCount: insp.animalCount,
                         inspectionType: insp.inspectionType,
+                        dataSource: 'USDA_APHIS',
                         lastScrapedAt: new Date(),
                     },
                     create: {
@@ -91,6 +92,7 @@ async function main() {
                         criticalViolations: insp.criticalViolations,
                         nonCritical: insp.nonCritical,
                         animalCount: insp.animalCount,
+                        dataSource: 'USDA_APHIS',
                     },
                 });
 

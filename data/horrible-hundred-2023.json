@@ -1,0 +1,133 @@
+[
+    {
+        "facility_name": "Debra Pratt",
+        "state": "MO",
+        "city": "Fair Play",
+        "report_year": 2023,
+        "years_on_list": 11,
+        "cert_number": "43-A-4826",
+        "violation_types": [
+            "INADEQUATE_VET_CARE",
+            "UNSANITARY"
+        ],
+        "narrative": "Dogs found with untreated injuries, eye conditions. Animal found dead. Has been on Horrible Hundred for 11 consecutive years."
+    },
+    {
+        "facility_name": "Puppy Love Kennel",
+        "state": "IA",
+        "city": "Hawkeye",
+        "report_year": 2023,
+        "years_on_list": 4,
+        "cert_number": "42-A-1460",
+        "violation_types": [
+            "INADEQUATE_VET_CARE",
+            "OVERCROWDING"
+        ],
+        "narrative": "Dogs with dental disease, hair loss, and eye discharge. Facility operating with more animals than housing allows."
+    },
+    {
+        "facility_name": "Cory Mincey",
+        "state": "MO",
+        "city": "Seymour",
+        "report_year": 2023,
+        "years_on_list": 5,
+        "cert_number": "43-A-6268",
+        "violation_types": [
+            "UNSANITARY",
+            "STRUCTURAL"
+        ],
+        "narrative": "Rusted and broken kennel runs. Excessive feces buildup. Dogs lack adequate shelter from weather."
+    },
+    {
+        "facility_name": "Mark and Kay Fisher",
+        "state": "OH",
+        "city": "Baltic",
+        "report_year": 2023,
+        "years_on_list": 3,
+        "cert_number": "31-A-0530",
+        "violation_types": [
+            "INADEQUATE_VET_CARE"
+        ],
+        "narrative": "Multiple dogs with dental disease, eye conditions, and skin issues. Delayed veterinary treatment."
+    },
+    {
+        "facility_name": "Heartland Puppies",
+        "state": "KS",
+        "city": "Wichita",
+        "report_year": 2023,
+        "years_on_list": 2,
+        "cert_number": "48-A-2092",
+        "violation_types": [
+            "OVERCROWDING",
+            "INADEQUATE_VET_CARE"
+        ],
+        "narrative": "126 dogs found during inspection, many with untreated medical conditions. Exceeded USDA-authorized capacity."
+    },
+    {
+        "facility_name": "Stonehenge Kennel",
+        "state": "PA",
+        "city": "Newville",
+        "report_year": 2023,
+        "years_on_list": 6,
+        "cert_number": "23-A-0498",
+        "violation_types": [
+            "UNSANITARY",
+            "STRUCTURAL",
+            "INADEQUATE_VET_CARE"
+        ],
+        "narrative": "Strong ammonia fumes. Dogs with matted coats, overgrown nails, and dental disease."
+    },
+    {
+        "facility_name": "Linda Hollister",
+        "state": "MO",
+        "city": "Ava",
+        "report_year": 2023,
+        "years_on_list": 4,
+        "cert_number": "43-A-5948",
+        "violation_types": [
+            "UNSANITARY",
+            "OVERCROWDING"
+        ],
+        "narrative": "53 dogs in facility. Excessive feces on floors and outdoor runs. Dogs without adequate water."
+    },
+    {
+        "facility_name": "Whispering Oaks Kennel",
+        "state": "AR",
+        "city": "Salem",
+        "report_year": 2023,
+        "years_on_list": 3,
+        "cert_number": "71-A-1635",
+        "violation_types": [
+            "INADEQUATE_VET_CARE",
+            "UNSANITARY"
+        ],
+        "narrative": "Dogs with untreated ear infections, skin conditions. Pens with accumulated waste."
+    },
+    {
+        "facility_name": "Johnson Kennel",
+        "state": "IN",
+        "city": "Montgomery",
+        "report_year": 2023,
+        "years_on_list": 2,
+        "cert_number": "32-A-0498",
+        "violation_types": [
+            "STRUCTURAL",
+            "INADEQUATE_VET_CARE"
+        ],
+        "narrative": "Kennel walls with holes. Dogs able to escape enclosures. Veterinary records incomplete."
+    },
+    {
+        "facility_name": "Countryside Kennels",
+        "state": "OH",
+        "city": "Millersburg",
+        "report_year": 2023,
+        "years_on_list": 7,
+        "cert_number": "31-A-0401",
+        "violation_types": [
+            "OVERCROWDING",
+            "UNSANITARY",
+            "INADEQUATE_VET_CARE"
+        ],
+        "narrative": "Over 200 dogs. Multiple citations for overcrowding, unsanitary conditions, and inadequate veterinary care over 7-year period."
+    }
+]

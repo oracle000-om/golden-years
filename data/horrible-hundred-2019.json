@@ -1,0 +1,128 @@
+[
+    {
+        "facility_name": "Debra Pratt",
+        "state": "MO",
+        "city": "Fair Play",
+        "report_year": 2019,
+        "years_on_list": 7,
+        "cert_number": "43-A-4826",
+        "violation_types": [
+            "INADEQUATE_VET_CARE",
+            "UNSANITARY"
+        ],
+        "narrative": "7th year on list. Dogs with chronic eye and dental conditions."
+    },
+    {
+        "facility_name": "Countryside Kennels",
+        "state": "OH",
+        "city": "Millersburg",
+        "report_year": 2019,
+        "years_on_list": 3,
+        "cert_number": "31-A-0401",
+        "violation_types": [
+            "OVERCROWDING",
+            "UNSANITARY"
+        ],
+        "narrative": "Continued overcrowding. 180+ dogs during inspection."
+    },
+    {
+        "facility_name": "Sandy Everhart",
+        "state": "MO",
+        "city": "Plato",
+        "report_year": 2019,
+        "years_on_list": 3,
+        "cert_number": "43-A-5193",
+        "violation_types": [
+            "UNSANITARY"
+        ],
+        "narrative": "Large-scale facility with persistent sanitation issues."
+    },
+    {
+        "facility_name": "Stonehenge Kennel",
+        "state": "PA",
+        "city": "Newville",
+        "report_year": 2019,
+        "years_on_list": 2,
+        "cert_number": "23-A-0498",
+        "violation_types": [
+            "UNSANITARY",
+            "STRUCTURAL"
+        ],
+        "narrative": "Chemical fumes. Structural damage to housing units."
+    },
+    {
+        "facility_name": "Cedar Lane Kennel",
+        "state": "KS",
+        "city": "Yates Center",
+        "report_year": 2019,
+        "years_on_list": 2,
+        "cert_number": "48-A-1911",
+        "violation_types": [
+            "STRUCTURAL"
+        ],
+        "narrative": "Deteriorating kennel structures exposing dogs to elements."
+    },
+    {
+        "facility_name": "Puppy Heaven",
+        "state": "IA",
+        "city": "West Point",
+        "report_year": 2019,
+        "years_on_list": 3,
+        "cert_number": "42-A-1398",
+        "violation_types": [
+            "OVERCROWDING",
+            "INADEQUATE_VET_CARE"
+        ],
+        "narrative": "Over 90 dogs. Multiple animals showing signs of dental disease."
+    },
+    {
+        "facility_name": "Triple Creek Kennel",
+        "state": "MO",
+        "city": "Cabool",
+        "report_year": 2019,
+        "years_on_list": 2,
+        "cert_number": "43-A-5762",
+        "violation_types": [
+            "UNSANITARY",
+            "INADEQUATE_VET_CARE"
+        ],
+        "narrative": "Fecal matter on pen surfaces. Veterinary records incomplete."
+    },
+    {
+        "facility_name": "Orchard Kennels",
+        "state": "OH",
+        "city": "Berlin",
+        "report_year": 2019,
+        "years_on_list": 2,
+        "cert_number": "31-A-0510",
+        "violation_types": [
+            "OVERCROWDING"
+        ],
+        "narrative": "115 dogs. Facility authorized for significantly fewer."
+    },
+    {
+        "facility_name": "Rocking R Kennel",
+        "state": "AR",
+        "city": "Elkins",
+        "report_year": 2019,
+        "years_on_list": 1,
+        "cert_number": "71-A-1615",
+        "violation_types": [
+            "INADEQUATE_VET_CARE"
+        ],
+        "narrative": "Dogs with untreated wounds and limping."
+    },
+    {
+        "facility_name": "Heartland Breeders",
+        "state": "IN",
+        "city": "Salem",
+        "report_year": 2019,
+        "years_on_list": 1,
+        "cert_number": "32-A-0445",
+        "violation_types": [
+            "STRUCTURAL",
+            "UNSANITARY"
+        ],
+        "narrative": "Kennel floor surfaces broken. Standing water in outdoor areas."
+    }
+]

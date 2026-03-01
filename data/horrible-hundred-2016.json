@@ -1,0 +1,127 @@
+[
+    {
+        "facility_name": "Debra Pratt",
+        "state": "MO",
+        "city": "Fair Play",
+        "report_year": 2016,
+        "years_on_list": 4,
+        "cert_number": "43-A-4826",
+        "violation_types": [
+            "INADEQUATE_VET_CARE",
+            "UNSANITARY"
+        ],
+        "narrative": "4th consecutive year. Dogs with eye conditions and dental disease."
+    },
+    {
+        "facility_name": "Maple Farm Kennel",
+        "state": "PA",
+        "city": "New Holland",
+        "report_year": 2016,
+        "years_on_list": 2,
+        "cert_number": "23-A-0480",
+        "violation_types": [
+            "UNSANITARY",
+            "OVERCROWDING"
+        ],
+        "narrative": "Ammonia levels and overcrowding cited again."
+    },
+    {
+        "facility_name": "R & R Kennel",
+        "state": "MO",
+        "city": "Ava",
+        "report_year": 2016,
+        "years_on_list": 2,
+        "cert_number": "43-A-5590",
+        "violation_types": [
+            "INADEQUATE_VET_CARE"
+        ],
+        "narrative": "Dogs with untreated conditions documented."
+    },
+    {
+        "facility_name": "Willow Creek Kennel",
+        "state": "KS",
+        "city": "Topeka",
+        "report_year": 2016,
+        "years_on_list": 1,
+        "cert_number": "48-A-1855",
+        "violation_types": [
+            "STRUCTURAL",
+            "INADEQUATE_VET_CARE"
+        ],
+        "narrative": "First appearance. Structural issues and veterinary care deficiencies."
+    },
+    {
+        "facility_name": "Precious Pups",
+        "state": "OH",
+        "city": "Sugarcreek",
+        "report_year": 2016,
+        "years_on_list": 1,
+        "cert_number": "31-A-0495",
+        "violation_types": [
+            "INADEQUATE_VET_CARE"
+        ],
+        "narrative": "First appearance. Dogs with dental disease and eye discharge."
+    },
+    {
+        "facility_name": "Meadow Lane Kennel",
+        "state": "IA",
+        "city": "Bloomfield",
+        "report_year": 2016,
+        "years_on_list": 3,
+        "cert_number": "42-A-1320",
+        "violation_types": [
+            "OVERCROWDING",
+            "UNSANITARY"
+        ],
+        "narrative": "60+ dogs. Third year with overcrowding citations."
+    },
+    {
+        "facility_name": "Mountain View Puppies",
+        "state": "AR",
+        "city": "Hindsville",
+        "report_year": 2016,
+        "years_on_list": 1,
+        "cert_number": "71-A-1575",
+        "violation_types": [
+            "INADEQUATE_VET_CARE"
+        ],
+        "narrative": "Dogs with chronic ear infections left untreated."
+    },
+    {
+        "facility_name": "Spring Hill Breeders",
+        "state": "PA",
+        "city": "Lititz",
+        "report_year": 2016,
+        "years_on_list": 1,
+        "cert_number": "23-A-0505",
+        "violation_types": [
+            "STRUCTURAL"
+        ],
+        "narrative": "First appearance. Kennel housing in disrepair."
+    },
+    {
+        "facility_name": "Sunrise Kennel",
+        "state": "MO",
+        "city": "Stoutland",
+        "report_year": 2016,
+        "years_on_list": 2,
+        "cert_number": "43-A-5650",
+        "violation_types": [
+            "UNSANITARY",
+            "INADEQUATE_VET_CARE"
+        ],
+        "narrative": "Fecal buildup on kennel surfaces. Dogs with matted coats."
+    },
+    {
+        "facility_name": "Heritage Farm",
+        "state": "OH",
+        "city": "Fredericksburg",
+        "report_year": 2016,
+        "years_on_list": 1,
+        "cert_number": "31-A-0478",
+        "violation_types": [
+            "OVERCROWDING"
+        ],
+        "narrative": "Licensed for 50 dogs, found housing 85."
+    }
+]

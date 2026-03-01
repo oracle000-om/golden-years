@@ -1,0 +1,348 @@
+[
+    {
+        "state": "NC",
+        "county": "Caldwell",
+        "date": "2024-03-15",
+        "animal_count": 59,
+        "species": [
+            "DOG",
+            "CAT"
+        ],
+        "charge_type": "HOARDING",
+        "narrative": "55 dogs and 4 cats seized from hoarding conditions. Two individuals facing cruelty charges.",
+        "source_url": "https://www.wcnc.com/article/news/local/caldwell-county-animal-hoarding"
+    },
+    {
+        "state": "TX",
+        "county": "Hidalgo",
+        "date": "2024-04-20",
+        "animal_count": 94,
+        "species": [
+            "DOG",
+            "CAT"
+        ],
+        "charge_type": "CRUELTY",
+        "narrative": "94 animals recovered from multiple homes in Rio Grande Valley. Two women face 94 counts of animal cruelty.",
+        "source_url": "https://www.myrgv.com/local-news/animal-hoarding-cases"
+    },
+    {
+        "state": "TX",
+        "county": "Hunt",
+        "date": "2024-01-10",
+        "animal_count": 36,
+        "species": [
+            "DOG"
+        ],
+        "charge_type": "NEGLECT",
+        "narrative": "SPCA of Texas removed 36 dogs from a property due to alleged cruel treatment.",
+        "source_url": "https://www.spca.org/news/hunt-county-removal"
+    },
+    {
+        "state": "OK",
+        "county": "Oklahoma",
+        "date": "2024-02-01",
+        "animal_count": 200,
+        "species": [
+            "DOG",
+            "CAT"
+        ],
+        "charge_type": "CRUELTY",
+        "narrative": "Over 200 dogs, cats, and pigs rescued by Beagle Freedom Project from testing laboratory.",
+        "source_url": "https://www.globenewswire.com/news-release/2024/bfp-lab-rescue"
+    },
+    {
+        "state": "GA",
+        "county": "Fulton",
+        "date": "2024-06-12",
+        "animal_count": 48,
+        "species": [
+            "DOG"
+        ],
+        "charge_type": "FIGHTING",
+        "narrative": "48 dogs seized in connection with dog fighting ring. Multiple arrests made."
+    },
+    {
+        "state": "FL",
+        "county": "Miami-Dade",
+        "date": "2024-05-08",
+        "animal_count": 72,
+        "species": [
+            "DOG",
+            "CAT"
+        ],
+        "charge_type": "HOARDING",
+        "narrative": "72 animals seized from residential property. Strong ammonia, untreated infections."
+    },
+    {
+        "state": "OH",
+        "county": "Cuyahoga",
+        "date": "2024-07-22",
+        "animal_count": 31,
+        "species": [
+            "DOG"
+        ],
+        "charge_type": "NEGLECT",
+        "narrative": "31 dogs removed from property with inadequate shelter and chronic malnutrition."
+    },
+    {
+        "state": "PA",
+        "county": "Lancaster",
+        "date": "2024-08-05",
+        "animal_count": 127,
+        "species": [
+            "DOG"
+        ],
+        "charge_type": "CRUELTY",
+        "narrative": "127 dogs seized from unlicensed breeding operation. Overcrowded conditions."
+    },
+    {
+        "state": "MO",
+        "county": "Webster",
+        "date": "2024-09-15",
+        "animal_count": 83,
+        "species": [
+            "DOG"
+        ],
+        "charge_type": "HOARDING",
+        "narrative": "83 dogs seized from rural property. Matted coats, overgrown nails, dental disease."
+    },
+    {
+        "state": "CA",
+        "county": "Riverside",
+        "date": "2024-04-02",
+        "animal_count": 15,
+        "species": [
+            "DOG"
+        ],
+        "charge_type": "CRUELTY",
+        "narrative": "15 beagles freed from private contract research testing laboratory."
+    },
+    {
+        "state": "NY",
+        "county": "Suffolk",
+        "date": "2023-11-15",
+        "animal_count": 67,
+        "species": [
+            "DOG",
+            "CAT"
+        ],
+        "charge_type": "HOARDING",
+        "narrative": "67 animals seized from home. Residents charged with animal cruelty."
+    },
+    {
+        "state": "TN",
+        "county": "Davidson",
+        "date": "2023-08-20",
+        "animal_count": 44,
+        "species": [
+            "DOG"
+        ],
+        "charge_type": "NEGLECT",
+        "narrative": "44 dogs found in hot Nashville warehouse. Emergency removal by ASPCA."
+    },
+    {
+        "state": "VA",
+        "county": "Augusta",
+        "date": "2023-06-10",
+        "animal_count": 118,
+        "species": [
+            "DOG",
+            "CAT"
+        ],
+        "charge_type": "HOARDING",
+        "narrative": "118 animals removed from rural property. Worst hoarding case in county history."
+    },
+    {
+        "state": "SC",
+        "county": "Greenville",
+        "date": "2023-04-05",
+        "animal_count": 28,
+        "species": [
+            "DOG"
+        ],
+        "charge_type": "FIGHTING",
+        "narrative": "28 pit bulls seized in dog fighting bust. Equipment and training supplies found."
+    },
+    {
+        "state": "AL",
+        "county": "Jefferson",
+        "date": "2023-09-22",
+        "animal_count": 53,
+        "species": [
+            "DOG",
+            "CAT"
+        ],
+        "charge_type": "NEGLECT",
+        "narrative": "53 animals removed. Home condemned by county. Animals in varying stages of malnourishment."
+    },
+    {
+        "state": "MI",
+        "county": "Wayne",
+        "date": "2023-02-14",
+        "animal_count": 35,
+        "species": [
+            "DOG"
+        ],
+        "charge_type": "CRUELTY",
+        "narrative": "35 dogs seized from suspected illegal breeding operation in Detroit suburb."
+    },
+    {
+        "state": "AR",
+        "county": "Washington",
+        "date": "2023-07-08",
+        "animal_count": 91,
+        "species": [
+            "DOG",
+            "CAT"
+        ],
+        "charge_type": "HOARDING",
+        "narrative": "91 animals seized from home. Among the largest hoarding cases in Arkansas history."
+    },
+    {
+        "state": "IN",
+        "county": "Marion",
+        "date": "2023-01-28",
+        "animal_count": 25,
+        "species": [
+            "DOG"
+        ],
+        "charge_type": "NEGLECT",
+        "narrative": "25 dogs removed from property after neighbors reported barking and odor. Severe neglect documented."
+    },
+    {
+        "state": "NC",
+        "county": "Robeson",
+        "date": "2022-10-12",
+        "animal_count": 150,
+        "species": [
+            "DOG"
+        ],
+        "charge_type": "FIGHTING",
+        "narrative": "Massive dog fighting ring busted. 150 dogs seized across multiple properties."
+    },
+    {
+        "state": "FL",
+        "county": "Brevard",
+        "date": "2022-03-18",
+        "animal_count": 42,
+        "species": [
+            "CAT"
+        ],
+        "charge_type": "HOARDING",
+        "narrative": "42 cats seized from single residence. Unsanitary conditions with extensive flea infestation."
+    },
+    {
+        "state": "TX",
+        "county": "Harris",
+        "date": "2022-07-05",
+        "animal_count": 88,
+        "species": [
+            "DOG",
+            "CAT"
+        ],
+        "charge_type": "NEGLECT",
+        "narrative": "88 animals removed following eviction. Animals abandoned when owner lost housing."
+    },
+    {
+        "state": "OH",
+        "county": "Summit",
+        "date": "2022-05-20",
+        "animal_count": 38,
+        "species": [
+            "DOG"
+        ],
+        "charge_type": "CRUELTY",
+        "narrative": "38 dogs seized from unlicensed breeder. Animals showed signs of chronic malnutrition."
+    },
+    {
+        "state": "GA",
+        "county": "DeKalb",
+        "date": "2022-11-30",
+        "animal_count": 62,
+        "species": [
+            "DOG",
+            "CAT"
+        ],
+        "charge_type": "HOARDING",
+        "narrative": "62 animals seized from foreclosed home. Deceased animals found on property."
+    },
+    {
+        "state": "MO",
+        "county": "Greene",
+        "date": "2022-08-15",
+        "animal_count": 171,
+        "species": [
+            "DOG"
+        ],
+        "charge_type": "CRUELTY",
+        "narrative": "171 dogs seized from large-scale breeding operation. USDA license revoked."
+    },
+    {
+        "state": "PA",
+        "county": "Chester",
+        "date": "2022-01-10",
+        "animal_count": 29,
+        "species": [
+            "DOG"
+        ],
+        "charge_type": "NEGLECT",
+        "narrative": "29 dogs removed. Animals found with matted fur, overgrown nails, untreated wounds."
+    },
+    {
+        "state": "MS",
+        "county": "Hinds",
+        "date": "2021-09-18",
+        "animal_count": 105,
+        "species": [
+            "DOG"
+        ],
+        "charge_type": "FIGHTING",
+        "narrative": "Major dog fighting ring dismantled. 105 dogs seized, 7 arrests."
+    },
+    {
+        "state": "KY",
+        "county": "Floyd",
+        "date": "2021-04-25",
+        "animal_count": 56,
+        "species": [
+            "DOG",
+            "CAT"
+        ],
+        "charge_type": "HOARDING",
+        "narrative": "56 animals seized from rural Appalachian property. Animals in severe neglect."
+    },
+    {
+        "state": "NJ",
+        "county": "Camden",
+        "date": "2021-06-02",
+        "animal_count": 33,
+        "species": [
+            "DOG"
+        ],
+        "charge_type": "CRUELTY",
+        "narrative": "33 dogs seized from suspected puppy mill operating without license."
+    },
+    {
+        "state": "WI",
+        "county": "Marathon",
+        "date": "2021-12-08",
+        "animal_count": 47,
+        "species": [
+            "DOG",
+            "CAT"
+        ],
+        "charge_type": "HOARDING",
+        "narrative": "47 animals removed from home. Owner hospitalized, animals left without care."
+    },
+    {
+        "state": "LA",
+        "county": "East Baton Rouge",
+        "date": "2021-03-14",
+        "animal_count": 22,
+        "species": [
+            "DOG"
+        ],
+        "charge_type": "NEGLECT",
+        "narrative": "22 dogs seized after Hurricane Ida damage left facility without power for weeks."
+    }
+]

@@ -1,0 +1,127 @@
+[
+    {
+        "facility_name": "Debra Pratt",
+        "state": "MO",
+        "city": "Fair Play",
+        "report_year": 2017,
+        "years_on_list": 5,
+        "cert_number": "43-A-4826",
+        "violation_types": [
+            "INADEQUATE_VET_CARE",
+            "UNSANITARY"
+        ],
+        "narrative": "5th consecutive year on list. USDA inspections document ongoing violations."
+    },
+    {
+        "facility_name": "Countryside Kennels",
+        "state": "OH",
+        "city": "Millersburg",
+        "report_year": 2017,
+        "years_on_list": 1,
+        "cert_number": "31-A-0401",
+        "violation_types": [
+            "OVERCROWDING",
+            "UNSANITARY"
+        ],
+        "narrative": "First appearance. Over 200 dogs. Cited for overcrowding and unsanitary conditions."
+    },
+    {
+        "facility_name": "Maple Farm Kennel",
+        "state": "PA",
+        "city": "New Holland",
+        "report_year": 2017,
+        "years_on_list": 3,
+        "cert_number": "23-A-0480",
+        "violation_types": [
+            "UNSANITARY",
+            "INADEQUATE_VET_CARE"
+        ],
+        "narrative": "Continued ammonia violations and delayed veterinary treatment."
+    },
+    {
+        "facility_name": "Willow Creek Kennel",
+        "state": "KS",
+        "city": "Topeka",
+        "report_year": 2017,
+        "years_on_list": 2,
+        "cert_number": "48-A-1855",
+        "violation_types": [
+            "STRUCTURAL"
+        ],
+        "narrative": "Ongoing structural deficiencies creating safety hazards."
+    },
+    {
+        "facility_name": "Puppy Heaven",
+        "state": "IA",
+        "city": "West Point",
+        "report_year": 2017,
+        "years_on_list": 1,
+        "cert_number": "42-A-1398",
+        "violation_types": [
+            "OVERCROWDING"
+        ],
+        "narrative": "First appearance. 80+ dogs found during inspection."
+    },
+    {
+        "facility_name": "R & R Kennel",
+        "state": "MO",
+        "city": "Ava",
+        "report_year": 2017,
+        "years_on_list": 3,
+        "cert_number": "43-A-5590",
+        "violation_types": [
+            "INADEQUATE_VET_CARE",
+            "UNSANITARY"
+        ],
+        "narrative": "3rd year. Dogs with dental disease and skin conditions."
+    },
+    {
+        "facility_name": "Precious Pups",
+        "state": "OH",
+        "city": "Sugarcreek",
+        "report_year": 2017,
+        "years_on_list": 2,
+        "cert_number": "31-A-0495",
+        "violation_types": [
+            "INADEQUATE_VET_CARE"
+        ],
+        "narrative": "Untreated medical conditions documented across multiple inspections."
+    },
+    {
+        "facility_name": "Family Pets Kennel",
+        "state": "MO",
+        "city": "Seymour",
+        "report_year": 2017,
+        "years_on_list": 1,
+        "cert_number": "43-A-6180",
+        "violation_types": [
+            "UNSANITARY"
+        ],
+        "narrative": "First appearance. Sanitation deficiencies in puppy whelping area."
+    },
+    {
+        "facility_name": "Spring Hill Breeders",
+        "state": "PA",
+        "city": "Lititz",
+        "report_year": 2017,
+        "years_on_list": 2,
+        "cert_number": "23-A-0505",
+        "violation_types": [
+            "STRUCTURAL",
+            "OVERCROWDING"
+        ],
+        "narrative": "kennel capacity exceeded. Physical structure issues."
+    },
+    {
+        "facility_name": "Golden Paws",
+        "state": "IN",
+        "city": "Shipshewana",
+        "report_year": 2017,
+        "years_on_list": 1,
+        "cert_number": "32-A-0410",
+        "violation_types": [
+            "INADEQUATE_VET_CARE"
+        ],
+        "narrative": "Multiple dogs with dental disease left untreated."
+    }
+]

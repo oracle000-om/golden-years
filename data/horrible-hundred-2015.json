@@ -1,0 +1,126 @@
+[
+    {
+        "facility_name": "Debra Pratt",
+        "state": "MO",
+        "city": "Fair Play",
+        "report_year": 2015,
+        "years_on_list": 3,
+        "cert_number": "43-A-4826",
+        "violation_types": [
+            "INADEQUATE_VET_CARE",
+            "UNSANITARY"
+        ],
+        "narrative": "3rd year on list. Dogs with untreated eye conditions."
+    },
+    {
+        "facility_name": "Maple Farm Kennel",
+        "state": "PA",
+        "city": "New Holland",
+        "report_year": 2015,
+        "years_on_list": 1,
+        "cert_number": "23-A-0480",
+        "violation_types": [
+            "UNSANITARY"
+        ],
+        "narrative": "First appearance. Strong ammonia odor documented."
+    },
+    {
+        "facility_name": "R & R Kennel",
+        "state": "MO",
+        "city": "Ava",
+        "report_year": 2015,
+        "years_on_list": 1,
+        "cert_number": "43-A-5590",
+        "violation_types": [
+            "INADEQUATE_VET_CARE"
+        ],
+        "narrative": "First appearance. Dogs with dental disease."
+    },
+    {
+        "facility_name": "Meadow Lane Kennel",
+        "state": "IA",
+        "city": "Bloomfield",
+        "report_year": 2015,
+        "years_on_list": 2,
+        "cert_number": "42-A-1320",
+        "violation_types": [
+            "OVERCROWDING"
+        ],
+        "narrative": "Second year. Continued overcrowding issues."
+    },
+    {
+        "facility_name": "Sunrise Kennel",
+        "state": "MO",
+        "city": "Stoutland",
+        "report_year": 2015,
+        "years_on_list": 1,
+        "cert_number": "43-A-5650",
+        "violation_types": [
+            "UNSANITARY"
+        ],
+        "narrative": "First appearance. Sanitation deficiencies."
+    },
+    {
+        "facility_name": "Pine Ridge Kennel",
+        "state": "KS",
+        "city": "Chanute",
+        "report_year": 2015,
+        "years_on_list": 2,
+        "cert_number": "48-A-1800",
+        "violation_types": [
+            "STRUCTURAL",
+            "INADEQUATE_VET_CARE"
+        ],
+        "narrative": "Kennel structures deteriorating. Veterinary care deficient."
+    },
+    {
+        "facility_name": "Valley Kennels",
+        "state": "OH",
+        "city": "Apple Creek",
+        "report_year": 2015,
+        "years_on_list": 2,
+        "cert_number": "31-A-0450",
+        "violation_types": [
+            "OVERCROWDING",
+            "UNSANITARY"
+        ],
+        "narrative": "90+ dogs. Exceeding licensed capacity."
+    },
+    {
+        "facility_name": "Pleasant View Farm",
+        "state": "PA",
+        "city": "Gordonville",
+        "report_year": 2015,
+        "years_on_list": 1,
+        "cert_number": "23-A-0460",
+        "violation_types": [
+            "INADEQUATE_VET_CARE"
+        ],
+        "narrative": "Dogs with chronic skin conditions."
+    },
+    {
+        "facility_name": "Ozark Puppies",
+        "state": "MO",
+        "city": "Mountain View",
+        "report_year": 2015,
+        "years_on_list": 1,
+        "cert_number": "43-A-5510",
+        "violation_types": [
+            "UNSANITARY",
+            "OVERCROWDING"
+        ],
+        "narrative": "75 dogs. Waste buildup in enclosures."
+    },
+    {
+        "facility_name": "Hilltop Breeders",
+        "state": "IN",
+        "city": "Wolcottville",
+        "report_year": 2015,
+        "years_on_list": 1,
+        "cert_number": "32-A-0395",
+        "violation_types": [
+            "STRUCTURAL"
+        ],
+        "narrative": "Kennel wire surfaces with sharp points. Dogs at risk of injury."
+    }
+]

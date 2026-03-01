@@ -1,0 +1,131 @@
+[
+    {
+        "facility_name": "Debra Pratt",
+        "state": "MO",
+        "city": "Fair Play",
+        "report_year": 2020,
+        "years_on_list": 8,
+        "cert_number": "43-A-4826",
+        "violation_types": [
+            "INADEQUATE_VET_CARE",
+            "UNSANITARY"
+        ],
+        "narrative": "8th consecutive year. Dogs with chronic eye conditions and untreated dental disease."
+    },
+    {
+        "facility_name": "Stonehenge Kennel",
+        "state": "PA",
+        "city": "Newville",
+        "report_year": 2020,
+        "years_on_list": 3,
+        "cert_number": "23-A-0498",
+        "violation_types": [
+            "UNSANITARY",
+            "STRUCTURAL"
+        ],
+        "narrative": "Ammonia levels excessive. Structural deterioration of kennel buildings."
+    },
+    {
+        "facility_name": "Countryside Kennels",
+        "state": "OH",
+        "city": "Millersburg",
+        "report_year": 2020,
+        "years_on_list": 4,
+        "cert_number": "31-A-0401",
+        "violation_types": [
+            "OVERCROWDING",
+            "UNSANITARY",
+            "INADEQUATE_VET_CARE"
+        ],
+        "narrative": "Over 200 dogs. Chronic overcrowding, inadequate sanitation, and delayed vet care."
+    },
+    {
+        "facility_name": "Sandy Everhart",
+        "state": "MO",
+        "city": "Plato",
+        "report_year": 2020,
+        "years_on_list": 4,
+        "cert_number": "43-A-5193",
+        "violation_types": [
+            "UNSANITARY",
+            "OVERCROWDING"
+        ],
+        "narrative": "110+ dogs. Fecal accumulation and overcrowded pens documented."
+    },
+    {
+        "facility_name": "JR Puppies",
+        "state": "IA",
+        "city": "Kalona",
+        "report_year": 2020,
+        "years_on_list": 2,
+        "cert_number": "42-A-1556",
+        "violation_types": [
+            "INADEQUATE_VET_CARE",
+            "UNSANITARY"
+        ],
+        "narrative": "Puppies with respiratory infections. Adult dogs with untreated eye conditions."
+    },
+    {
+        "facility_name": "Cedar Lane Kennel",
+        "state": "KS",
+        "city": "Yates Center",
+        "report_year": 2020,
+        "years_on_list": 3,
+        "cert_number": "48-A-1911",
+        "violation_types": [
+            "STRUCTURAL",
+            "INADEQUATE_VET_CARE"
+        ],
+        "narrative": "Deteriorating kennel structures. Dogs with overgrown nails and dental disease."
+    },
+    {
+        "facility_name": "Valley View Kennel",
+        "state": "AR",
+        "city": "West Fork",
+        "report_year": 2020,
+        "years_on_list": 2,
+        "cert_number": "71-A-1590",
+        "violation_types": [
+            "INADEQUATE_VET_CARE"
+        ],
+        "narrative": "Dogs with chronic untreated ear infections and skin conditions."
+    },
+    {
+        "facility_name": "Lester Miller",
+        "state": "IN",
+        "city": "Odon",
+        "report_year": 2020,
+        "years_on_list": 2,
+        "cert_number": "32-A-0412",
+        "violation_types": [
+            "UNSANITARY"
+        ],
+        "narrative": "Pen surfaces not adequately cleaned. Dogs with matted coats."
+    },
+    {
+        "facility_name": "Midway Kennel",
+        "state": "MO",
+        "city": "Lebanon",
+        "report_year": 2020,
+        "years_on_list": 2,
+        "cert_number": "43-A-5840",
+        "violation_types": [
+            "OVERCROWDING",
+            "UNSANITARY"
+        ],
+        "narrative": "75 dogs in facility designed for 40. Waste buildup in outdoor runs."
+    },
+    {
+        "facility_name": "Kuntry Kennel",
+        "state": "OH",
+        "city": "Fredericktown",
+        "report_year": 2020,
+        "years_on_list": 2,
+        "cert_number": "31-A-0465",
+        "violation_types": [
+            "INADEQUATE_VET_CARE",
+            "STRUCTURAL"
+        ],
+        "narrative": "Dogs with eye discharge and limping. Kennel walls damaged."
+    }
+]

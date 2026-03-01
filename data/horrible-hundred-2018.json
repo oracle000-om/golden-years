@@ -1,0 +1,128 @@
+[
+    {
+        "facility_name": "Debra Pratt",
+        "state": "MO",
+        "city": "Fair Play",
+        "report_year": 2018,
+        "years_on_list": 6,
+        "cert_number": "43-A-4826",
+        "violation_types": [
+            "INADEQUATE_VET_CARE",
+            "UNSANITARY"
+        ],
+        "narrative": "6th consecutive year. Chronic violations for veterinary care."
+    },
+    {
+        "facility_name": "Countryside Kennels",
+        "state": "OH",
+        "city": "Millersburg",
+        "report_year": 2018,
+        "years_on_list": 2,
+        "cert_number": "31-A-0401",
+        "violation_types": [
+            "OVERCROWDING"
+        ],
+        "narrative": "First appeared in 2017. Continued overcrowding issues."
+    },
+    {
+        "facility_name": "Sandy Everhart",
+        "state": "MO",
+        "city": "Plato",
+        "report_year": 2018,
+        "years_on_list": 2,
+        "cert_number": "43-A-5193",
+        "violation_types": [
+            "UNSANITARY",
+            "OVERCROWDING"
+        ],
+        "narrative": "100+ dogs. Second year with sanitation violations."
+    },
+    {
+        "facility_name": "Puppy Heaven",
+        "state": "IA",
+        "city": "West Point",
+        "report_year": 2018,
+        "years_on_list": 2,
+        "cert_number": "42-A-1398",
+        "violation_types": [
+            "OVERCROWDING",
+            "INADEQUATE_VET_CARE"
+        ],
+        "narrative": "85 dogs. Repeat citations for overcrowding."
+    },
+    {
+        "facility_name": "Willow Creek Kennel",
+        "state": "KS",
+        "city": "Topeka",
+        "report_year": 2018,
+        "years_on_list": 3,
+        "cert_number": "48-A-1855",
+        "violation_types": [
+            "INADEQUATE_VET_CARE",
+            "STRUCTURAL"
+        ],
+        "narrative": "Dogs with untreated dental disease. Kennel surfaces corroded."
+    },
+    {
+        "facility_name": "Maple Farm Kennel",
+        "state": "PA",
+        "city": "New Holland",
+        "report_year": 2018,
+        "years_on_list": 4,
+        "cert_number": "23-A-0480",
+        "violation_types": [
+            "UNSANITARY",
+            "OVERCROWDING"
+        ],
+        "narrative": "Strong ammonia odor. Over 70 dogs in space designed for 40."
+    },
+    {
+        "facility_name": "Family Pets Kennel",
+        "state": "MO",
+        "city": "Seymour",
+        "report_year": 2018,
+        "years_on_list": 2,
+        "cert_number": "43-A-6180",
+        "violation_types": [
+            "UNSANITARY"
+        ],
+        "narrative": "Repeated sanitation deficiencies in puppy whelping area."
+    },
+    {
+        "facility_name": "Rainbow Kennel",
+        "state": "IA",
+        "city": "Hazelton",
+        "report_year": 2018,
+        "years_on_list": 1,
+        "cert_number": "42-A-1490",
+        "violation_types": [
+            "INADEQUATE_VET_CARE"
+        ],
+        "narrative": "First appearance. Dogs with untreated eye conditions."
+    },
+    {
+        "facility_name": "Ridgeview Farm",
+        "state": "OH",
+        "city": "Dundee",
+        "report_year": 2018,
+        "years_on_list": 1,
+        "cert_number": "31-A-0522",
+        "violation_types": [
+            "STRUCTURAL",
+            "INADEQUATE_VET_CARE"
+        ],
+        "narrative": "Kennel housing with sharp edges. Dog found with injured paw."
+    },
+    {
+        "facility_name": "Hilltop Kennel",
+        "state": "IN",
+        "city": "North Judson",
+        "report_year": 2018,
+        "years_on_list": 1,
+        "cert_number": "32-A-0430",
+        "violation_types": [
+            "OVERCROWDING"
+        ],
+        "narrative": "60 dogs in facility approved for 35."
+    }
+]

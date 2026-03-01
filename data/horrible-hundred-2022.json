@@ -1,0 +1,131 @@
+[
+    {
+        "facility_name": "Debra Pratt",
+        "state": "MO",
+        "city": "Fair Play",
+        "report_year": 2022,
+        "years_on_list": 10,
+        "cert_number": "43-A-4826",
+        "violation_types": [
+            "INADEQUATE_VET_CARE",
+            "UNSANITARY"
+        ],
+        "narrative": "Repeat offender. Dogs found with untreated wounds and eye infections. Annual USDA inspections document ongoing violations."
+    },
+    {
+        "facility_name": "Stonehenge Kennel",
+        "state": "PA",
+        "city": "Newville",
+        "report_year": 2022,
+        "years_on_list": 5,
+        "cert_number": "23-A-0498",
+        "violation_types": [
+            "UNSANITARY",
+            "STRUCTURAL"
+        ],
+        "narrative": "Continued citations for ammonia levels and structural deficiencies. Dogs with matted coats."
+    },
+    {
+        "facility_name": "Angie Akers",
+        "state": "KS",
+        "city": "Wellington",
+        "report_year": 2022,
+        "years_on_list": 3,
+        "cert_number": "48-A-1879",
+        "violation_types": [
+            "OVERCROWDING",
+            "INADEQUATE_VET_CARE"
+        ],
+        "narrative": "USDA documented overcrowding of toy breeds. Puppies with eye discharge and skin rashes left untreated."
+    },
+    {
+        "facility_name": "Sandy Everhart",
+        "state": "MO",
+        "city": "Plato",
+        "report_year": 2022,
+        "years_on_list": 6,
+        "cert_number": "43-A-5193",
+        "violation_types": [
+            "UNSANITARY",
+            "OVERCROWDING"
+        ],
+        "narrative": "Over 100 dogs. Fecal accumulation on floors. Dogs without adequate space for exercise."
+    },
+    {
+        "facility_name": "Countryside Kennels",
+        "state": "OH",
+        "city": "Millersburg",
+        "report_year": 2022,
+        "years_on_list": 6,
+        "cert_number": "31-A-0401",
+        "violation_types": [
+            "OVERCROWDING",
+            "UNSANITARY"
+        ],
+        "narrative": "Continued pattern of overcrowding since 2016. Over 190 dogs during latest inspection."
+    },
+    {
+        "facility_name": "Clearview Kennel",
+        "state": "IA",
+        "city": "Williamsburg",
+        "report_year": 2022,
+        "years_on_list": 2,
+        "cert_number": "42-A-1833",
+        "violation_types": [
+            "INADEQUATE_VET_CARE",
+            "STRUCTURAL"
+        ],
+        "narrative": "Dogs with dental disease and hair loss. Kennel facilities in disrepair with exposed wiring."
+    },
+    {
+        "facility_name": "Lester Miller",
+        "state": "IN",
+        "city": "Odon",
+        "report_year": 2022,
+        "years_on_list": 4,
+        "cert_number": "32-A-0412",
+        "violation_types": [
+            "UNSANITARY",
+            "INADEQUATE_VET_CARE"
+        ],
+        "narrative": "Dogs with open wounds and overgrown nails. Pens not cleaned regularly."
+    },
+    {
+        "facility_name": "Hillandale Farm",
+        "state": "PA",
+        "city": "Loysville",
+        "report_year": 2022,
+        "years_on_list": 3,
+        "cert_number": "23-A-0533",
+        "violation_types": [
+            "OVERCROWDING",
+            "INADEQUATE_VET_CARE"
+        ],
+        "narrative": "97 dogs on premises. Multiple animals with untreated dental conditions and eye discharge."
+    },
+    {
+        "facility_name": "Oakwood Kennel",
+        "state": "MO",
+        "city": "Stover",
+        "report_year": 2022,
+        "years_on_list": 2,
+        "cert_number": "43-A-6101",
+        "violation_types": [
+            "STRUCTURAL",
+            "UNSANITARY"
+        ],
+        "narrative": "Rusty kennel surfaces. Inadequate drainage causing standing water contamination."
+    },
+    {
+        "facility_name": "Karen's Puppies",
+        "state": "NE",
+        "city": "Juniata",
+        "report_year": 2022,
+        "years_on_list": 2,
+        "cert_number": "47-A-0662",
+        "violation_types": [
+            "INADEQUATE_VET_CARE"
+        ],
+        "narrative": "Dogs with limping, eye conditions, and dental disease. No documentation of veterinary visits."
+    }
+]

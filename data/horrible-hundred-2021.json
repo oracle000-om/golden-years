@@ -1,0 +1,132 @@
+[
+    {
+        "facility_name": "Debra Pratt",
+        "state": "MO",
+        "city": "Fair Play",
+        "report_year": 2021,
+        "years_on_list": 9,
+        "cert_number": "43-A-4826",
+        "violation_types": [
+            "INADEQUATE_VET_CARE",
+            "UNSANITARY"
+        ],
+        "narrative": "Dogs with chronic eye conditions and dental disease. USDA has repeatedly cited without revoking license."
+    },
+    {
+        "facility_name": "Stonehenge Kennel",
+        "state": "PA",
+        "city": "Newville",
+        "report_year": 2021,
+        "years_on_list": 4,
+        "cert_number": "23-A-0498",
+        "violation_types": [
+            "UNSANITARY",
+            "STRUCTURAL",
+            "INADEQUATE_VET_CARE"
+        ],
+        "narrative": "Ongoing ammonia issues. Dogs with matted coats and untreated skin conditions."
+    },
+    {
+        "facility_name": "Countryside Kennels",
+        "state": "OH",
+        "city": "Millersburg",
+        "report_year": 2021,
+        "years_on_list": 5,
+        "cert_number": "31-A-0401",
+        "violation_types": [
+            "OVERCROWDING",
+            "UNSANITARY"
+        ],
+        "narrative": "Persistent overcrowding. Over 175 dogs documented during inspection."
+    },
+    {
+        "facility_name": "Sandy Everhart",
+        "state": "MO",
+        "city": "Plato",
+        "report_year": 2021,
+        "years_on_list": 5,
+        "cert_number": "43-A-5193",
+        "violation_types": [
+            "UNSANITARY",
+            "OVERCROWDING",
+            "INADEQUATE_VET_CARE"
+        ],
+        "narrative": "100+ dogs. Multiple violations for sanitation and veterinary care over 5 years."
+    },
+    {
+        "facility_name": "Merla Miller",
+        "state": "OH",
+        "city": "Sugarcreek",
+        "report_year": 2021,
+        "years_on_list": 3,
+        "cert_number": "31-A-0488",
+        "violation_types": [
+            "INADEQUATE_VET_CARE",
+            "STRUCTURAL"
+        ],
+        "narrative": "Dogs with untreated dental disease. Kennel surfaces with excessive rust."
+    },
+    {
+        "facility_name": "Happy Tails K9",
+        "state": "MO",
+        "city": "Norwood",
+        "report_year": 2021,
+        "years_on_list": 2,
+        "cert_number": "43-A-6325",
+        "violation_types": [
+            "UNSANITARY",
+            "OVERCROWDING"
+        ],
+        "narrative": "82 dogs. Pen surfaces soiled with feces. Dogs without adequate water access."
+    },
+    {
+        "facility_name": "Valley View Kennel",
+        "state": "AR",
+        "city": "West Fork",
+        "report_year": 2021,
+        "years_on_list": 3,
+        "cert_number": "71-A-1590",
+        "violation_types": [
+            "INADEQUATE_VET_CARE"
+        ],
+        "narrative": "Dogs with chronic ear infections and skin conditions left untreated for weeks."
+    },
+    {
+        "facility_name": "J & B Kennel",
+        "state": "KS",
+        "city": "Osborne",
+        "report_year": 2021,
+        "years_on_list": 2,
+        "cert_number": "48-A-2044",
+        "violation_types": [
+            "STRUCTURAL",
+            "UNSANITARY"
+        ],
+        "narrative": "Broken kennel fencing. Dogs exposed to weather without adequate shelter."
+    },
+    {
+        "facility_name": "Lester Miller",
+        "state": "IN",
+        "city": "Odon",
+        "report_year": 2021,
+        "years_on_list": 3,
+        "cert_number": "32-A-0412",
+        "violation_types": [
+            "UNSANITARY",
+            "INADEQUATE_VET_CARE"
+        ],
+        "narrative": "Recurring citations for overgrown nails, dental disease, and pen cleanliness."
+    },
+    {
+        "facility_name": "Hillandale Farm",
+        "state": "PA",
+        "city": "Loysville",
+        "report_year": 2021,
+        "years_on_list": 2,
+        "cert_number": "23-A-0533",
+        "violation_types": [
+            "OVERCROWDING"
+        ],
+        "narrative": "Exceeded housing capacity with 85+ dogs. State cited for licensing violations."
+    }
+]

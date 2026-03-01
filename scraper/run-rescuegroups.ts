@@ -224,7 +224,7 @@ async function main() {
             }
 
             const existing = match
-                ? await prisma.animal.findUnique({ where: { id: match.animalId } })
+                ? await prisma.animal.findUnique({ where: { id: match.animalId }, include: { assessment: true } })
                 : null;
 
             if (match && match.tier > 1) {
@@ -234,10 +234,10 @@ async function main() {
 
             // CV age estimation — skip if existing record already has CV data with same photo
             let cvEstimate = null;
-            const hasExistingCv = existing?.ageEstimatedLow != null;
+            const hasExistingCv = (existing as any)?.assessment?.ageEstimatedLow != null;
             const photoUnchanged = existing?.photoUrl === animal.photoUrl;
 
-            if (hasExistingCv && photoUnchanged && !(existing?.photoQuality === 'poor' && (
+            if (hasExistingCv && photoUnchanged && !((existing as any)?.assessment?.photoQuality === 'poor' && (
                 (animal.photoUrls?.length ?? 0) > (existing?.photoUrls?.length ?? 0)
             ))) {
                 // Reuse existing CV data — no Gemini call needed

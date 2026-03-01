@@ -1,19 +1,21 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import type { Animal } from '@/lib/types';
+import type { Animal, AnimalAssessment } from '@/lib/types';
 import {
     getBestAge, getAvgBodyCondition, getDentalDiseaseRate, getCataractRate,
     getCareLevelDistribution, getYearsRemainingBuckets, getLongestStay, getReentryCount,
 } from '@/lib/utils';
 
+type AnimalWithAssessment = Animal & { assessment?: AnimalAssessment | null };
+
 interface SeniorCensusProps {
-    animals: Animal[];
+    animals: AnimalWithAssessment[];
 }
 
 type SpeciesFilter = 'ALL' | 'DOG' | 'CAT';
 
-function computeAvgDaysInShelter(animals: Animal[]): number | null {
+function computeAvgDaysInShelter(animals: AnimalWithAssessment[]): number | null {
     const withDays = animals.filter((a) => a.intakeDate);
     if (withDays.length === 0) return null;
     const now = Date.now();
@@ -36,18 +38,31 @@ export function SeniorCensus({ animals }: SeniorCensusProps) {
 
     // Recompute aggregates whenever filter changes
     const stats = useMemo(() => {
-        const avgBcs = getAvgBodyCondition(filtered);
-        const dentalRate = getDentalDiseaseRate(filtered);
-        const cataractRate = getCataractRate(filtered);
-        const careLevels = getCareLevelDistribution(filtered);
-        const yearsBuckets = getYearsRemainingBuckets(filtered);
+        const assessmentMapped = filtered.map(a => ({
+            bodyConditionScore: a.assessment?.bodyConditionScore ?? null,
+            dentalGrade: a.assessment?.dentalGrade ?? null,
+            cataractStage: a.assessment?.cataractStage ?? null,
+            estimatedCareLevel: a.assessment?.estimatedCareLevel ?? null,
+            ageKnownYears: a.ageKnownYears,
+            ageEstimatedLow: a.assessment?.ageEstimatedLow ?? null,
+            ageEstimatedHigh: a.assessment?.ageEstimatedHigh ?? null,
+            lifeExpectancyLow: a.assessment?.lifeExpectancyLow ?? null,
+            lifeExpectancyHigh: a.assessment?.lifeExpectancyHigh ?? null,
+            intakeDate: a.intakeDate,
+            shelterEntryCount: a.shelterEntryCount,
+        }));
+        const avgBcs = getAvgBodyCondition(assessmentMapped);
+        const dentalRate = getDentalDiseaseRate(assessmentMapped);
+        const cataractRate = getCataractRate(assessmentMapped);
+        const careLevels = getCareLevelDistribution(assessmentMapped);
+        const yearsBuckets = getYearsRemainingBuckets(assessmentMapped);
         const longestStay = getLongestStay(filtered);
         const reentryCount = getReentryCount(filtered);
         const avgDays = computeAvgDaysInShelter(filtered);
         const hasHealthData = avgBcs !== null || dentalRate !== null || cataractRate !== null || careLevels.total > 0;
 
         const agesWithData = filtered
-            .map(a => getBestAge(a.ageKnownYears, a.ageEstimatedLow, a.ageEstimatedHigh))
+            .map(a => getBestAge(a.ageKnownYears, a.assessment?.ageEstimatedLow ?? null, a.assessment?.ageEstimatedHigh ?? null))
             .filter((a): a is NonNullable<ReturnType<typeof getBestAge>> => a !== null);
         const avgAge = agesWithData.length > 0
             ? Math.round((agesWithData.reduce((s, a) => s + a.age, 0) / agesWithData.length) * 10) / 10

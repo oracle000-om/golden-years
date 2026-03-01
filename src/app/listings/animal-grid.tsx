@@ -72,31 +72,32 @@ export function AnimalGrid({ animals, totalCount, page, totalPages }: AnimalGrid
                         ? `${animal.ageKnownYears} yr${animal.ageKnownYears !== 1 ? 's' : ''}`
                         : '—';
 
-                    const gyAge = (animal.ageEstimatedLow !== null && animal.ageEstimatedHigh !== null)
-                        ? `${animal.ageEstimatedLow}–${animal.ageEstimatedHigh} yrs`
+                    const aa = animal.assessment;
+                    const gyAge = (aa?.ageEstimatedLow != null && aa?.ageEstimatedHigh != null)
+                        ? `${aa.ageEstimatedLow}–${aa.ageEstimatedHigh} yrs`
                         : 'Pending';
 
                     const confidence = getGoldenYearsConfidence(
                         animal.ageSource,
-                        animal.ageConfidence,
+                        aa?.ageConfidence ?? 'NONE',
                         animal.ageKnownYears,
-                        animal.ageEstimatedLow,
-                        animal.ageEstimatedHigh,
-                        animal.lifeExpectancyLow,
-                        animal.lifeExpectancyHigh,
+                        aa?.ageEstimatedLow ?? null,
+                        aa?.ageEstimatedHigh ?? null,
+                        aa?.lifeExpectancyLow ?? null,
+                        aa?.lifeExpectancyHigh ?? null,
                     );
 
-                    const breedLifespan = (animal.lifeExpectancyLow && animal.lifeExpectancyHigh)
-                        ? `${animal.lifeExpectancyLow}–${animal.lifeExpectancyHigh} yrs`
+                    const breedLifespan = (aa?.lifeExpectancyLow && aa?.lifeExpectancyHigh)
+                        ? `${aa.lifeExpectancyLow}–${aa.lifeExpectancyHigh} yrs`
                         : '—';
 
                     // Golden Years remaining: range-against-range (handles near-end-of-life)
                     const goldenYearsRemaining = formatYearsRemaining(
                         animal.ageKnownYears,
-                        animal.ageEstimatedLow,
-                        animal.ageEstimatedHigh,
-                        animal.lifeExpectancyLow,
-                        animal.lifeExpectancyHigh,
+                        aa?.ageEstimatedLow ?? null,
+                        aa?.ageEstimatedHigh ?? null,
+                        aa?.lifeExpectancyLow ?? null,
+                        aa?.lifeExpectancyHigh ?? null,
                         { short: true },
                     );
 

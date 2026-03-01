@@ -228,11 +228,6 @@ async function main() {
                         update: updates,
                         create: { animalId: animal.id, ...updates },
                     });
-                    // Dual-write to animal table during transition
-                    await prisma.animal.update({
-                        where: { id: animal.id },
-                        data: updates,
-                    });
                 }
                 breedEnriched++;
             }
@@ -289,11 +284,6 @@ async function main() {
                 where: { animalId: animal.id },
                 update: { adoptionUrgency: urgency },
                 create: { animalId: animal.id, adoptionUrgency: urgency },
-            });
-            // Dual-write during transition
-            await prisma.animal.update({
-                where: { id: animal.id },
-                data: { adoptionUrgency: urgency },
             });
         }
         urgencyUpdated++;
@@ -375,11 +365,6 @@ async function main() {
                     update: { adoptionReadiness: readiness },
                     create: { animalId: animal.id, adoptionReadiness: readiness },
                 });
-                // Dual-write during transition
-                await prisma.animal.update({
-                    where: { id: animal.id },
-                    data: { adoptionReadiness: readiness },
-                });
             }
             readinessUpdated++;
         }
@@ -392,33 +377,30 @@ async function main() {
     // ══════════════════════════════════════════════════════
     console.log('\n💰 Estimating annual vet costs...');
 
-    const animalsNeedingCost = await prisma.animal.findMany({
+    const animalsNeedingCost = await prisma.animalAssessment.findMany({
         where: {
-            status: { in: ['AVAILABLE', 'URGENT'] },
-            estimatedAnnualCost: null,
             estimatedCareLevel: { not: null },
+            animal: {
+                status: { in: ['AVAILABLE', 'URGENT'] },
+                enrichment: { is: null },
+            },
         },
         select: {
-            id: true,
+            animalId: true,
             estimatedCareLevel: true,
         },
     });
 
     let costUpdated = 0;
-    for (const animal of animalsNeedingCost) {
-        const costs = CARE_COST_MAP[animal.estimatedCareLevel!] || CARE_COST_MAP.moderate;
+    for (const assessment of animalsNeedingCost) {
+        const costs = CARE_COST_MAP[assessment.estimatedCareLevel!] || CARE_COST_MAP.moderate;
         const costStr = `$${costs.low}–$${costs.high}`;
 
         if (!dryRun) {
             await prisma.animalEnrichment.upsert({
-                where: { animalId: animal.id },
+                where: { animalId: assessment.animalId },
                 update: { estimatedAnnualCost: costStr },
-                create: { animalId: animal.id, estimatedAnnualCost: costStr },
-            });
-            // Dual-write during transition
-            await prisma.animal.update({
-                where: { id: animal.id },
-                data: { estimatedAnnualCost: costStr },
+                create: { animalId: assessment.animalId, estimatedAnnualCost: costStr },
             });
         }
         costUpdated++;
@@ -495,8 +477,8 @@ async function main() {
         // Write trends to healthNotes (append, don't overwrite)
         const trendNotes = [...bcsTrend, ...stressTrend].join('; ');
         if (trendNotes && !dryRun) {
-            const existing = await prisma.animal.findUnique({
-                where: { id: animal.id },
+            const existing = await prisma.animalAssessment.findUnique({
+                where: { animalId: animal.id },
                 select: { healthNotes: true },
             });
             const currentNotes = existing?.healthNotes || '';
@@ -510,11 +492,6 @@ async function main() {
                     where: { animalId: animal.id },
                     update: { healthNotes: updated },
                     create: { animalId: animal.id, healthNotes: updated },
-                });
-                // Dual-write during transition
-                await prisma.animal.update({
-                    where: { id: animal.id },
-                    data: { healthNotes: updated },
                 });
             }
             trendsComputed++;
@@ -605,7 +582,7 @@ async function main() {
     const animalsWithConflicts = await prisma.animal.count({
         where: {
             status: { in: ['AVAILABLE', 'URGENT'] },
-            dataConflicts: { isEmpty: false },
+            assessment: { dataConflicts: { isEmpty: false } },
         },
     });
 
@@ -620,13 +597,13 @@ async function main() {
         const sampleConflicts = await prisma.animal.findMany({
             where: {
                 status: { in: ['AVAILABLE', 'URGENT'] },
-                dataConflicts: { isEmpty: false },
+                assessment: { dataConflicts: { isEmpty: false } },
             },
-            select: { name: true, dataConflicts: true, intakeId: true },
+            select: { name: true, intakeId: true, assessment: { select: { dataConflicts: true } } },
             take: 5,
         });
         for (const a of sampleConflicts) {
-            console.log(`      ${a.name || a.intakeId}: ${(a.dataConflicts as string[]).join(' | ')}`);
+            console.log(`      ${a.name || a.intakeId}: ${((a as any).assessment?.dataConflicts as string[])?.join(' | ') || 'none'}`);
         }
     }
 
@@ -706,7 +683,7 @@ async function main() {
     const animalsNeedingFee = await prisma.animal.findMany({
         where: {
             status: { in: ['AVAILABLE', 'URGENT'] },
-            adoptionFee: null,
+            listing: null,
             OR: [
                 { description: { not: null } },
                 { notes: { not: null } },
@@ -754,9 +731,10 @@ async function main() {
         }
 
         if (fee && !dryRun) {
-            await prisma.animal.update({
-                where: { id: animal.id },
-                data: { adoptionFee: fee },
+            await prisma.animalListing.upsert({
+                where: { animalId: animal.id },
+                update: { adoptionFee: fee },
+                create: { animalId: animal.id, adoptionFee: fee },
             });
             feesExtracted++;
         } else if (fee) {

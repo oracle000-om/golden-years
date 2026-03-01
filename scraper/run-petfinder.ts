@@ -174,17 +174,17 @@ async function main() {
             }
 
             const existing = match
-                ? await prisma.animal.findUnique({ where: { id: match.animalId } })
+                ? await prisma.animal.findUnique({ where: { id: match.animalId }, include: { assessment: true } })
                 : null;
 
             if (match && match.tier > 1) { dedupMerged++; }
 
             let cvEstimate = null;
-            const hasExistingCv = existing?.ageEstimatedLow != null;
+            const hasExistingCv = (existing as any)?.assessment?.ageEstimatedLow != null;
             const photoUnchanged = existing?.photoUrl === animal.photoUrl;
             // Photo quality re-scrape: re-run CV if previous quality was poor
             // and new photos are available (primary changed or more photos added)
-            const needsReassess = hasExistingCv && existing?.photoQuality === 'poor' && (
+            const needsReassess = hasExistingCv && (existing as any)?.assessment?.photoQuality === 'poor' && (
                 !photoUnchanged ||
                 (animal.photoUrls?.length ?? 0) > (existing?.photoUrls?.length ?? 0)
             );

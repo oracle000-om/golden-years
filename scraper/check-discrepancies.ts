@@ -13,7 +13,7 @@ async function main() {
     console.log(`With ageKnownYears: ${withKnown}`);
 
     // Count with ageEstimatedLow
-    const withEstimate = await prisma.animal.count({ where: { ageEstimatedLow: { not: null } } });
+    const withEstimate = await prisma.animalAssessment.count({ where: { ageEstimatedLow: { not: null } } });
     console.log(`With ageEstimatedLow: ${withEstimate}`);
 
     // Sample some scraped animals

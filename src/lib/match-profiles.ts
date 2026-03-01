@@ -7,7 +7,7 @@
  * to avoid speculative labels.
  */
 
-import type { Animal } from './types';
+import type { AnimalAssessment } from './types';
 
 export interface MatchBadge {
     label: string;
@@ -18,23 +18,24 @@ export interface MatchBadge {
  * Compute match profiles for an animal.
  * Returns an array of badges, max ~3 per animal.
  */
-export function getMatchProfiles(animal: Pick<Animal,
+export function getMatchProfiles(assessment: Pick<AnimalAssessment,
     'ageConfidence' | 'energyLevel' | 'mobilityAssessment' | 'groomingNeeds' |
     'estimatedCareLevel' | 'stressLevel' | 'aggressionRisk'
->): MatchBadge[] {
+> | null | undefined): MatchBadge[] {
+    if (!assessment) return [];
     // Gate: only HIGH/MEDIUM confidence
-    if (animal.ageConfidence !== 'HIGH' && animal.ageConfidence !== 'MEDIUM') {
+    if (assessment.ageConfidence !== 'HIGH' && assessment.ageConfidence !== 'MEDIUM') {
         return [];
     }
 
     const badges: MatchBadge[] = [];
 
-    const energy = animal.energyLevel;
-    const mobility = animal.mobilityAssessment;
-    const grooming = animal.groomingNeeds;
-    const care = animal.estimatedCareLevel;
-    const aggression = animal.aggressionRisk;
-    const stress = animal.stressLevel;
+    const energy = assessment.energyLevel;
+    const mobility = assessment.mobilityAssessment;
+    const grooming = assessment.groomingNeeds;
+    const care = assessment.estimatedCareLevel;
+    const aggression = assessment.aggressionRisk;
+    const stress = assessment.stressLevel;
 
     // ── Single story / elevator preferred ──
     // Triggered by limited/impaired mobility (arthritis, joint issues)

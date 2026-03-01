@@ -108,48 +108,51 @@ export default async function AnimalDetailPage({
     const saveRate = getSaveRate(animal.shelter.totalIntakeAnnual, animal.shelter.totalEuthanizedAnnual);
     const shelterInsights = await getShelterInsights(animal.shelterId);
     const intakeReasonDisplay = formatIntakeReason(animal.intakeReason, animal.intakeReasonDetail);
+    const a = animal.assessment;
+    const l = animal.listing;
+    const e = animal.enrichment;
     const yearsRemainingShort = formatYearsRemaining(
         animal.ageKnownYears,
-        animal.ageEstimatedLow,
-        animal.ageEstimatedHigh,
-        animal.lifeExpectancyLow,
-        animal.lifeExpectancyHigh,
+        a?.ageEstimatedLow ?? null,
+        a?.ageEstimatedHigh ?? null,
+        a?.lifeExpectancyLow ?? null,
+        a?.lifeExpectancyHigh ?? null,
         { short: true },
     );
     const yearsRemaining = formatYearsRemaining(
         animal.ageKnownYears,
-        animal.ageEstimatedLow,
-        animal.ageEstimatedHigh,
-        animal.lifeExpectancyLow,
-        animal.lifeExpectancyHigh,
+        a?.ageEstimatedLow ?? null,
+        a?.ageEstimatedHigh ?? null,
+        a?.lifeExpectancyLow ?? null,
+        a?.lifeExpectancyHigh ?? null,
     );
     const ageDiscrepancy = getAgeDiscrepancy(
         animal.ageKnownYears,
-        animal.ageEstimatedLow,
-        animal.ageEstimatedHigh,
-        animal.ageConfidence,
+        a?.ageEstimatedLow ?? null,
+        a?.ageEstimatedHigh ?? null,
+        a?.ageConfidence ?? 'NONE',
     );
 
     const confidence = getGoldenYearsConfidence(
         animal.ageSource,
-        animal.ageConfidence,
+        a?.ageConfidence ?? 'NONE',
         animal.ageKnownYears,
-        animal.ageEstimatedLow,
-        animal.ageEstimatedHigh,
-        animal.lifeExpectancyLow,
-        animal.lifeExpectancyHigh,
+        a?.ageEstimatedLow ?? null,
+        a?.ageEstimatedHigh ?? null,
+        a?.lifeExpectancyLow ?? null,
+        a?.lifeExpectancyHigh ?? null,
     );
 
     // Derived display values (mirroring card logic)
     const shelterAge = animal.ageKnownYears !== null
         ? `${animal.ageKnownYears} yr${animal.ageKnownYears !== 1 ? 's' : ''}`
         : '—';
-    const gyAge = (animal.ageEstimatedLow !== null && animal.ageEstimatedHigh !== null)
-        ? `${animal.ageEstimatedLow}–${animal.ageEstimatedHigh} yrs`
+    const gyAge = (a?.ageEstimatedLow != null && a?.ageEstimatedHigh != null)
+        ? `${a.ageEstimatedLow}–${a.ageEstimatedHigh} yrs`
         : 'Pending';
     const shelterBreed = animal.breed || '—';
-    const gyBreed = animal.detectedBreeds?.length > 0
-        ? animal.detectedBreeds.slice(0, 3).join(' / ')
+    const gyBreed = (a?.detectedBreeds?.length ?? 0) > 0
+        ? a!.detectedBreeds.slice(0, 3).join(' / ')
         : 'Pending';
     const sizeLabels: Record<string, string> = { SMALL: 'Small', MEDIUM: 'Medium', LARGE: 'Large', XLARGE: 'Extra Large' };
     const sizeDisplay = (() => {
@@ -167,7 +170,7 @@ export default async function AnimalDetailPage({
             'newfoundland': 'Extra Large', 'great pyrenees': 'Extra Large', 'bernese': 'Extra Large',
             'irish wolfhound': 'Extra Large', 'cane corso': 'Extra Large',
         };
-        const breeds = [...(animal.detectedBreeds || []), animal.breed || ''].map(b => b.toLowerCase());
+        const breeds = [...(a?.detectedBreeds || []), animal.breed || ''].map(b => b.toLowerCase());
         for (const breed of breeds) {
             for (const [key, size] of Object.entries(breedSizes)) {
                 if (breed.includes(key)) return { text: `Likely ${size.toLowerCase()}`, inferred: true };
@@ -176,8 +179,8 @@ export default async function AnimalDetailPage({
         return null;
     })();
 
-    const breedLifespan = (animal.lifeExpectancyLow && animal.lifeExpectancyHigh)
-        ? `${animal.lifeExpectancyLow}–${animal.lifeExpectancyHigh} yrs`
+    const breedLifespan = (a?.lifeExpectancyLow && a?.lifeExpectancyHigh)
+        ? `${a.lifeExpectancyLow}–${a.lifeExpectancyHigh} yrs`
         : '—';
 
     return (
@@ -286,7 +289,7 @@ export default async function AnimalDetailPage({
                                         <span className={`animal-detail__detail-value ${gyBreed !== 'Pending' ? 'cv-estimated' : ''}`}>{gyBreed}</span>
                                         <span className="gy-tooltip__popup">
                                             <span className="gy-tooltip__label">Confidence</span>
-                                            <span className="gy-tooltip__pct">{animal.breedConfidence === 'HIGH' ? 'High' : animal.breedConfidence === 'MEDIUM' ? 'Moderate' : animal.breedConfidence === 'LOW' ? 'Low' : 'Pending'}</span>
+                                            <span className="gy-tooltip__pct">{a?.breedConfidence === 'HIGH' ? 'High' : a?.breedConfidence === 'MEDIUM' ? 'Moderate' : a?.breedConfidence === 'LOW' ? 'Low' : 'Pending'}</span>
                                         </span>
                                     </span>
                                 </div>
@@ -309,10 +312,10 @@ export default async function AnimalDetailPage({
                                     <span className={`animal-detail__detail-value ${sizeDisplay.inferred ? 'cv-estimated' : ''}`}>{sizeDisplay.text}</span>
                                 </div>
                             )}
-                            {animal.estimatedWeightLbs && (
+                            {a?.estimatedWeightLbs && (
                                 <div className="animal-detail__detail-row">
                                     <span className="animal-detail__detail-label">Est. weight</span>
-                                    <span className="animal-detail__detail-value cv-estimated">~{animal.estimatedWeightLbs} lbs</span>
+                                    <span className="animal-detail__detail-value cv-estimated">~{a.estimatedWeightLbs} lbs</span>
                                 </div>
                             )}
                             <div className="animal-detail__detail-row">
@@ -339,7 +342,7 @@ export default async function AnimalDetailPage({
 
                         {/* Match Profile Badges (exclude families badge — shown in report card) */}
                         {(() => {
-                            const badges = getMatchProfiles(animal).filter(b => b.label !== 'Good with families');
+                            const badges = getMatchProfiles(a).filter(b => b.label !== 'Good with families');
                             if (badges.length === 0) return null;
                             return (
                                 <div className="animal-detail__match-badges">
@@ -372,15 +375,15 @@ export default async function AnimalDetailPage({
 
                     {/* Good with families — individual compatibility chips */}
                     {(() => {
-                        const familiesBadge = getMatchProfiles(animal).find(b => b.label === 'Good with families');
+                        const familiesBadge = getMatchProfiles(a).find(b => b.label === 'Good with families');
                         if (!familiesBadge) return null;
                         const chips: { icon: string; label: string }[] = [];
-                        if (animal.goodWithChildren) chips.push({ icon: '👶', label: 'Good with children' });
-                        if (animal.goodWithDogs) chips.push({ icon: '🐕', label: 'Good with dogs' });
-                        if (animal.goodWithCats) chips.push({ icon: '🐈', label: 'Good with cats' });
-                        if (animal.aggressionRisk !== null && animal.aggressionRisk <= 2) chips.push({ icon: '🤝', label: 'Low aggression' });
-                        if (animal.stressLevel === 'low') chips.push({ icon: '😌', label: 'Low stress' });
-                        if (animal.energyLevel === 'moderate' || animal.energyLevel === 'low') chips.push({ icon: '🧘', label: 'Calm energy' });
+                        if (l?.goodWithChildren) chips.push({ icon: '👶', label: 'Good with children' });
+                        if (l?.goodWithDogs) chips.push({ icon: '🐕', label: 'Good with dogs' });
+                        if (l?.goodWithCats) chips.push({ icon: '🐈', label: 'Good with cats' });
+                        if (a?.aggressionRisk != null && a.aggressionRisk <= 2) chips.push({ icon: '🤝', label: 'Low aggression' });
+                        if (a?.stressLevel === 'low') chips.push({ icon: '😌', label: 'Low stress' });
+                        if (a?.energyLevel === 'moderate' || a?.energyLevel === 'low') chips.push({ icon: '🧘', label: 'Calm energy' });
                         if (chips.length === 0) chips.push({ icon: '👨‍👩‍👧', label: 'Good with families' });
                         return (
                             <div className="animal-detail__report-section animal-detail__report-section--highlight">
@@ -419,27 +422,27 @@ export default async function AnimalDetailPage({
                                     Euthanasia scheduled in <strong>{hoursUntil(animal.euthScheduledAt)} hours</strong>.
                                 </p>
                             )}
-                            {animal.lifeExpectancyLow !== null && animal.lifeExpectancyHigh !== null && (
+                            {a?.lifeExpectancyLow != null && a?.lifeExpectancyHigh != null && (
                                 <p className="animal-detail__report-detail">
-                                    Typical lifespan: {animal.lifeExpectancyLow}–{animal.lifeExpectancyHigh} years
-                                    {animal.detectedBreeds?.length > 0 && ` · Breed: ${animal.detectedBreeds.slice(0, 3).join(' / ')}`}
+                                    Typical lifespan: {a.lifeExpectancyLow}–{a.lifeExpectancyHigh} years
+                                    {(a?.detectedBreeds?.length ?? 0) > 0 && ` · Breed: ${a!.detectedBreeds.slice(0, 3).join(' / ')}`}
                                 </p>
                             )}
                         </div>
                     )}
 
-                    {(ageDiscrepancy || (animal.ageEstimatedLow !== null && animal.ageEstimatedHigh !== null)) && (
+                    {(ageDiscrepancy || (a?.ageEstimatedLow != null && a?.ageEstimatedHigh != null)) && (
                         <div className="animal-detail__report-section">
                             <h3>Age Analysis</h3>
-                            {animal.ageEstimatedLow !== null && animal.ageEstimatedHigh !== null && (
+                            {a?.ageEstimatedLow != null && a?.ageEstimatedHigh != null && (
                                 <p>
-                                    Computer vision estimates {animal.ageEstimatedLow}–{animal.ageEstimatedHigh} years
-                                    ({animal.ageConfidence === 'HIGH' ? 'high' : animal.ageConfidence === 'MEDIUM' ? 'moderate' : 'low'} confidence).
+                                    Computer vision estimates {a.ageEstimatedLow}–{a.ageEstimatedHigh} years
+                                    ({a.ageConfidence === 'HIGH' ? 'high' : a.ageConfidence === 'MEDIUM' ? 'moderate' : 'low'} confidence).
                                 </p>
                             )}
-                            {animal.ageIndicators?.length > 0 && (
+                            {(a?.ageIndicators?.length ?? 0) > 0 && (
                                 <div className="animal-detail__report-tags">
-                                    {animal.ageIndicators.map((ind: string, i: number) => (
+                                    {a!.ageIndicators.map((ind: string, i: number) => (
                                         <span key={i} className="animal-detail__report-tag">{ind}</span>
                                     ))}
                                 </div>
@@ -468,18 +471,18 @@ export default async function AnimalDetailPage({
 
                     {/* --- Health Assessment --- */}
                     {await (async () => {
-                        const bestAge = getBestAge(animal.ageKnownYears, animal.ageEstimatedLow, animal.ageEstimatedHigh, animal.ageSource);
-                        const breedConditions = await getBreedCommonConditions(animal.detectedBreeds || []);
+                        const bestAge = getBestAge(animal.ageKnownYears, a?.ageEstimatedLow ?? null, a?.ageEstimatedHigh ?? null, animal.ageSource);
+                        const breedConditions = await getBreedCommonConditions(a?.detectedBreeds || []);
                         const health = computeHealthScore(
-                            animal.bodyConditionScore,
-                            animal.coatCondition,
-                            animal.visibleConditions,
-                            animal.stressLevel,
-                            animal.fearIndicators,
-                            animal.estimatedCareLevel,
+                            a?.bodyConditionScore ?? null,
+                            a?.coatCondition ?? null,
+                            a?.visibleConditions ?? [],
+                            a?.stressLevel ?? null,
+                            a?.fearIndicators ?? [],
+                            a?.estimatedCareLevel ?? null,
                             {
                                 notes: animal.notes,
-                                healthNotes: animal.healthNotes,
+                                healthNotes: a?.healthNotes ?? null,
                                 ageYears: bestAge?.age ?? null,
                                 breedCommonConditions: breedConditions,
                             },
@@ -555,23 +558,23 @@ export default async function AnimalDetailPage({
                         );
                     })()}
                     {/* --- Dental & Eye Health (from close-up assessment) --- */}
-                    {(animal.dentalGrade || animal.cataractStage) && (
+                    {(a?.dentalGrade || a?.cataractStage) && (
                         <div className="animal-detail__report-section">
                             <h3>Dental &amp; Eye Health</h3>
-                            {animal.dentalGrade && (
+                            {a?.dentalGrade && (
                                 <p>
-                                    <strong>Dental Grade: {animal.dentalGrade}/4</strong>
-                                    {animal.tartarSeverity && ` · Tartar: ${animal.tartarSeverity}`}
-                                    {animal.dentalNotes && <><br /><span style={{ color: 'var(--color-text-dim)', fontSize: 'var(--font-size-xs)' }}>{animal.dentalNotes}</span></>}
+                                    <strong>Dental Grade: {a.dentalGrade}/4</strong>
+                                    {a.tartarSeverity && ` · Tartar: ${a.tartarSeverity}`}
+                                    {a.dentalNotes && <><br /><span style={{ color: 'var(--color-text-dim)', fontSize: 'var(--font-size-xs)' }}>{a.dentalNotes}</span></>}
                                 </p>
                             )}
-                            {animal.cataractStage && animal.cataractStage !== 'none' && (
+                            {a?.cataractStage && a.cataractStage !== 'none' && (
                                 <p>
-                                    <strong>Cataracts: {animal.cataractStage}</strong>
-                                    {animal.eyeNotes && <><br /><span style={{ color: 'var(--color-text-dim)', fontSize: 'var(--font-size-xs)' }}>{animal.eyeNotes}</span></>}
+                                    <strong>Cataracts: {a.cataractStage}</strong>
+                                    {a.eyeNotes && <><br /><span style={{ color: 'var(--color-text-dim)', fontSize: 'var(--font-size-xs)' }}>{a.eyeNotes}</span></>}
                                 </p>
                             )}
-                            {animal.cataractStage === 'none' && (
+                            {a?.cataractStage === 'none' && (
                                 <p>Eyes: Clear, no cataracts detected</p>
                             )}
                         </div>
@@ -579,7 +582,7 @@ export default async function AnimalDetailPage({
 
                     {/* --- Up to Shelter / Rescue Discretion --- */}
                     {(() => {
-                        const homeSizeRec = getRecommendedMinSqft(animal.estimatedWeightLbs, animal.energyLevel, animal.mobilityAssessment);
+                        const homeSizeRec = getRecommendedMinSqft(a?.estimatedWeightLbs ?? null, a?.energyLevel ?? null, a?.mobilityAssessment ?? null);
                         if (!homeSizeRec) return null;
                         return (
                             <div className="animal-detail__report-section animal-detail__report-section--discretion">

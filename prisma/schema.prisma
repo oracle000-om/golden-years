@@ -80,86 +80,12 @@ model Animal {
   videoUrl              String?     @map("video_url")
   status                AnimalStatus @default(AVAILABLE)
   ageKnownYears         Int?        @map("age_known_years")
-  ageEstimatedLow       Int?        @map("age_estimated_low")
-  ageEstimatedHigh      Int?        @map("age_estimated_high")
-  ageConfidence         AgeConfidence @default(NONE) @map("age_confidence")
-  ageIndicators         String[]    @default([]) @map("age_indicators")
   ageSource             AgeSource   @default(UNKNOWN) @map("age_source")
   ageSegment            AgeSegment  @default(UNKNOWN) @map("age_segment")
-  detectedBreeds        String[]    @default([]) @map("detected_breeds")
-  breedConfidence       AgeConfidence @default(NONE) @map("breed_confidence")
-  lifeExpectancyLow     Int?        @map("life_expectancy_low")
-  lifeExpectancyHigh    Int?        @map("life_expectancy_high")
 
-  // ── v2: Health assessment ──
-  bodyConditionScore    Int?        @map("body_condition_score")
-  coatCondition         String?     @map("coat_condition")
-  visibleConditions     String[]    @default([]) @map("visible_conditions")
-  healthNotes           String?     @map("health_notes")
-
-  // ── v2: Behavioral signals ──
-  aggressionRisk        Int?        @map("aggression_risk")
-  fearIndicators        String[]    @default([]) @map("fear_indicators")
-  stressLevel           String?     @map("stress_level")
-  behaviorNotes         String?     @map("behavior_notes")
-
-  // ── v2: Photo quality ──
-  photoQuality          String?     @map("photo_quality")
-
-  // ── v2: Veterinary care guidance ──
-  likelyCareNeeds       String[]    @default([]) @map("likely_care_needs")
-  estimatedCareLevel    String?     @map("estimated_care_level")
-
-  // ── v3: Cross-validation ──
-  dataConflicts         String[]    @default([]) @map("data_conflicts")
-
-  // ── v5: Dental & eye close-up assessment ──
-  dentalGrade           Int?        @map("dental_grade")
-  tartarSeverity        String?     @map("tartar_severity")
-  dentalNotes           String?     @map("dental_notes")
-  cataractStage         String?     @map("cataract_stage")
-  eyeNotes              String?     @map("eye_notes")
-
-  // ── v8: Physical assessment from CV ──
-  estimatedWeightLbs    Int?        @map("estimated_weight_lbs")
-  mobilityAssessment    String?     @map("mobility_assessment")  // normal, limited, impaired
-  mobilityNotes         String?     @map("mobility_notes")
-  energyLevel           String?     @map("energy_level")          // low, moderate, high
-  groomingNeeds         String?     @map("grooming_needs")        // minimal, regular, extensive
-
-  // ── v6: Structured behavioral data ──
-  houseTrained          Boolean?    @map("house_trained")
-  goodWithCats          Boolean?    @map("good_with_cats")
-  goodWithDogs          Boolean?    @map("good_with_dogs")
-  goodWithChildren      Boolean?    @map("good_with_children")
-  specialNeeds          Boolean?    @map("special_needs")
-
-  // ── v6: Coat & appearance ──
-  coatType              String?     @map("coat_type")       // e.g., "Short", "Long", "Wire"
-  coatColors            String[]    @default([]) @map("coat_colors")  // e.g., ["Black", "White"]
-
-  // ── v6: Description & environment ──
+  // ── Shelter-reported listing fields (kept: 1 value mismatch on child table) ──
   description           String?                              // Full bio/description text
-  environmentNeeds      String[]    @default([]) @map("environment_needs") // e.g., ["No cats", "Fenced yard"]
-
-  // ── v7: Medical status ──
-  isAltered             Boolean?    @map("is_altered")        // Spayed/neutered
-  isMicrochipped        Boolean?    @map("is_microchipped")
-  isVaccinated          Boolean?    @map("is_vaccinated")     // Current on vaccinations
-
-  // ── v7: Adoption & listing ──
-  adoptionFee           String?     @map("adoption_fee")      // e.g., "$150", "Waived"
   listingUrl            String?     @map("listing_url")       // Direct URL to original listing
-  isCourtesyListing     Boolean?    @map("is_courtesy_listing") // Not at this shelter
-
-  // ── v7: Physical details ──
-  weight                String?                               // e.g., "55 lbs", "Large (60-99)"
-  birthday              DateTime?                             // Exact or estimated birthdate
-  coatPattern           String?     @map("coat_pattern")      // e.g., "Tabby", "Tuxedo", "Brindle"
-  isMixed               Boolean?    @map("is_mixed")          // Mixed breed flag
-
-  // ── v7: Location / foster ──
-  isFosterHome          Boolean?    @map("is_foster_home")    // Currently in foster (not at shelter)
 
   intakeReason          IntakeReason @default(UNKNOWN) @map("intake_reason")
   intakeReasonDetail    String?     @map("intake_reason_detail")
@@ -167,27 +93,20 @@ model Animal {
   intakeDate            DateTime?   @map("intake_date")
   euthScheduledAt       DateTime?   @map("euth_scheduled_at")
 
-  // ── v2: Temporal tracking ──
+  // ── Temporal tracking ──
   firstSeenAt           DateTime?   @map("first_seen_at")
   lastSeenAt            DateTime?   @map("last_seen_at")
   daysInShelter         Int?        @map("days_in_shelter")
 
-  // ── v3: Status lifecycle ──
+  // ── Status lifecycle ──
   delistedAt            DateTime?   @map("delisted_at")
   shelterEntryCount     Int         @default(1) @map("shelter_entry_count")
 
-  // ── v10: Listing protection (ultra-conservative reconciliation) ──
+  // ── Listing protection (ultra-conservative reconciliation) ──
   consecutiveMisses     Int         @default(0) @map("consecutive_misses")
   staleSince            DateTime?   @map("stale_since")
   outcomeDate           DateTime?   @map("outcome_date")
   outcomeNotes          String?     @map("outcome_notes")
-
-  // ── v8: Derived / computed fields ──
-  adoptionUrgency       String?     @map("adoption_urgency")       // LOW, MODERATE, HIGH, CRITICAL
-  adoptionReadiness     String?     @map("adoption_readiness")     // GREAT, GOOD, NEEDS_WORK, CHALLENGING
-  breedHealthRisk       Int?        @map("breed_health_risk")      // 1-10 from BreedProfile
-  breedCommonConditions String[]    @default([]) @map("breed_common_conditions")
-  estimatedAnnualCost   String?     @map("estimated_annual_cost")  // e.g. "$800–$1,200"
 
   createdAt             DateTime    @default(now()) @map("created_at")
   updatedAt             DateTime    @updatedAt @map("updated_at")

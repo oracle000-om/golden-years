@@ -77,8 +77,8 @@ function seniorThreshold(species: string, size: string | null): number {
 function _shouldExclude(animal: AnimalWithShelter): boolean {
     const threshold = seniorThreshold(animal.species, animal.size);
     if (animal.ageKnownYears !== null && animal.ageKnownYears < threshold) return true;
-    // Read from assessment relation (preferred) or fall back to flat column (transition)
-    const cvHigh = (animal as any).assessment?.ageEstimatedHigh ?? animal.ageEstimatedHigh;
+    // Read from assessment relation (child table is canonical)
+    const cvHigh = (animal as any).assessment?.ageEstimatedHigh;
     if (cvHigh !== null && cvHigh !== undefined && cvHigh < threshold) return true;
     return false;
 }
@@ -459,7 +459,7 @@ async function applySearchIntent(
 
     // Care level filter
     if (intent.careLevel) {
-        andClauses.push({ estimatedCareLevel: intent.careLevel });
+        andClauses.push({ assessment: { estimatedCareLevel: intent.careLevel } });
     }
 
     // Remaining text tokens — each must match somewhere (AND logic)

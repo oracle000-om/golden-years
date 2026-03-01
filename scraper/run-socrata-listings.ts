@@ -130,16 +130,16 @@ async function main() {
         try {
             const match = await findDuplicate(prisma, animal.intakeId, shelterId, animal.photoUrl, photoHash);
             existing = match
-                ? await prisma.animal.findUnique({ where: { id: match.animalId } })
+                ? await prisma.animal.findUnique({ where: { id: match.animalId }, include: { assessment: true } })
                 : null;
         } catch { /* non-fatal */ }
 
         // CV estimation — skip if existing record already has CV data with same photo
         let cvEstimate = null;
-        const hasExistingCv = existing?.ageEstimatedLow != null;
+        const hasExistingCv = (existing as any)?.assessment?.ageEstimatedLow != null;
         const photoUnchanged = existing?.photoUrl === animal.photoUrl;
 
-        if (hasExistingCv && photoUnchanged && !(hasExistingCv && existing?.photoQuality === 'poor' && !photoUnchanged)) {
+        if (hasExistingCv && photoUnchanged && !(hasExistingCv && (existing as any)?.assessment?.photoQuality === 'poor' && !photoUnchanged)) {
             cvSkipped++;
         } else if (cvProvider && animal.photoUrl) {
             try {

@@ -121,8 +121,9 @@ export async function POST(request: NextRequest) {
             photoUrls: true,
             status: true,
             sex: true,
-            ageEstimatedLow: true,
-            ageEstimatedHigh: true,
+            assessment: {
+                select: { ageEstimatedLow: true, ageEstimatedHigh: true },
+            },
             shelter: {
                 select: { id: true, name: true, state: true, county: true },
             },

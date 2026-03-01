@@ -69,13 +69,10 @@ export async function POST(request: NextRequest) {
             where: { animalId: { in: animalIds } },
         });
 
-        // Also clear old columns on animal for dual-write transition
+        // Reset ageSource so next scraper run reprocesses
         const result = await prisma.animal.updateMany({
             where: { id: { in: animalIds } },
             data: {
-                ageEstimatedLow: null,
-                ageEstimatedHigh: null,
-                ageConfidence: 'NONE',
                 ageSource: 'CV_ESTIMATED',
             },
         });

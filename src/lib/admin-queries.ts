@@ -72,7 +72,7 @@ export async function getAdminOverview(): Promise<AdminOverview> {
         prisma.animal.count({ where: { status: 'DELISTED' } }),
         prisma.animal.count({ where: { status: 'ADOPTED' } }),
         prisma.shelter.count(),
-        prisma.animal.count({ where: { ageEstimatedLow: { not: null } } }),
+        prisma.animalAssessment.count({ where: { ageEstimatedLow: { not: null } } }),
         prisma.animal.count({ where: { photoUrl: { not: null } } }),
         // Stale = active but not seen in last 48 hours
         prisma.animal.count({
@@ -85,8 +85,8 @@ export async function getAdminOverview(): Promise<AdminOverview> {
         prisma.animal.count({ where: { photoUrl: null } }),
         prisma.animal.count({ where: { size: null } }),
         prisma.animal.count({ where: { sex: null } }),
-        prisma.animal.count({ where: { dataConflicts: { isEmpty: false } } }),
-        prisma.animal.count({ where: { visibleConditions: { isEmpty: false } } }),
+        prisma.animal.count({ where: { assessment: { dataConflicts: { isEmpty: false } } } }),
+        prisma.animal.count({ where: { assessment: { visibleConditions: { isEmpty: false } } } }),
     ]);
 
     // Species breakdown
@@ -107,8 +107,8 @@ export async function getAdminOverview(): Promise<AdminOverview> {
         .map(g => ({ status: g.status, count: g._count.status }))
         .sort((a, b) => b.count - a.count);
 
-    // CV confidence breakdown
-    const confGroups = await prisma.animal.groupBy({
+    // CV confidence breakdown (now on AnimalAssessment)
+    const confGroups = await prisma.animalAssessment.groupBy({
         by: ['ageConfidence'],
         _count: { ageConfidence: true },
     });
@@ -264,7 +264,7 @@ export async function getAdminAnimalStats(species?: string): Promise<AdminAnimal
     const [total, withoutName, withoutAge, urgentCount] = await Promise.all([
         prisma.animal.count({ where: speciesWhere }),
         prisma.animal.count({ where: { name: null, ...speciesWhere } }),
-        prisma.animal.count({ where: { ageKnownYears: null, ageEstimatedLow: null, ...speciesWhere } }),
+        prisma.animal.count({ where: { ageKnownYears: null, assessment: null, ...speciesWhere } }),
         prisma.animal.count({ where: { status: 'URGENT', ...speciesWhere } }),
     ]);
 
@@ -277,10 +277,10 @@ export async function getAdminAnimalStats(species?: string): Promise<AdminAnimal
     const byAgeSource = (await prisma.animal.groupBy({ by: ['ageSource'], _count: { ageSource: true }, where: speciesWhere }))
         .map(g => ({ source: g.ageSource, count: g._count.ageSource }));
 
-    const photoQualityGroups = await prisma.animal.groupBy({
+    const photoQualityGroups = await prisma.animalAssessment.groupBy({
         by: ['photoQuality'],
         _count: { photoQuality: true },
-        where: { photoQuality: { not: null }, ...speciesWhere },
+        where: { photoQuality: { not: null } },
     });
     const byPhotoQuality = photoQualityGroups
         .map(g => ({ quality: g.photoQuality || 'unknown', count: g._count.photoQuality }));
@@ -340,11 +340,11 @@ export async function getAdminAnimalStats(species?: string): Promise<AdminAnimal
         .map(g => ({ size: g.size || 'UNKNOWN', count: g._count.size }))
         .sort((a, b) => b.count - a.count);
 
-    // Enhancement 4: Care level distribution
-    const byCareLevel = (await prisma.animal.groupBy({
+    // Enhancement 4: Care level distribution (now on AnimalAssessment)
+    const byCareLevel = (await prisma.animalAssessment.groupBy({
         by: ['estimatedCareLevel'],
         _count: { estimatedCareLevel: true },
-        where: { estimatedCareLevel: { not: null }, ...speciesWhere },
+        where: { estimatedCareLevel: { not: null } },
     }))
         .map(g => ({ level: g.estimatedCareLevel || 'unknown', count: g._count.estimatedCareLevel }))
         .sort((a, b) => b.count - a.count);

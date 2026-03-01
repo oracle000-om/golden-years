@@ -18,9 +18,9 @@ const PLACEHOLDER_NAMES = [
 
 // ─── Filters ─────────────────────────────────────────────
 
-export type SortMode = 'urgency' | 'newest' | 'distance' | 'age';
+type SortMode = 'urgency' | 'newest' | 'distance' | 'age';
 
-export interface AnimalFilters {
+interface AnimalFilters {
     species?: string;
     sex?: string;
     state?: string;

@@ -15,7 +15,7 @@
 
 import { jwtVerify, type JWTPayload } from 'jose';
 
-export interface AuthResult {
+interface AuthResult {
     authenticated: boolean;
     clientId?: string;    // API key name or JWT sub
     error?: string;

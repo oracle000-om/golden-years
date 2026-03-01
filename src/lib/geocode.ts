@@ -31,7 +31,7 @@ interface GeoResult {
     lng: number;
 }
 
-export interface GeoResultFull extends GeoResult {
+interface GeoResultFull extends GeoResult {
     state: string | null; // two-letter state code, if available
 }
 

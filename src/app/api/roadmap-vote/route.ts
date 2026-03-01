@@ -1,31 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { createRateLimiter, getClientIp } from '@/lib/rate-limit';
 
 const VALID_CHOICES = ['enhance_site', 'grants', 'vet_costs', 'new_programs'] as const;
-
-/* ── Rate limiter (mirrors poll route) ── */
-const RATE_LIMIT_WINDOW_MS = 60_000;
-const RATE_LIMIT_MAX = 10;
-const ipCounts = new Map<string, { count: number; resetAt: number }>();
-
-function isRateLimited(ip: string): boolean {
-    const now = Date.now();
-    const entry = ipCounts.get(ip);
-    if (!entry || now > entry.resetAt) {
-        ipCounts.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
-        return false;
-    }
-    entry.count++;
-    return entry.count > RATE_LIMIT_MAX;
-}
-
-function getIp(request: NextRequest): string {
-    return (
-        request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-        request.headers.get('x-real-ip') ||
-        'unknown'
-    );
-}
+const limiter = createRateLimiter('roadmap-vote', 10);
 
 async function getResults() {
     const votes = await prisma.roadmapVote.findMany({ select: { choice: true } });
@@ -45,9 +23,9 @@ async function getResults() {
 /* ── POST: cast / change vote ── */
 export async function POST(request: NextRequest) {
     try {
-        const ip = getIp(request);
-
-        if (isRateLimited(ip)) {
+        const ip = getClientIp(request);
+        const rateCheck = await limiter.check(ip);
+        if (!rateCheck.allowed) {
             return NextResponse.json(
                 { error: 'Too many requests. Please wait a moment.' },
                 { status: 429 },
@@ -81,9 +59,9 @@ export async function POST(request: NextRequest) {
 /* ── DELETE: undo vote ── */
 export async function DELETE(request: NextRequest) {
     try {
-        const ip = getIp(request);
-
-        if (isRateLimited(ip)) {
+        const ip = getClientIp(request);
+        const rateCheck = await limiter.check(ip);
+        if (!rateCheck.allowed) {
             return NextResponse.json(
                 { error: 'Too many requests. Please wait a moment.' },
                 { status: 429 },

@@ -183,19 +183,6 @@ export function getSaveRate(totalIntake: number, totalEuthanized: number): numbe
     return Math.round(((totalIntake - totalEuthanized) / totalIntake) * 1000) / 10;
 }
 
-/**
- * Format a one-line shelter stats summary.
- * e.g., "80.8% live release rate"
- */
-export function formatShelterStats(
-    totalIntake: number,
-    totalEuthanized: number,
-    _dataYear?: number | null
-): string | null {
-    const saveRate = getSaveRate(totalIntake, totalEuthanized);
-    if (saveRate === null) return null;
-    return `${saveRate}% live release rate`;
-}
 
 /**
  * Format age display with confidence if CV-estimated
@@ -307,23 +294,6 @@ export function getGoldenYearsConfidence(
     return { percent: score, label, reasons };
 }
 
-/**
- * Determine if an animal qualifies as a senior.
- * Dogs: 7+ years. Cats: 10+ years.
- * Uses best available age (known age first, then CV midpoint).
- * Returns null if age cannot be determined.
- */
-export function isSeniorAnimal(
-    species: string,
-    ageKnownYears: number | null,
-    cvLow: number | null,
-    cvHigh: number | null,
-): boolean | null {
-    const threshold = species === 'CAT' ? 10 : 7;
-    const best = getBestAge(ageKnownYears, cvLow, cvHigh);
-    if (!best) return null;
-    return best.age >= threshold;
-}
 
 /**
  * Format intake reason as an empathetic display string
@@ -432,13 +402,6 @@ export function getYoYTrend(
     return { direction, delta };
 }
 
-/**
- * Return-to-owner rate as a percentage of intake.
- */
-export function getRtoRate(returned: number | null, intake: number): number | null {
-    if (returned === null || intake === 0) return null;
-    return Math.round((returned / intake) * 1000) / 10; // one decimal
-}
 
 /**
  * Transfer rate (to rescues) as a percentage of intake.
@@ -571,14 +534,14 @@ function formatConditionLabel(kw: string): string {
     return kw.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
 }
 
-export interface HealthSubScore {
+interface HealthSubScore {
     score: number;
     max: number;
     label: string;
     factors: string[];
 }
 
-export interface HealthResult {
+interface HealthResult {
     score: number;
     label: string;
     factors: string[];
@@ -811,45 +774,6 @@ export function computeHealthScore(
     };
 }
 
-export function formatLifeCutShort(
-    knownYears: number | null,
-    estimatedLow: number | null,
-    estimatedHigh: number | null,
-    _ageSource: string,
-    lifeExpLow: number | null,
-    lifeExpHigh: number | null,
-    euthDate: Date | string | null,
-): string | null {
-    const bestAge = getBestAge(knownYears, estimatedLow, estimatedHigh);
-    if (!bestAge) return null;
-    if (lifeExpLow === null || lifeExpHigh === null) return null;
-
-    const lifeExpMid = (lifeExpLow + lifeExpHigh) / 2;
-    const remainingYears = lifeExpMid - bestAge.age;
-    if (remainingYears <= 0) return null;
-
-    // Subtract time until euthanasia (usually tiny, days/weeks)
-    let euthOffsetYears = 0;
-    if (euthDate) {
-        const d = new Date(euthDate);
-        const now = new Date();
-        const diffMs = d.getTime() - now.getTime();
-        if (diffMs > 0) {
-            euthOffsetYears = diffMs / (1000 * 60 * 60 * 24 * 365.25);
-        }
-    }
-
-    const cutShort = remainingYears - euthOffsetYears;
-    if (cutShort <= 0) return null;
-
-    const years = Math.floor(cutShort);
-    const months = Math.round((cutShort - years) * 12);
-
-    if (years === 0 && months === 0) return null;
-    if (years === 0) return `~${months} month${months !== 1 ? 's' : ''}`;
-    if (months === 0) return `~${years} year${years !== 1 ? 's' : ''}`;
-    return `~${years} year${years !== 1 ? 's' : ''}, ${months} month${months !== 1 ? 's' : ''}`;
-}
 
 // ─── Report Card Helpers ─────────────────────────────────
 // Aggregate CV data across a shelter's population for the

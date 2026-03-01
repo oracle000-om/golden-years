@@ -9,7 +9,7 @@
 
 import type { AnimalAssessment } from './types';
 
-export interface MatchBadge {
+interface MatchBadge {
     label: string;
     icon: string;
 }

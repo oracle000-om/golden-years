@@ -430,7 +430,7 @@ export async function getAdminShelterList(): Promise<AdminShelterDetail[]> {
 
 // ─── 24h Delta Stats ──────────────────────────────────────
 
-export interface DeltaStats {
+interface DeltaStats {
     newAnimals: number;
     adopted: number;
     delisted: number;

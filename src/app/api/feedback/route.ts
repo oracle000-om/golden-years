@@ -1,54 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { createRateLimiter, getClientIp } from '@/lib/rate-limit';
 
-/* ── Rate limiter (DB-backed for multi-instance safety) ── */
-const RATE_LIMIT_WINDOW_MS = 60_000;
-const RATE_LIMIT_MAX = 5;
-
-async function isRateLimited(ip: string): Promise<boolean> {
-    const route = 'feedback';
-    const now = new Date();
-
-    // Clean up expired entries and count current window in one go
-    await prisma.rateLimitEntry.deleteMany({
-        where: { route, windowEnd: { lt: now } },
-    });
-
-    const existing = await prisma.rateLimitEntry.findUnique({
-        where: { ip_route: { ip, route } },
-    });
-
-    if (!existing) {
-        await prisma.rateLimitEntry.create({
-            data: { ip, route, count: 1, windowEnd: new Date(now.getTime() + RATE_LIMIT_WINDOW_MS) },
-        });
-        return false;
-    }
-
-    if (existing.windowEnd < now) {
-        await prisma.rateLimitEntry.update({
-            where: { ip_route: { ip, route } },
-            data: { count: 1, windowEnd: new Date(now.getTime() + RATE_LIMIT_WINDOW_MS) },
-        });
-        return false;
-    }
-
-    await prisma.rateLimitEntry.update({
-        where: { ip_route: { ip, route } },
-        data: { count: existing.count + 1 },
-    });
-
-    return existing.count + 1 > RATE_LIMIT_MAX;
-}
+const limiter = createRateLimiter('feedback', 5);
 
 export async function POST(request: NextRequest) {
     try {
-        const ip =
-            request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-            request.headers.get('x-real-ip') ||
-            'unknown';
-
-        if (await isRateLimited(ip)) {
+        const ip = getClientIp(request);
+        const rateCheck = await limiter.check(ip);
+        if (!rateCheck.allowed) {
             return NextResponse.json(
                 { error: 'Too many requests. Please wait a moment.' },
                 { status: 429 },

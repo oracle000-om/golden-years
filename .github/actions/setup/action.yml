@@ -53,6 +53,7 @@ runs:
       run: npx prisma generate
 
     - name: Apply pending migrations
+      if: env.DATABASE_URL != '' && !contains(env.DATABASE_URL, 'placeholder')
       shell: bash
       run: npx prisma migrate deploy
 

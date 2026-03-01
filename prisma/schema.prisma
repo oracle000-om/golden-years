@@ -192,12 +192,18 @@ model Animal {
   createdAt             DateTime    @default(now()) @map("created_at")
   updatedAt             DateTime    @updatedAt @map("updated_at")
 
+  // ── v12: Re-entry detection ──
+  identityId            String?     @map("identity_id")
+
   shelter    Shelter            @relation(fields: [shelterId], references: [id])
+  identity   AnimalIdentity?    @relation(fields: [identityId], references: [id])
   sources    Source[]
   snapshots  AnimalSnapshot[]
   assessment AnimalAssessment?
   enrichment AnimalEnrichment?
   listing    AnimalListing?
+  reEntryCandidatesSource ReEntryCandidate[] @relation("reEntrySource")
+  reEntryCandidatesMatch  ReEntryCandidate[] @relation("reEntryMatch")
 
   @@index([photoHash])
   @@index([shelterId, status])
@@ -205,6 +211,7 @@ model Animal {
   @@index([status, species])
   @@index([status, createdAt])
   @@index([shelterId, intakeId])
+  @@index([identityId])
   @@map("animals")
 }
 

@@ -1,7 +1,9 @@
 import { getAdminOverview, get24hDeltas } from '@/lib/admin-queries';
+import { prisma } from '@/lib/db';
 import { DonutChart } from '@/components/donut-chart';
 import { SplitBar } from '@/components/split-bar';
 import { AdminQueryTable } from '@/components/admin-query-table';
+import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,10 +34,12 @@ const STATUS_COLORS: Record<string, string> = {
 
 export default async function AdminDashboard() {
     let data, deltas;
+    let pendingReEntries = 0;
     try {
-        [data, deltas] = await Promise.all([
+        [data, deltas, pendingReEntries] = await Promise.all([
             getAdminOverview(),
             get24hDeltas(),
+            (prisma as any).reEntryCandidate.count({ where: { status: 'PENDING_REVIEW' } }).catch(() => 0),
         ]);
     } catch (err) {
         return (
@@ -74,6 +78,17 @@ export default async function AdminDashboard() {
     return (
         <div className="admin-page">
             <h1 className="admin-page__title">Overview</h1>
+
+            {/* ── Re-Entry Alert ── */}
+            {pendingReEntries > 0 && (
+                <Link href="/admin/re-entries" className="admin-reentry-alert">
+                    <span className="admin-reentry-alert__icon">🔄</span>
+                    <span className="admin-reentry-alert__text">
+                        <span className="admin-reentry-alert__count">{pendingReEntries}</span>{' '}
+                        pending re-entry review{pendingReEntries !== 1 ? 's' : ''} — animals may have re-entered the system
+                    </span>
+                </Link>
+            )}
 
             {/* ── Natural Language Explorer ── */}
             <div className="admin-card">

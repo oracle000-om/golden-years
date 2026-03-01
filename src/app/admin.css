@@ -1755,3 +1755,331 @@ a.admin-stat--link:hover {
     -webkit-overflow-scrolling: touch;
     margin-top: var(--space-sm);
 }
+
+/* ═══════════════════════════════════════════════════════════
+   Re-Entry Review Queue
+   ═══════════════════════════════════════════════════════════ */
+
+.admin-page__subtitle {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-dim);
+    margin-top: calc(var(--space-lg) * -1);
+    margin-bottom: var(--space-xl);
+    line-height: 1.5;
+}
+
+/* Tabs */
+.reentry-tabs {
+    display: flex;
+    gap: var(--space-xs);
+    margin-bottom: var(--space-xl);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    padding-bottom: var(--space-xs);
+}
+
+.reentry-tab {
+    padding: var(--space-xs) var(--space-lg);
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    color: var(--color-text-dim);
+    text-decoration: none;
+    border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+    transition: all var(--transition-fast);
+}
+
+.reentry-tab:hover {
+    color: var(--color-text);
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.reentry-tab--active {
+    color: var(--color-gold);
+    border-bottom: 2px solid var(--color-gold);
+}
+
+/* Candidate Card */
+.reentry-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-lg);
+}
+
+.reentry-candidate {
+    background: var(--color-bg-raised);
+    border: var(--border-subtle);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+}
+
+.reentry-candidate__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-md) var(--space-lg);
+    background: rgba(255, 192, 75, 0.04);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.reentry-candidate__similarity {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-xs);
+}
+
+.reentry-candidate__score {
+    font-size: var(--font-size-xl);
+    font-weight: 700;
+    color: var(--color-gold);
+    font-variant-numeric: tabular-nums;
+}
+
+.reentry-candidate__match-label {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.reentry-candidate__same-shelter {
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    padding: 2px 10px;
+    border-radius: 10px;
+    background: rgba(96, 165, 250, 0.1);
+    color: #60a5fa;
+}
+
+/* Comparison Layout */
+.reentry-comparison {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: var(--space-md);
+    padding: var(--space-lg);
+    align-items: start;
+}
+
+.reentry-comparison__vs {
+    align-self: center;
+    font-size: var(--font-size-xl);
+    color: var(--color-text-dim);
+    padding: var(--space-lg) var(--space-sm);
+}
+
+.reentry-comparison__animal {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+}
+
+.reentry-comparison__label {
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--color-text-dim);
+}
+
+.reentry-comparison__photo-wrap {
+    width: 100%;
+    aspect-ratio: 4/3;
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.reentry-comparison__photo {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.reentry-comparison__no-photo {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-dim);
+}
+
+.reentry-comparison__details {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.reentry-comparison__name {
+    font-size: var(--font-size-md);
+    font-weight: 600;
+    margin: 0;
+}
+
+.reentry-comparison__name a {
+    color: var(--color-text);
+    text-decoration: none;
+    transition: color var(--transition-fast);
+}
+
+.reentry-comparison__name a:hover {
+    color: var(--color-gold);
+}
+
+.reentry-comparison__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-xs);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-dim);
+}
+
+/* Status badges */
+.reentry-status-badge {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 8px;
+    font-size: 0.625rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.reentry-status-badge--available {
+    background: rgba(74, 222, 128, 0.1);
+    color: #4ade80;
+}
+
+.reentry-status-badge--urgent {
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+}
+
+.reentry-status-badge--adopted {
+    background: rgba(96, 165, 250, 0.1);
+    color: #60a5fa;
+}
+
+.reentry-status-badge--delisted {
+    background: rgba(161, 161, 170, 0.1);
+    color: #a1a1aa;
+}
+
+.reentry-status-badge--euthanized {
+    background: rgba(248, 113, 113, 0.1);
+    color: #f87171;
+}
+
+/* Action buttons */
+.reentry-candidate__actions {
+    display: flex;
+    gap: var(--space-sm);
+    padding: var(--space-md) var(--space-lg);
+    border-top: 1px solid rgba(255, 255, 255, 0.04);
+    background: rgba(0, 0, 0, 0.1);
+}
+
+.reentry-candidate__actions form {
+    display: flex;
+    gap: var(--space-sm);
+    width: 100%;
+}
+
+.reentry-btn {
+    flex: 1;
+    padding: var(--space-sm) var(--space-lg);
+    border: none;
+    border-radius: var(--radius-sm);
+    font-weight: 600;
+    font-size: var(--font-size-sm);
+    font-family: var(--font-sans);
+    cursor: pointer;
+    transition: opacity var(--transition-fast);
+}
+
+.reentry-btn:hover {
+    opacity: 0.85;
+}
+
+.reentry-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.reentry-btn--confirm {
+    background: rgba(74, 222, 128, 0.15);
+    color: #4ade80;
+    border: 1px solid rgba(74, 222, 128, 0.2);
+}
+
+.reentry-btn--reject {
+    background: rgba(248, 113, 113, 0.1);
+    color: #f87171;
+    border: 1px solid rgba(248, 113, 113, 0.15);
+}
+
+/* Resolved state */
+.reentry-candidate__resolved {
+    padding: var(--space-sm) var(--space-lg);
+    border-top: 1px solid rgba(255, 255, 255, 0.04);
+    font-size: var(--font-size-sm);
+    color: #4ade80;
+}
+
+.reentry-candidate__resolved--rejected {
+    color: var(--color-text-dim);
+}
+
+/* Empty state */
+.reentry-empty {
+    text-align: center;
+    padding: var(--space-2xl);
+    color: var(--color-text-dim);
+    font-size: var(--font-size-md);
+}
+
+/* Dashboard alert card */
+.admin-reentry-alert {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    padding: var(--space-md) var(--space-lg);
+    background: rgba(255, 192, 75, 0.06);
+    border: 1px solid rgba(255, 192, 75, 0.15);
+    border-radius: var(--radius-md);
+    margin-bottom: var(--space-lg);
+    text-decoration: none;
+    transition: border-color var(--transition-fast);
+}
+
+.admin-reentry-alert:hover {
+    border-color: rgba(255, 192, 75, 0.4);
+}
+
+.admin-reentry-alert__icon {
+    font-size: var(--font-size-xl);
+}
+
+.admin-reentry-alert__text {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+}
+
+.admin-reentry-alert__count {
+    font-weight: 600;
+    color: var(--color-gold);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .reentry-comparison {
+        grid-template-columns: 1fr;
+    }
+
+    .reentry-comparison__vs {
+        text-align: center;
+        padding: var(--space-xs);
+    }
+
+    .reentry-candidate__actions form {
+        flex-direction: column;
+    }
+}

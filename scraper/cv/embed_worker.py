@@ -23,6 +23,8 @@ import sys
 import json
 import io
 import os
+import signal
+import threading
 import urllib.request
 import numpy as np
 import torch
@@ -206,6 +208,33 @@ def main():
     }) + "\n")
     sys.stdout.flush()
 
+    # Heartbeat thread — sends periodic heartbeat to stdout so Node
+    # can detect if we're stuck (e.g. hanging on a download)
+    heartbeat_stop = threading.Event()
+    def heartbeat_loop():
+        while not heartbeat_stop.is_set():
+            heartbeat_stop.wait(30)
+            if not heartbeat_stop.is_set():
+                try:
+                    sys.stdout.write(json.dumps({"heartbeat": True}) + "\n")
+                    sys.stdout.flush()
+                except:
+                    break
+
+    heartbeat_thread = threading.Thread(target=heartbeat_loop, daemon=True)
+    heartbeat_thread.start()
+
+    # SIGTERM handler — clean shutdown
+    def handle_sigterm(signum, frame):
+        heartbeat_stop.set()
+        try:
+            col.flush()
+        except:
+            pass
+        sys.exit(0)
+
+    signal.signal(signal.SIGTERM, handle_sigterm)
+
     for line in sys.stdin:
         line = line.strip()
         if not line:
@@ -219,7 +248,14 @@ def main():
 
         cmd = req.get("cmd", "embed")
         try:
-            if cmd == "embed":
+            if cmd == "shutdown":
+                heartbeat_stop.set()
+                try:
+                    col.flush()
+                except:
+                    pass
+                sys.exit(0)
+            elif cmd == "embed":
                 _handle_embed(req, model, device)
             elif cmd == "insert":
                 _handle_insert(req, col)
@@ -236,6 +272,9 @@ def main():
                 _respond({"ok": False, "error": f"Unknown command: {cmd}"})
         except Exception as e:
             _respond({"ok": False, "id": req.get("id"), "error": str(e)[:200]})
+
+    # stdin closed — clean exit
+    heartbeat_stop.set()
 
 def _respond(data):
     sys.stdout.write(json.dumps(data) + "\n")

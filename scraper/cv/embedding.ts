@@ -109,6 +109,13 @@ class PythonEmbeddingProvider implements EmbeddingProvider {
     private _vectorCount = 0;
     private requestCounter = 0;
     private initPromise: Promise<void> | null = null;
+    private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+    private lastHeartbeat = Date.now();
+    private restartCount = 0;
+    private isShuttingDown = false;
+    private static readonly MAX_RESTARTS = 3;
+    private static readonly HEARTBEAT_INTERVAL = 30_000;  // Python sends every 30s
+    private static readonly HEARTBEAT_TIMEOUT = 90_000;   // Kill if no heartbeat in 90s
 
     get ready(): boolean { return this._ready; }
     get model(): string { return this._model; }
@@ -144,8 +151,21 @@ class PythonEmbeddingProvider implements EmbeddingProvider {
 
             this.process.on('exit', (code) => {
                 this._ready = false;
+                this.stopHeartbeatMonitor();
                 if (code !== 0 && code !== null) {
                     console.error(`[embedding] Python worker exited with code ${code}`);
+                    // Auto-restart if not intentionally shutting down
+                    if (!this.isShuttingDown && this.restartCount < PythonEmbeddingProvider.MAX_RESTARTS) {
+                        this.restartCount++;
+                        const delay = Math.pow(2, this.restartCount) * 1000; // 2s, 4s, 8s
+                        console.log(`[embedding] Attempting restart ${this.restartCount}/${PythonEmbeddingProvider.MAX_RESTARTS} in ${delay}ms...`);
+                        setTimeout(() => {
+                            this.initPromise = null;
+                            this.initialize().catch(err => {
+                                console.error(`[embedding] Restart failed: ${(err as Error).message}`);
+                            });
+                        }, delay);
+                    }
                 }
                 for (const [, pending] of this.pendingRequests) {
                     clearTimeout(pending.timer);
@@ -168,9 +188,17 @@ class PythonEmbeddingProvider implements EmbeddingProvider {
                         this._ready = true;
                         this._model = resp.model || EMBEDDING_MODEL;
                         this._vectorCount = resp.vectors || 0;
+                        this.lastHeartbeat = Date.now();
+                        this.startHeartbeatMonitor();
                         clearTimeout(timeout);
                         console.log(`[embedding] Worker ready: ${this._model} (${EMBEDDING_DIM}d, ${this._vectorCount} vectors in store)`);
                         resolve();
+                        return;
+                    }
+
+                    // Heartbeat from Python worker — just update timestamp
+                    if ((resp as any).heartbeat) {
+                        this.lastHeartbeat = Date.now();
                         return;
                     }
 
@@ -263,10 +291,35 @@ class PythonEmbeddingProvider implements EmbeddingProvider {
         await this.sendRequest(reqId, { cmd: 'delete', ids }, 10_000);
     }
 
+    private startHeartbeatMonitor(): void {
+        this.stopHeartbeatMonitor();
+        this.heartbeatTimer = setInterval(() => {
+            if (!this._ready || this.isShuttingDown) return;
+            const elapsed = Date.now() - this.lastHeartbeat;
+            if (elapsed > PythonEmbeddingProvider.HEARTBEAT_TIMEOUT) {
+                console.error(`[embedding] No heartbeat for ${Math.round(elapsed / 1000)}s — force-killing worker`);
+                this.process?.kill('SIGKILL');
+            }
+        }, PythonEmbeddingProvider.HEARTBEAT_INTERVAL);
+    }
+
+    private stopHeartbeatMonitor(): void {
+        if (this.heartbeatTimer) {
+            clearInterval(this.heartbeatTimer);
+            this.heartbeatTimer = null;
+        }
+    }
+
     async shutdown(): Promise<void> {
+        this.isShuttingDown = true;
         this._ready = false;
+        this.stopHeartbeatMonitor();
         if (this.rl) { this.rl.close(); this.rl = null; }
         if (this.process) {
+            // Send clean shutdown command before killing
+            try {
+                this.process.stdin?.write(JSON.stringify({ cmd: 'shutdown' }) + '\n');
+            } catch { /* stdin may already be closed */ }
             this.process.stdin?.end();
             this.process.kill('SIGTERM');
             const forceKill = setTimeout(() => { this.process?.kill('SIGKILL'); }, 5000);

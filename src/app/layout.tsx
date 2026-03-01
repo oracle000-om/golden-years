@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { FactBubbles } from "@/components/fact-bubbles";
 import { AdminToolbar } from "@/components/admin-toolbar";
+import { StagingBanner } from "@/components/staging-banner";
 import "./globals.css";
 import "./listings.css";
 import "./detail.css";
@@ -42,6 +43,7 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/icon-192.png" />
       </head>
       <body>
+        <StagingBanner />
         <header className="header">
           <div className="container">
             <Link href="/" className="header__logo">

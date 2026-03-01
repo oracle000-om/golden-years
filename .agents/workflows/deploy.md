@@ -31,3 +31,11 @@ description: How to deploy the application to production
 ## Rollback
 
 5. In the Railway dashboard, click the previous deployment and redeploy it.
+
+## Staging
+
+Push to the `staging` branch — the `deploy-staging.yml` GitHub Actions workflow will:
+1. Run `prisma migrate deploy` against the staging database
+2. Deploy to the staging Railway service via `railway up`
+
+The staging site shows an orange **⚠️ STAGING ENVIRONMENT** banner at the top of every page (driven by `ENVIRONMENT=staging` env var on the Railway service).

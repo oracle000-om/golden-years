@@ -24,6 +24,10 @@ export type { BreedEnrichment } from './breed-enrichment';
 export type { Confidence as AgeConfidence } from './types';
 export type { LifeExpectancy } from './breed-lifespan';
 
+// v11: Visual embedding pipeline (ResNet50 + Milvus Lite)
+export { createEmbeddingProvider, cosineSimilarity, EMBEDDING_DIM, EMBEDDING_MODEL } from './embedding';
+export type { EmbeddingProvider, SearchMatch } from './embedding';
+
 /**
  * Create an assessment provider based on configuration.
  * Returns null if no provider is configured (CV disabled).

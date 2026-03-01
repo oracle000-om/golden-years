@@ -1,0 +1,8 @@
+# Python dependencies for the embedding worker
+# Must match sniff-api versions for embedding compatibility
+torch==2.9.0
+torchvision==0.24.0
+numpy==2.2.6
+pillow==12.0.0
+pymilvus>=2.5.0
+milvus-lite>=2.4.0

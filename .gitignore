@@ -49,3 +49,11 @@ src/generated/
 docs/
 backups/
 backups/
+
+# Milvus Lite vector database
+data/vectors.db
+.milvus-sync-state.json
+
+# Python
+__pycache__/
+*.pyc

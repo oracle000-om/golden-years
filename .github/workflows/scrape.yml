@@ -51,6 +51,9 @@ env:
   DATABASE_URL: ${{ secrets.DATABASE_URL }}
   GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
   RESCUE_GROUPS_API_KEY: ${{ secrets.RESCUE_GROUPS_API_KEY }}
+  ZILLIZ_ENDPOINT: ${{ secrets.ZILLIZ_ENDPOINT }}
+  ZILLIZ_TOKEN: ${{ secrets.ZILLIZ_TOKEN }}
+  PYTHON_CMD: scraper/cv/.venv/bin/python
 
 jobs:
   # ── Daily Database Backup (1:45 UTC, before scrapers) ───
@@ -126,6 +129,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
+        with:
+          install-python: 'true'
       - run: npx tsx scraper/run-rescuegroups.ts
 
   # ── Petfinder (2x/day, 4 parallel shards) ──────────
@@ -144,6 +149,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
+        with:
+          install-python: 'true'
       - run: npx tsx scraper/run-petfinder.ts --shard=${{ matrix.shard }} --total-shards=4
 
   # ── Petango / 24PetConnect (every 8 hours) ──────────────
@@ -162,6 +169,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
+        with:
+          install-python: 'true'
       - run: npx tsx scraper/run-petango.ts --shard=${{ matrix.shard }} --total-shards=4
 
   # ── Socrata Listings (every 8 hours) ────────────────────
@@ -176,6 +185,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
+        with:
+          install-python: 'true'
       - run: npx tsx scraper/run-socrata-listings.ts
 
   # ── ShelterLuv (every 8 hours) ─────────────────────────
@@ -194,6 +205,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
+        with:
+          install-python: 'true'
       - run: npx tsx scraper/run-shelterluv.ts --shard=${{ matrix.shard }} --total-shards=4
 
   # ── Adopt-a-Pet (2x/day, 4 parallel shards) ────────
@@ -212,6 +225,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
+        with:
+          install-python: 'true'
       - run: npx tsx scraper/run-adoptapet.ts --shard=${{ matrix.shard }} --total-shards=4
 
   # ── Open Data Stats (weekly) ────────────────────────────

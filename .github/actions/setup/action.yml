@@ -13,6 +13,10 @@ inputs:
     description: Install Playwright Chromium + system deps
     required: false
     default: 'false'
+  install-python:
+    description: Install Python 3.11 + embedding worker deps (torch, pymilvus)
+    required: false
+    default: 'false'
 
 runs:
   using: composite
@@ -52,3 +56,26 @@ runs:
       if: inputs.install-playwright == 'true'
       shell: bash
       run: npx playwright install chromium --with-deps
+
+    # Python + venv for embedding worker (ResNet50 + Zilliz)
+    - name: Set up Python
+      if: inputs.install-python == 'true'
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Cache Python venv
+      if: inputs.install-python == 'true'
+      id: cache-python
+      uses: actions/cache@v4
+      with:
+        path: scraper/cv/.venv
+        key: python-venv-${{ runner.os }}-${{ hashFiles('scraper/cv/requirements.txt') }}
+
+    - name: Install Python deps
+      if: inputs.install-python == 'true' && steps.cache-python.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        python -m venv scraper/cv/.venv
+        source scraper/cv/.venv/bin/activate
+        pip install -r scraper/cv/requirements.txt

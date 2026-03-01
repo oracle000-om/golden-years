@@ -55,13 +55,13 @@ export default function AboutPage() {
                     <div className="about-story__copy">
                         <p style={{ fontSize: 'var(--font-size-xl)', fontWeight: 700, color: 'var(--color-gold)' }}>1 in 5 don&apos;t make it out</p>
                         <p>
-                            In 2024, the national save rate for dogs and cats was 82% — meaning <span style={{ color: 'var(--color-gold)', fontWeight: 600 }}>nearly 1 in 5 animals entering a shelter or rescue did not make it out alive</span>. Of the 5.8 million who entered, 607,000 were euthanized.
+                            In 2024, the national save rate for dogs and cats was 82% — meaning <span style={{ color: 'var(--color-gold)', fontWeight: 600 }}>nearly 1 in 5 animals entering a shelter or rescue did not make it out alive</span>. Of the 5.8 million who entered, 748,000 had non-live outcomes — including 607,000 who were euthanized.
                         </p>
                         <p>
-                            Seniors bear the worst of it. Dogs over 9 years old are <span style={{ color: 'var(--color-gold)', fontWeight: 600 }}>half as likely to leave a shelter alive</span> compared to puppies, with only about 25% of senior dogs ever getting adopted. They stay longer, get overlooked more, and when space runs out, they&apos;re usually first on the list.
+                            Seniors bear the worst of it. Dogs over 9 years old are <span style={{ color: 'var(--color-gold)', fontWeight: 600 }}>half as likely to leave a shelter alive</span> compared to puppies, with only about 25% of senior dogs ever getting adopted. They spend up to 4× longer in shelters and are euthanized at 2.5× the rate of the general dog population. When space runs out, they&apos;re usually first on the list.
                         </p>
                         <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-dim)', fontStyle: 'italic' }}>
-                            Source: <a href="https://www.aspca.org/helping-people-pets/shelter-intake-and-surrender/pet-statistics" target="_blank" rel="noopener noreferrer" className="about-story__link">ASPCA, 2024 Shelter Animal Statistics</a>
+                            Sources: <a href="https://www.aspca.org/helping-people-pets/shelter-intake-and-surrender/pet-statistics" target="_blank" rel="noopener noreferrer" className="about-story__link">ASPCA/Shelter Animals Count, 2024</a>; <a href="https://www.maddiesfund.org/senior-dogs-in-animal-shelters.htm" target="_blank" rel="noopener noreferrer" className="about-story__link">Maddie&apos;s Fund</a>
                         </p>
                     </div>
                 </div>

@@ -318,6 +318,7 @@ jobs:
       github.event.schedule == '0 5 1 * *' ||
       (github.event_name == 'workflow_dispatch' &&
        (github.event.inputs.pipeline == 'all' ||
+        github.event.inputs.pipeline == 'data-utils' ||
         github.event.inputs.pipeline == 'breeds' ||
         github.event.inputs.pipeline == 'shelter-stats' ||
         github.event.inputs.pipeline == '990' ||

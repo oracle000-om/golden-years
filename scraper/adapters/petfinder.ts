@@ -294,14 +294,25 @@ async function fetchOrgAnimals(
 
             // Extract structured behavioral data
             const inter = pf.behavior?.interactions;
-            const houseTrained = pf.behavior?.houseTrained ?? null;
-            const goodWithCats = inter?.cats ?? null;
-            const goodWithDogs = inter?.dogs ?? null;
-            const goodWithChildren = (inter?.children8AndUp === true || inter?.childrenUnder8 === true)
-                ? true
-                : (inter?.children8AndUp === false && inter?.childrenUnder8 === false)
-                    ? false
-                    : null;
+            const htRaw = pf.behavior?.houseTrained;
+            const houseTrained = htRaw === true || htRaw === 'House trained' || htRaw === 'Yes' || htRaw === 'True' ? true : (htRaw === false || htRaw === 'No' || htRaw === 'False' || htRaw === 'Not house trained' ? false : null);
+
+            const catsRaw = inter?.cats;
+            const goodWithCats = catsRaw === true || catsRaw === 'Good with cats' || catsRaw === 'Yes' || catsRaw === 'True' ? true : (catsRaw === false || catsRaw === 'No' || catsRaw === 'False' ? false : null);
+
+            const dogsRaw = inter?.dogs;
+            const goodWithDogs = dogsRaw === true || dogsRaw === 'Good with dogs' || dogsRaw === 'Yes' || dogsRaw === 'True' ? true : (dogsRaw === false || dogsRaw === 'No' || dogsRaw === 'False' ? false : null);
+
+            // Children logic
+            const childrenUnder8Raw = inter?.childrenUnder8;
+            const children8AndUpRaw = inter?.children8AndUp;
+
+            const isGoodWithChildrenUnder8 = childrenUnder8Raw === true || childrenUnder8Raw === 'Yes' || childrenUnder8Raw === 'True';
+            const isGoodWithChildren8AndUp = children8AndUpRaw === true || children8AndUpRaw === 'Yes' || children8AndUpRaw === 'True';
+            const isBadWithChildrenUnder8 = childrenUnder8Raw === false || childrenUnder8Raw === 'No' || childrenUnder8Raw === 'False';
+            const isBadWithChildren8AndUp = children8AndUpRaw === false || children8AndUpRaw === 'No' || children8AndUpRaw === 'False';
+
+            const goodWithChildren = (isGoodWithChildren8AndUp || isGoodWithChildrenUnder8) ? true : (isBadWithChildren8AndUp && isBadWithChildrenUnder8) ? false : null;
             const specialNeeds = null; // Removed from Petfinder schema 2026-02
 
             // Build environment needs from negative signals

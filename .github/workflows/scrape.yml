@@ -120,7 +120,7 @@ jobs:
        (github.event.inputs.pipeline == 'all' ||
         github.event.inputs.pipeline == 'shelters'))
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
@@ -327,7 +327,7 @@ jobs:
         github.event.inputs.pipeline == 'shelter-intake' ||
         github.event.inputs.pipeline == 'cruelty-registry'))
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup

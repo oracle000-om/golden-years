@@ -5,6 +5,7 @@ interface SplitBarSegment {
     value: number;
     color: string;
     emoji?: string;
+    tooltipOverride?: string;
 }
 
 export function SplitBar({ segments, height = 32 }: { segments: SplitBarSegment[]; height?: number }) {
@@ -21,7 +22,7 @@ export function SplitBar({ segments, height = 32 }: { segments: SplitBarSegment[
                             key={seg.label}
                             className="split-bar__segment"
                             style={{ width: `${pct}%`, background: seg.color }}
-                            title={`${seg.label}: ${seg.value.toLocaleString()} (${Math.round(pct)}%)`}
+                            title={seg.tooltipOverride || `${seg.label}: ${seg.value.toLocaleString()} (${Math.round(pct)}%)`}
                         >
                             {pct > 10 && (
                                 <span className="split-bar__label">

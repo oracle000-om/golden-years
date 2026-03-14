@@ -50,13 +50,13 @@ interface PfAnimalResponse {
     primaryPhotoId: string | null;
     distance: number | null;
     behavior?: {
-        houseTrained: boolean | null;
-        specialNeeds: boolean | null;
+        houseTrained: boolean | string | null;
+        specialNeeds: boolean | string | null;
         interactions?: {
-            cats: boolean | null;
-            dogs: boolean | null;
-            childrenUnder8: boolean | null;
-            children8AndUp: boolean | null;
+            cats: boolean | string | null;
+            dogs: boolean | string | null;
+            childrenUnder8: boolean | string | null;
+            children8AndUp: boolean | string | null;
         };
     };
     publicUrl?: { url: string } | null;

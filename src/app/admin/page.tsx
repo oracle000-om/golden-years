@@ -75,6 +75,34 @@ export default async function AdminDashboard() {
         emoji: s.species === 'DOG' ? '🐕' : s.species === 'CAT' ? '🐱' : '🐾',
     }));
 
+    // Prepare age split bar
+    const AGE_COLORS: Record<string, string> = {
+        PUPPY: '#60a5fa',   // blue-400
+        YOUNG: '#4ade80',   // green-400
+        ADULT: '#c084fc',   // purple-400
+        SENIOR: '#fbbf24',  // amber-400 (gold)
+        UNKNOWN: '#a1a1aa', // zinc-400
+    };
+
+    const ageSegments = data.ageBreakdown.map(a => {
+        let tooltip = `${a.ageSegment === 'UNKNOWN' ? 'Unknown' : a.ageSegment.charAt(0) + a.ageSegment.slice(1).toLowerCase()}: ${a.count.toLocaleString()} (${Math.round((a.count / data.activeAnimals) * 100)}%)`;
+
+        if (a.ageSegment === 'UNKNOWN' && a.cvEstimates) {
+            const cvTotal = a.cvEstimates.reduce((sum, e) => sum + e.count, 0);
+            const detailStr = a.cvEstimates
+                .map(e => `${e.segment.charAt(0) + e.segment.slice(1).toLowerCase()}: ${e.count.toLocaleString()} (${Math.round((e.count / cvTotal) * 100)}%)`)
+                .join('\\n  ');
+            tooltip += `\\nCV Estimated Breakdown (${cvTotal.toLocaleString()} animals):\\n  ${detailStr}`;
+        }
+
+        return {
+            label: a.ageSegment === 'UNKNOWN' ? 'Unknown' : a.ageSegment.charAt(0) + a.ageSegment.slice(1).toLowerCase(),
+            value: a.count,
+            color: AGE_COLORS[a.ageSegment] || '#52525b',
+            tooltipOverride: tooltip
+        };
+    });
+
     return (
         <div className="admin-page">
             <h1 className="admin-page__title">Overview</h1>
@@ -152,6 +180,9 @@ export default async function AdminDashboard() {
                     <div className="admin-card">
                         <h2 className="admin-card__title">Species</h2>
                         <SplitBar segments={speciesSegments} height={36} />
+
+                        <h2 className="admin-card__title" style={{ marginTop: '1.5rem' }}>Age Groups</h2>
+                        <SplitBar segments={ageSegments} height={36} />
 
                         <h2 className="admin-card__title" style={{ marginTop: '1.5rem' }}>Source Type</h2>
                         <div className="admin-breakdown">

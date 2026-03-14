@@ -125,7 +125,7 @@ export default function AboutPage() {
                             <li>▸ Gemini 2.5 (structured output)</li>
                             <li>▸ PostgreSQL · Prisma</li>
                             <li>▸ Sharp (perceptual hashing)</li>
-                            <li>▸ Railway · GitHub Actions</li>
+                            <li>▸ Vercel · GitHub Actions</li>
                         </ul>
                         <p>
                             Golden Years Club is part of the same family of work as <a href="https://sniffhome.org" target="_blank" rel="noopener noreferrer" className="about-story__link--gold" style={{ fontWeight: 700 }}>Sniff</a>. The Sniff API taps into Golden Years Club&apos;s database to help owners search for their lost pet. Both projects are open source.

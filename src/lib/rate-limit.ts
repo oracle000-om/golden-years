@@ -2,7 +2,7 @@
  * Database-backed Rate Limiter
  *
  * Persists rate limit state in PostgreSQL so limits survive server
- * restarts, deploys, and Railway cold starts.
+ * restarts, deploys, and serverless cold starts.
  *
  * Uses upsert with a sliding window per (ip, route) pair.
  */

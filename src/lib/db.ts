@@ -36,17 +36,11 @@ function createPrismaClient(): PrismaClient {
       },
     });
   }
-  // Railway internal connections don't use SSL; external proxy connections do
-  const needsSsl = connectionString.includes('.rlwy.net') ||
-    (!connectionString.includes('.railway.internal') && process.env.NODE_ENV === 'production');
+  const isProduction = process.env.NODE_ENV === 'production';
 
   const pool = new pg.Pool({
     connectionString,
-    // Railway's proxy TLS uses self-signed certs, so we must disable
-    // verification. This is acceptable for Railway's private network but
-    // is technically a MITM surface — switch to Railway internal networking
-    // (no SSL needed) if this becomes a concern.
-    ssl: needsSsl ? { rejectUnauthorized: false } : undefined,
+    ssl: isProduction ? { rejectUnauthorized: false } : undefined,
   });
 
   pool.on('error', (err) => {

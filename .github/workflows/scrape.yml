@@ -6,16 +6,16 @@
 # Schedule A (:00) — Shelters(1) + Petfinder(4) + Adopt-a-Pet(4) + RescueGroups(1) = 10 concurrent
 # Schedule B (:30) — Petango(4) + ShelterLuv(4) = 8 concurrent
 # Peak concurrent: 10 jobs (well within free-tier limit of 20)
-# Frequency: 2x/day (6am + 6pm UTC) — most shelters update once daily
+# Frequency: 1x/day (6am UTC) — most shelters update once daily
 #
 # Data pipeline cadences:
-#   2x/day   — Animal listings (shelters, petfinder, etc.)
+#   1x/day   — Animal listings (shelters, petfinder, etc.)
 #   Weekly   — Open data stats, Socrata listings, confiscation events
 #   Monthly  — USDA inspections, state kennel records, shelter intake
 #   Annual   — Research facility reports, Horrible Hundred, Beagle Bills
 #
 # Required repository secrets:
-#   DATABASE_URL          — Railway PostgreSQL connection string
+#   DATABASE_URL          — PostgreSQL connection string (Railway)
 #   GEMINI_API_KEY        — Google Gemini for CV age estimation
 #   RESCUE_GROUPS_API_KEY — RescueGroups.org API key
 
@@ -26,10 +26,10 @@ on:
   schedule:
     # Daily backup before scrapes
     - cron: '45 1 * * *'            # 1:45am UTC — pre-scrape backup
-    # Group A: Petfinder + Adopt-a-Pet + RescueGroups (2x/day)
-    - cron: '0 6,18 * * *'          # 6am, 6pm UTC
-    # Group B: Petango + ShelterLuv (2x/day, offset 30min)
-    - cron: '30 6,18 * * *'         # 6:30am, 6:30pm UTC
+    # Group A: Petfinder + Adopt-a-Pet + RescueGroups (1x/day)
+    - cron: '0 6 * * *'             # 6am UTC
+    # Group B: Petango + ShelterLuv (1x/day, offset 30min)
+    - cron: '30 6 * * *'            # 6:30am UTC
     # Weekly: open data + Socrata listings + confiscation events (Sunday 4am UTC)
     - cron: '0 4 * * 0'
     # Monthly: inspections, state records, intake stats (1st of month, 5am UTC)
@@ -112,10 +112,10 @@ jobs:
           aws s3 cp "${BACKUP_FILE}" "s3://${BACKUP_S3_BUCKET}/backups/${BACKUP_FILE}"
           echo "☁️  Uploaded to s3://${BACKUP_S3_BUCKET}/backups/${BACKUP_FILE}"
 
-  # ── Shelter Scrapers (2x/day) ─────────────────────────
+  # ── Shelter Scrapers (1x/day) ─────────────────────────
   scrape-shelters:
     if: >-
-      github.event.schedule == '0 6,18 * * *' ||
+      github.event.schedule == '0 6 * * *' ||
       (github.event_name == 'workflow_dispatch' &&
        (github.event.inputs.pipeline == 'all' ||
         github.event.inputs.pipeline == 'shelters'))
@@ -126,10 +126,10 @@ jobs:
       - uses: ./.github/actions/setup
       - run: npm run scrape -- --no-cv
 
-  # ── RescueGroups (every 8 hours) ────────────────────────
+  # ── RescueGroups (1x/day) ────────────────────────────
   scrape-rescuegroups:
     if: >-
-      github.event.schedule == '0 6,18 * * *' ||
+      github.event.schedule == '0 6 * * *' ||
       (github.event_name == 'workflow_dispatch' &&
        (github.event.inputs.pipeline == 'all' ||
         github.event.inputs.pipeline == 'rescuegroups'))
@@ -140,10 +140,10 @@ jobs:
       - uses: ./.github/actions/setup
       - run: npx tsx scraper/run-rescuegroups.ts --no-cv
 
-  # ── Petfinder (2x/day, 4 parallel shards) ──────────
+  # ── Petfinder (1x/day, 4 parallel shards) ──────────
   scrape-petfinder:
     if: >-
-      github.event.schedule == '0 6,18 * * *' ||
+      github.event.schedule == '0 6 * * *' ||
       (github.event_name == 'workflow_dispatch' &&
        (github.event.inputs.pipeline == 'all' ||
         github.event.inputs.pipeline == 'petfinder'))
@@ -158,10 +158,10 @@ jobs:
       - uses: ./.github/actions/setup
       - run: npx tsx scraper/run-petfinder.ts --shard=${{ matrix.shard }} --total-shards=4 --no-cv
 
-  # ── Petango / 24PetConnect (every 8 hours) ──────────────
+  # ── Petango / 24PetConnect (1x/day) ────────────────
   scrape-petango:
     if: >-
-      github.event.schedule == '30 6,18 * * *' ||
+      github.event.schedule == '30 6 * * *' ||
       (github.event_name == 'workflow_dispatch' &&
        (github.event.inputs.pipeline == 'all' ||
         github.event.inputs.pipeline == 'petango'))
@@ -190,10 +190,10 @@ jobs:
       - uses: ./.github/actions/setup
       - run: npx tsx scraper/run-socrata-listings.ts --no-cv
 
-  # ── ShelterLuv (every 8 hours) ─────────────────────────
+  # ── ShelterLuv (1x/day) ─────────────────────────────
   scrape-shelterluv:
     if: >-
-      github.event.schedule == '30 6,18 * * *' ||
+      github.event.schedule == '30 6 * * *' ||
       (github.event_name == 'workflow_dispatch' &&
        (github.event.inputs.pipeline == 'all' ||
         github.event.inputs.pipeline == 'shelterluv'))
@@ -208,10 +208,10 @@ jobs:
       - uses: ./.github/actions/setup
       - run: npx tsx scraper/run-shelterluv.ts --shard=${{ matrix.shard }} --total-shards=4 --no-cv
 
-  # ── Adopt-a-Pet (2x/day, 4 parallel shards) ────────
+  # ── Adopt-a-Pet (1x/day, 4 parallel shards) ────────
   scrape-adoptapet:
     if: >-
-      github.event.schedule == '0 6,18 * * *' ||
+      github.event.schedule == '0 6 * * *' ||
       (github.event_name == 'workflow_dispatch' &&
        (github.event.inputs.pipeline == 'all' ||
         github.event.inputs.pipeline == 'adoptapet'))
@@ -405,7 +405,7 @@ jobs:
   # ── CV Assessment (after all scrape jobs) ─────────────
   run-cv:
     needs: [scrape-shelters, scrape-rescuegroups, scrape-petfinder, scrape-petango, scrape-shelterluv, scrape-adoptapet]
-    if: always() && github.event.schedule == '0 6,18 * * *'
+    if: always() && github.event.schedule == '0 6 * * *'
     runs-on: ubuntu-latest
     timeout-minutes: 180
     steps:
@@ -415,10 +415,10 @@ jobs:
           install-python: 'true'
       - run: npx tsx scraper/run-cv.ts
 
-  # ── Retry Queue (after all 8h scrape jobs) ──────────────
+  # ── Retry Queue (after all scrape jobs) ──────────────
   retry-queue:
     needs: [scrape-shelters, scrape-rescuegroups, scrape-petfinder, scrape-petango, scrape-shelterluv, scrape-adoptapet]
-    if: always() && github.event.schedule == '0 6,18 * * *'
+    if: always() && github.event.schedule == '0 6 * * *'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:

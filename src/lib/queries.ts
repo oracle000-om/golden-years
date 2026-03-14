@@ -8,6 +8,7 @@ import { parseSearchQuery, type SearchIntent } from './search-parser';
 import { geocodeZip, geocodeZipFull, geocodeCounty, haversineDistance } from './geocode';
 import { zipToState } from './zip-to-state';
 import { buildShelterStoryInsights } from './utils';
+import { buildGYCClause } from './segment-filter';
 
 // ─── Data quality guards ─────────────────────────────────
 /** Names that indicate junk / placeholder records from shelter systems. */
@@ -51,63 +52,6 @@ const DEFAULT_RADIUS = 100; // miles
 
 // ─── Animal Queries ──────────────────────────────────────
 
-/**
- * Size-aware senior age thresholds for dogs (mirrors scraper/base-adapter).
- */
-const DOG_SENIOR_BY_SIZE: Record<string, number> = {
-    XLARGE: 5,   // giant breeds
-    LARGE: 6,
-    MEDIUM: 7,
-    SMALL: 9,
-};
-
-function seniorThreshold(species: string, size: string | null): number {
-    if (species === 'CAT') return 10;
-    if (species === 'DOG' && size && DOG_SENIOR_BY_SIZE[size] !== undefined) {
-        return DOG_SENIOR_BY_SIZE[size];
-    }
-    return 7; // default for dogs w/o size, OTHER
-}
-
-/**
- * Determine if an animal should be excluded — ONLY the CV age estimate
- * is used. Shelter-reported age is not authoritative for exclusion.
- */
-function _shouldExclude(animal: AnimalWithShelter): boolean {
-    const threshold = seniorThreshold(animal.species, animal.size);
-    // Only CV assessment can exclude
-    const cvHigh = (animal as any).assessment?.ageEstimatedHigh;
-    if (cvHigh !== null && cvHigh !== undefined && cvHigh < threshold) return true;
-    return false;
-}
-
-/**
- * Build a NOT clause that excludes animals where the CV estimate says
- * the animal is below the senior threshold. Shelter-reported age is
- * NOT used for exclusion — CV is the platform authority.
- * Animals without a CV assessment are never excluded by age.
- */
-function buildSeniorExclusionClause(): Record<string, unknown> {
-    return {
-        NOT: {
-            OR: [
-                // Cats: CV high < 10
-                { AND: [{ species: 'CAT' }, { assessment: { ageEstimatedHigh: { lt: 10 } } }] },
-                // Dog XLARGE: CV high < 5
-                { AND: [{ species: 'DOG' }, { size: 'XLARGE' }, { assessment: { ageEstimatedHigh: { lt: 5 } } }] },
-                // Dog LARGE: CV high < 6
-                { AND: [{ species: 'DOG' }, { size: 'LARGE' }, { assessment: { ageEstimatedHigh: { lt: 6 } } }] },
-                // Dog MEDIUM: CV high < 7
-                { AND: [{ species: 'DOG' }, { size: 'MEDIUM' }, { assessment: { ageEstimatedHigh: { lt: 7 } } }] },
-                // Dog SMALL: CV high < 9
-                { AND: [{ species: 'DOG' }, { size: 'SMALL' }, { assessment: { ageEstimatedHigh: { lt: 9 } } }] },
-                // Dog unknown size: CV high < 7
-                { AND: [{ species: 'DOG' }, { size: null }, { assessment: { ageEstimatedHigh: { lt: 7 } } }] },
-            ],
-        },
-    };
-}
-
 /** Fetch filtered, sorted, paginated animal listings with distance. */
 export async function getFilteredAnimals(filters: AnimalFilters): Promise<PaginatedResult> {
     // Status filter: default to both, narrow to URGENT-only when requested
@@ -128,7 +72,7 @@ export async function getFilteredAnimals(filters: AnimalFilters): Promise<Pagina
             { intakeDate: { gte: new Date(Date.now() - 10 * 365.25 * 24 * 60 * 60 * 1000) } },
         ],
         // #6: exclude animals confirmed non-senior by both sources
-        ...buildSeniorExclusionClause(),
+        ...buildGYCClause(),
     };
 
     if (filters.species && filters.species !== 'all') {
@@ -255,6 +199,7 @@ export async function getFilteredAnimals(filters: AnimalFilters): Promise<Pagina
         }) as Promise<AnimalWithShelter[]>,
         prisma.animal.count({ where }),
     ]);
+    console.log("WHERE DEBUG:", JSON.stringify(where, null, 2));
 
     let animals: AnimalResult[] = dbAnimals as AnimalResult[];
     let totalCount = count;
@@ -480,7 +425,7 @@ export async function searchAnimals(intent: SearchIntent): Promise<AnimalWithShe
             { intakeDate: { gte: new Date(Date.now() - 10 * 365.25 * 24 * 60 * 60 * 1000) } },
         ],
         // Exclude confirmed non-seniors at DB level
-        ...buildSeniorExclusionClause(),
+        ...buildGYCClause(),
     };
 
     await applySearchIntent(where, intent);

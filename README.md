@@ -42,7 +42,7 @@ Golden Years Club surfaces senior dogs and cats facing euthanasia at shelters an
 | AI/CV | Google Gemini (`@google/genai`) |
 | Image Processing | Sharp (perceptual hashing) |
 | Styling | Vanilla CSS (modular, design-system-driven) |
-| Deployment | Railway |
+| Deployment | Vercel |
 | Auth | Cookie-based site gate |
 
 ## Getting Started

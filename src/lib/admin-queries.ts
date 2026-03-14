@@ -31,6 +31,12 @@ export interface AdminOverview {
     // Enhancement 5: State coverage
     stateBreakdown: { state: string; shelters: number; animals: number }[];
     totalStates: number;
+    // Age breakdown
+    ageBreakdown: {
+        ageSegment: string;
+        count: number;
+        cvEstimates?: { segment: string; count: number }[];
+    }[];
 }
 
 interface RecentAnimal {
@@ -115,6 +121,53 @@ export async function getAdminOverview(): Promise<AdminOverview> {
     const cvConfidenceBreakdown = confGroups
         .map(g => ({ confidence: g.ageConfidence, count: g._count.ageConfidence }))
         .sort((a, b) => b.count - a.count);
+
+    // Age breakdown
+    const ageGroups = await prisma.animal.groupBy({
+        by: ['ageSegment'],
+        _count: { ageSegment: true },
+        where: { status: { in: ['AVAILABLE', 'URGENT'] } },
+    });
+
+    // Calculate CV estimates for UNKNOWN age segment
+    const unknownWithCv = await prisma.animal.findMany({
+        where: {
+            status: { in: ['AVAILABLE', 'URGENT'] },
+            ageSegment: 'UNKNOWN',
+            assessment: { ageEstimatedLow: { not: null } }
+        },
+        select: {
+            assessment: {
+                select: { ageEstimatedLow: true }
+            }
+        }
+    });
+
+    const cvEstimatesMap: Record<string, number> = { PUPPY: 0, YOUNG: 0, ADULT: 0, SENIOR: 0 };
+    unknownWithCv.forEach(a => {
+        const est = a.assessment?.ageEstimatedLow;
+        if (est !== undefined && est !== null) {
+            if (est < 1) cvEstimatesMap.PUPPY++;
+            else if (est < 3) cvEstimatesMap.YOUNG++;
+            else if (est < 8) cvEstimatesMap.ADULT++;
+            else cvEstimatesMap.SENIOR++;
+        }
+    });
+
+    const cvEstimates = Object.entries(cvEstimatesMap)
+        .filter(([_, count]) => count > 0)
+        .map(([segment, count]) => ({ segment, count }));
+
+    const ageOrder: Record<string, number> = { PUPPY: 1, YOUNG: 2, ADULT: 3, SENIOR: 4, UNKNOWN: 5 };
+    const ageBreakdown = ageGroups
+        .map(g => {
+            const result: any = { ageSegment: g.ageSegment, count: g._count.ageSegment };
+            if (g.ageSegment === 'UNKNOWN' && cvEstimates.length > 0) {
+                result.cvEstimates = cvEstimates;
+            }
+            return result;
+        })
+        .sort((a, b) => (ageOrder[a.ageSegment] || 99) - (ageOrder[b.ageSegment] || 99));
 
     // Shelter type breakdown — shelters and active animals by type
     const shelterTypeGroups = await prisma.shelter.groupBy({
@@ -236,6 +289,7 @@ export async function getAdminOverview(): Promise<AdminOverview> {
         withVisibleConditions,
         stateBreakdown,
         totalStates: validStateGroups.length,
+        ageBreakdown,
     };
 }
 

@@ -12,8 +12,15 @@
 
 import 'dotenv/config';
 import { createPrismaClient } from './lib/prisma';
-import { SAC_SHELTER_STATS, fuzzyMatchShelterName } from './adapters/shelter-animals-count';
-
+// TODO: SAC_SHELTER_STATS and fuzzyMatchShelterName were removed in a prior
+// refactor. This runner needs to be rewritten to use fetchShelterIntakeStats().
+// For now, provide stubs so the project compiles.
+const SAC_SHELTER_STATS: { state: string; city: string; sacName: string; totalIntake: number; totalEuthanized: number; dataYear: number }[] = [];
+function fuzzyMatchShelterName(a: string, b: string): boolean {
+    const normA = a.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
+    const normB = b.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
+    return normA.includes(normB) || normB.includes(normA);
+}
 
 
 async function main() {

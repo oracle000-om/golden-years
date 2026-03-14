@@ -50,7 +50,7 @@ export interface Animal {
     ageSegment: string;
     description: string | null;
     listingUrl: string | null;
-    intakeReason: 'OWNER_SURRENDER' | 'STRAY' | 'OWNER_DECEASED' | 'CONFISCATE' | 'RETURN' | 'TRANSFER' | 'INJURED' | 'OTHER' | 'UNKNOWN';
+    intakeReason: 'OWNER_SURRENDER' | 'STRAY' | 'OWNER_DECEASED' | 'CONFISCATE' | 'CONFISCATE_MILL' | 'CONFISCATE_HOARDING' | 'CONFISCATE_CRUELTY' | 'RETURN' | 'TRANSFER' | 'INJURED' | 'OTHER' | 'UNKNOWN';
     intakeReasonDetail: string | null;
     notes: string | null;
     intakeDate: Date | null;

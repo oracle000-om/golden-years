@@ -14,15 +14,12 @@ All changes go through staging first. Never push directly to `main`.
 git push origin main:staging
 ```
 
-This triggers `deploy-staging.yml`, which:
-- Runs `prisma migrate deploy` against the staging database
-- Deploys to the staging Railway service
-
-The staging site shows an orange **⚠️ STAGING ENVIRONMENT** banner.
+Vercel automatically creates a **Preview Deployment** for the `staging` branch.
+The GitHub Action `deploy-staging.yml` runs `prisma migrate deploy` against the staging database.
 
 ### 2. QA on staging
 
-- Visit the staging URL
+- Visit the Vercel preview URL (shown in the GitHub PR / Vercel dashboard)
 - Spot-check homepage, animal detail pages, admin dashboard
 - If schema migrations ran, verify data integrity
 
@@ -34,7 +31,7 @@ Once staging looks good:
 git push origin main
 ```
 
-Railway auto-deploys on push to `main`. If schema changes are pending, `prisma migrate deploy` runs during the build step.
+Vercel auto-deploys on push to `main`. If schema changes are pending, run `prisma migrate deploy` against production first.
 
 ### 4. Verify production
 
@@ -55,4 +52,4 @@ Or trigger via GitHub Actions: run the **Scrape** workflow manually with pipelin
 
 ## Rollback
 
-In the Railway dashboard, click the previous deployment and redeploy it.
+In the Vercel dashboard, go to Deployments → click a previous deployment → click **Promote to Production**.

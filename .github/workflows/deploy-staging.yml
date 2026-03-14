@@ -1,14 +1,12 @@
-# Golden Years Club — Staging Deploy
+# Golden Years Club — Staging Migration Check
 #
-# Deploys to the staging Railway service on every push to the `staging` branch.
-# Runs Prisma migrations first, then deploys the app.
+# Runs Prisma migrations against the staging database on push to `staging`.
+# Vercel handles the actual deployment automatically via GitHub integration.
 #
 # Prerequisites:
 #   1. Create a GitHub environment called "staging"
-#   2. Add these secrets to the staging environment:
-#      - DATABASE_URL     — staging PostgreSQL connection string
-#      - RAILWAY_TOKEN    — Railway project token for staging service
-#      - RAILWAY_SERVICE  — Railway service ID for staging
+#   2. Add this secret to the staging environment:
+#      - DATABASE_URL — staging PostgreSQL connection string
 
 name: Deploy Staging
 
@@ -22,7 +20,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  deploy:
+  migrate:
     runs-on: ubuntu-latest
     environment: staging
     timeout-minutes: 10
@@ -34,11 +32,3 @@ jobs:
         run: npx prisma migrate deploy
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-
-      - name: Install Railway CLI
-        run: npm install -g @railway/cli
-
-      - name: Deploy to staging
-        run: railway up --service ${{ secrets.RAILWAY_SERVICE }} --detach
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}

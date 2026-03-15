@@ -26,10 +26,12 @@ on:
   schedule:
     # Daily backup before scrapes
     - cron: '45 1 * * *'            # 1:45am UTC — pre-scrape backup
-    # Group A: Petfinder + Adopt-a-Pet + RescueGroups (1x/day)
-    - cron: '0 6 * * *'             # 6am UTC
+    # Group A: Petfinder + RescueGroups + Shelters (1x/day)
+    - cron: '0 6 * * *'             # 6:00 UTC
     # Group B: Petango + ShelterLuv (1x/day, offset 30min)
-    - cron: '30 6 * * *'            # 6:30am UTC
+    - cron: '30 6 * * *'            # 6:30 UTC
+    # Group C: Adopt-a-Pet (1x/day, offset 60min to reduce connection pressure)
+    - cron: '0 7 * * *'             # 7:00 UTC
     # Weekly: open data + Socrata listings + confiscation events (Sunday 4am UTC)
     - cron: '0 4 * * 0'
     # Monthly: inspections, state records, intake stats (1st of month, 5am UTC)
@@ -47,7 +49,7 @@ on:
   #   geocode, enrich, best-friends, aphis, aphis-enforcement,
   #   horrible-hundred, state-kennel, research, shelter-intake,
   #   confiscation, lab-retirement, news-busts, cruelty-registry,
-  #   puppy-imports, pet-store-bans, akc-breeds
+  #   puppy-imports, pet-store-bans, akc-breeds, annual
   workflow_dispatch:
     inputs:
       pipeline:
@@ -111,6 +113,33 @@ jobs:
           pip install awscli --quiet
           aws s3 cp "${BACKUP_FILE}" "s3://${BACKUP_S3_BUCKET}/backups/${BACKUP_FILE}"
           echo "☁️  Uploaded to s3://${BACKUP_S3_BUCKET}/backups/${BACKUP_FILE}"
+
+  # ── Pre-scrape housekeeping (reap stuck runs) ──────────
+  pre-scrape-cleanup:
+    if: >-
+      github.event.schedule == '0 6 * * *' ||
+      github.event.schedule == '30 6 * * *' ||
+      github.event.schedule == '0 7 * * *'
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Reap stuck RUNNING records
+        run: |
+          npm install pg --no-save --silent 2>/dev/null
+          node -e "
+            const pg = require('pg');
+            const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
+            pool.query(
+              \"UPDATE scrape_runs SET status = 'FAILED', finished_at = NOW(), error_summary = 'Auto-reaped: stuck in RUNNING state' WHERE status = 'RUNNING' AND started_at < NOW() - INTERVAL '4 hours' RETURNING id, pipeline, started_at\"
+            ).then(r => {
+              if (r.rows.length === 0) console.log('✅ No stuck runs to reap');
+              else {
+                console.log('🧹 Reaped ' + r.rows.length + ' stuck runs:');
+                r.rows.forEach(row => console.log('  ' + row.pipeline + ' — started ' + row.started_at.toISOString()));
+              }
+              pool.end();
+            }).catch(e => { console.error(e); pool.end(); process.exit(1); });
+          "
 
   # ── Shelter Scrapers (1x/day) ─────────────────────────
   scrape-shelters:
@@ -211,7 +240,7 @@ jobs:
   # ── Adopt-a-Pet (1x/day, 4 parallel shards) ────────
   scrape-adoptapet:
     if: >-
-      github.event.schedule == '0 6 * * *' ||
+      github.event.schedule == '0 7 * * *' ||
       (github.event_name == 'workflow_dispatch' &&
        (github.event.inputs.pipeline == 'all' ||
         github.event.inputs.pipeline == 'adoptapet'))
@@ -276,19 +305,35 @@ jobs:
         run: |
           PIPE="${{ github.event.inputs.pipeline }}"
           run_if() { [[ -z "$PIPE" || "$PIPE" == 'all' || "$PIPE" == 'state-reports' || "$PIPE" == "$1" ]]; }
-          run_if new-jersey       && npm run scrape:new-jersey       || true
-          run_if connecticut      && npm run scrape:connecticut      || true
-          run_if maryland         && npm run scrape:maryland         || true
-          run_if michigan         && npm run scrape:michigan         || true
-          run_if south-carolina   && npm run scrape:south-carolina   || true
-          run_if illinois         && npm run scrape:illinois         || true
-          run_if missouri         && npm run scrape:missouri         || true
-          run_if oregon           && npm run scrape:oregon           || true
-          run_if florida          && npm run scrape:florida          || true
-          run_if georgia          && npm run scrape:georgia          || true
-          run_if virginia         && npm run scrape:virginia         || true
-          run_if colorado         && npm run scrape:colorado         || true
-          run_if north-carolina   && npm run scrape:north-carolina   || true
+          FAILED=""
+          run_scraper() {
+            local name="$1"; shift
+            if run_if "$name"; then
+              if "$@"; then
+                echo "✅ $name" >> "$GITHUB_STEP_SUMMARY"
+              else
+                echo "❌ $name" >> "$GITHUB_STEP_SUMMARY"
+                FAILED="$FAILED $name"
+              fi
+            fi
+          }
+          run_scraper new-jersey       npm run scrape:new-jersey
+          run_scraper connecticut      npm run scrape:connecticut
+          run_scraper maryland         npm run scrape:maryland
+          run_scraper michigan         npm run scrape:michigan
+          run_scraper south-carolina   npm run scrape:south-carolina
+          run_scraper illinois         npm run scrape:illinois
+          run_scraper missouri         npm run scrape:missouri
+          run_scraper oregon           npm run scrape:oregon
+          run_scraper florida          npm run scrape:florida
+          run_scraper georgia          npm run scrape:georgia
+          run_scraper virginia         npm run scrape:virginia
+          run_scraper colorado         npm run scrape:colorado
+          run_scraper north-carolina   npm run scrape:north-carolina
+          if [[ -n "$FAILED" ]]; then
+            echo "::error::Failed pipelines:$FAILED"
+            exit 1
+          fi
 
   # ── Monthly: USDA Pipeline (single runner) ──────────────
   scrape-usda:
@@ -308,9 +353,25 @@ jobs:
         run: |
           PIPE="${{ github.event.inputs.pipeline }}"
           run_if() { [[ -z "$PIPE" || "$PIPE" == 'all' || "$PIPE" == "$1" ]]; }
-          run_if aphis             && npm run scrape:aphis             || true
-          run_if aphis-enforcement  && npm run scrape:aphis-enforcement  || true
-          run_if state-kennel      && npm run scrape:state-kennel      || true
+          FAILED=""
+          run_scraper() {
+            local name="$1"; shift
+            if run_if "$name"; then
+              if "$@"; then
+                echo "✅ $name" >> "$GITHUB_STEP_SUMMARY"
+              else
+                echo "❌ $name" >> "$GITHUB_STEP_SUMMARY"
+                FAILED="$FAILED $name"
+              fi
+            fi
+          }
+          run_scraper aphis             npm run scrape:aphis
+          run_scraper aphis-enforcement  npm run scrape:aphis-enforcement
+          run_scraper state-kennel      npm run scrape:state-kennel
+          if [[ -n "$FAILED" ]]; then
+            echo "::error::Failed pipelines:$FAILED"
+            exit 1
+          fi
 
   # ── Monthly: Data Utilities (single runner) ─────────────
   scrape-data-utils:
@@ -336,27 +397,31 @@ jobs:
         run: |
           PIPE="${{ github.event.inputs.pipeline }}"
           run_if() { [[ -z "$PIPE" || "$PIPE" == 'all' || "$PIPE" == "$1" ]]; }
-          run_if breeds          && npm run scrape:breeds          || true
-          run_if shelter-stats   && npm run scrape:shelter-stats   || true
-          run_if 990             && npm run scrape:990             || true
-          run_if aldf            && npm run scrape:aldf            || true
-          run_if geocode         && npm run geocode                || true
-          run_if enrich          && npm run enrich                 || true
-          run_if shelter-intake  && npm run scrape:shelter-intake  || true
-          run_if cruelty-registry && npm run scrape:cruelty-registry || true
+          FAILED=""
+          run_scraper() {
+            local name="$1"; shift
+            if run_if "$name"; then
+              if "$@"; then
+                echo "✅ $name" >> "$GITHUB_STEP_SUMMARY"
+              else
+                echo "❌ $name" >> "$GITHUB_STEP_SUMMARY"
+                FAILED="$FAILED $name"
+              fi
+            fi
+          }
+          run_scraper breeds          npm run scrape:breeds
+          run_scraper shelter-stats   npm run scrape:shelter-stats
+          run_scraper 990             npm run scrape:990
+          run_scraper aldf            npm run scrape:aldf
+          run_scraper geocode         npm run geocode
+          run_scraper enrich          npm run enrich
+          run_scraper shelter-intake  npm run scrape:shelter-intake
+          run_scraper cruelty-registry npm run scrape:cruelty-registry
+          if [[ -n "$FAILED" ]]; then
+            echo "::error::Failed pipelines:$FAILED"
+            exit 1
+          fi
 
-  # NOTE: Housing pressure scraper not yet implemented.
-  # Uncomment when run-housing-pressure.ts is ready:
-  # scrape-housing-pressure:
-  #   if: >-
-  #     github.event_name == 'workflow_dispatch' &&
-  #     github.event.inputs.pipeline == 'housing-pressure'
-  #   runs-on: ubuntu-latest
-  #   timeout-minutes: 30
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - uses: ./.github/actions/setup
-  #     - run: npm run scrape:housing-pressure
 
   # ── Annual: Reports & Watchlists (Jan 15) ───────────────
   scrape-annual:
@@ -402,10 +467,17 @@ jobs:
           github.event.inputs.pipeline == matrix.name
         run: ${{ matrix.cmd }}
 
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "::error::Annual scraper '${{ matrix.name }}' failed. Next auto-run is Jan 15 next year."
+          echo "❌ **${{ matrix.name }}** failed" >> "$GITHUB_STEP_SUMMARY"
+          echo "Rerun manually: Actions → Scrape → Run workflow → pipeline: ${{ matrix.name }}" >> "$GITHUB_STEP_SUMMARY"
+
   # ── CV Assessment (after all scrape jobs) ─────────────
   run-cv:
     needs: [scrape-shelters, scrape-rescuegroups, scrape-petfinder, scrape-petango, scrape-shelterluv, scrape-adoptapet]
-    if: always() && github.event.schedule == '0 6 * * *'
+    if: always() && github.event.schedule == '0 7 * * *'
     runs-on: ubuntu-latest
     timeout-minutes: 180
     steps:
@@ -418,7 +490,7 @@ jobs:
   # ── Retry Queue (after all scrape jobs) ──────────────
   retry-queue:
     needs: [scrape-shelters, scrape-rescuegroups, scrape-petfinder, scrape-petango, scrape-shelterluv, scrape-adoptapet]
-    if: always() && github.event.schedule == '0 6 * * *'
+    if: always() && github.event.schedule == '0 7 * * *'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:

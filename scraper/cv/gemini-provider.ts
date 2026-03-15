@@ -153,7 +153,10 @@ const ASSESSMENT_SCHEMA = {
  */
 async function downloadImage(url: string): Promise<Buffer | null> {
     try {
-        const response = await fetch(url);
+        const response = await fetch(url, {
+            signal: AbortSignal.timeout(30_000),
+            headers: { 'User-Agent': 'GoldenYearsClub/1.0' },
+        });
         if (!response.ok) return null;
 
         const contentType = response.headers.get('content-type') || '';
@@ -419,14 +422,18 @@ export function createGeminiProvider(apiKey: string): AgeEstimationProvider {
         // Try cheap model first, fall back to full model for LOW confidence
         async function callModel(model: string): Promise<AnimalAssessment | null> {
             try {
+                const controller = new AbortController();
+                const timeout = setTimeout(() => controller.abort(), 60_000); // 60s timeout
                 const response = await genai.models.generateContent({
                     model,
                     contents: [{ role: 'user', parts }],
                     config: {
                         responseMimeType: 'application/json',
                         responseSchema: ASSESSMENT_SCHEMA,
+                        abortSignal: controller.signal,
                     },
                 });
+                clearTimeout(timeout);
 
                 const text = response.text;
                 if (!text) return null;
@@ -582,6 +589,8 @@ export function createGeminiProvider(apiKey: string): AgeEstimationProvider {
         }
         parts.push({ text: prompt });
 
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 30_000); // 30s timeout
         const response = await ai.models.generateContent({
             model: MODEL_FAST,
             contents: [{
@@ -591,8 +600,10 @@ export function createGeminiProvider(apiKey: string): AgeEstimationProvider {
             config: {
                 responseMimeType: 'application/json',
                 responseSchema: CLOSE_UP_SCHEMA,
+                abortSignal: controller.signal,
             },
         });
+        clearTimeout(timeout);
 
         const text = response.text;
         if (!text) return null;

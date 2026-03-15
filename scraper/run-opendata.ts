@@ -13,6 +13,7 @@
 import 'dotenv/config';
 import { createPrismaClient } from './lib/prisma';
 import { scrapeOpenData } from './adapters/opendata-outcomes';
+import { startRun, finishRun } from './lib/scrape-run';
 
 
 
@@ -69,6 +70,7 @@ async function main() {
 
     // ── Step 2: Update shelter stats in DB ──
     const prisma = await createPrismaClient();
+    const runId = await startRun('opendata');
 
     for (const stats of shelterStats) {
         try {
@@ -107,7 +109,21 @@ async function main() {
     }
 
     console.log(`\n🏁 Done! Updated ${shelterStats.length} shelter stats from open data.`);
+    await finishRun(runId, { created: 0, updated: shelterStats.length, errors: 0 });
     process.exit(0);
 }
 
-main();
+main().catch(async (err) => {
+    console.error('💀 Fatal error:', err);
+    try {
+        const pg = await import('pg');
+        const pool = new pg.default.Pool({ connectionString: process.env.DATABASE_URL });
+        await pool.query(
+            `UPDATE scrape_runs SET status = 'FAILED', finished_at = NOW(), error_summary = $1
+             WHERE pipeline = 'opendata' AND status = 'RUNNING' AND started_at > NOW() - INTERVAL '6 hours'`,
+            [`Fatal: ${(err as Error).message?.substring(0, 200)}`],
+        );
+        await pool.end();
+    } catch { /* last resort */ }
+    process.exit(1);
+});

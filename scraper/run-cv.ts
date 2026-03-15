@@ -216,4 +216,17 @@ async function main() {
     process.exit(errors > 0 ? 1 : 0);
 }
 
-main();
+main().catch(async (err) => {
+    console.error('💀 Fatal error:', err);
+    try {
+        const pg = await import('pg');
+        const pool = new pg.default.Pool({ connectionString: process.env.DATABASE_URL });
+        await pool.query(
+            `UPDATE scrape_runs SET status = 'FAILED', finished_at = NOW(), error_summary = $1
+             WHERE pipeline = 'cv' AND status = 'RUNNING' AND started_at > NOW() - INTERVAL '6 hours'`,
+            [`Fatal: ${(err as Error).message?.substring(0, 200)}`],
+        );
+        await pool.end();
+    } catch { /* last resort */ }
+    process.exit(1);
+});

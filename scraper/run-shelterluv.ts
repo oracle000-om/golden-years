@@ -21,6 +21,7 @@ import { enqueueFailure } from './lib/retry-queue';
 import { checkScrapeHealth } from './lib/alert';
 import { reconcileAnimals } from './lib/reconcile';
 import { startRun, finishRun, failRun } from './lib/scrape-run';
+import { shouldScrape } from './lib/should-scrape';
 import type { ScrapedAnimal } from './types';
 import { upsertAnimalChildren, stripChildFields } from './lib/upsert-children';
 import { createEmbeddingHelper, type EmbeddingHelper } from './lib/embed-helper';
@@ -55,6 +56,12 @@ async function main() {
     const shardLabel = shard != null ? ` [shard ${shard + 1}/${totalShards}]` : '';
     console.log(`🐾 Golden Years Club — ShelterLuv Sync${shardLabel}${dryRun ? ' (DRY RUN)' : ''}${noCv ? ' (NO CV)' : ''}`);
     if (shelterArg) console.log(`   Shelter filter: ${shelterArg}`);
+
+    // Conditional scrape: skip if last successful run was recent
+    if (!dryRun && !shelterArg) {
+        const proceed = await shouldScrape('shelterluv', { shard, minIntervalMs: 6 * 60 * 60 * 1000 });
+        if (!proceed) process.exit(0);
+    }
 
     // Step 1: Fetch from ShelterLuv API
     const { animals, shelters } = await scrapeShelterLuv({
@@ -379,4 +386,17 @@ async function main() {
     process.exit(errors > 0 ? 1 : 0);
 }
 
-main();
+main().catch(async (err) => {
+    console.error('💀 Fatal error:', err);
+    try {
+        const pg = await import('pg');
+        const pool = new pg.default.Pool({ connectionString: process.env.DATABASE_URL });
+        await pool.query(
+            `UPDATE scrape_runs SET status = 'FAILED', finished_at = NOW(), error_summary = $1
+             WHERE pipeline = 'shelterluv' AND status = 'RUNNING' AND started_at > NOW() - INTERVAL '6 hours'`,
+            [`Fatal: ${(err as Error).message?.substring(0, 200)}`],
+        );
+        await pool.end();
+    } catch { /* last resort */ }
+    process.exit(1);
+});

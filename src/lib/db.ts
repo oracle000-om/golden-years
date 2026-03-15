@@ -1,17 +1,18 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { PrismaClient } from '../generated/prisma/client';
-import { PrismaPg } from '@prisma/adapter-pg';
+import { withAccelerate } from '@prisma/extension-accelerate';
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
 };
 
 function createPrismaClient(): PrismaClient {
-  const connectionString = process.env.DATABASE_URL;
-  if (!connectionString) {
+  const accelerateUrl = process.env.ACCELERATE_URL;
+  const databaseUrl = process.env.DATABASE_URL;
+
+  if (!accelerateUrl && !databaseUrl) {
     console.warn(
-      '⚠️  DATABASE_URL is not set. Database queries will fail gracefully. ' +
-      'Set DATABASE_URL in your .env file to connect to PostgreSQL.'
+      '⚠️  Neither ACCELERATE_URL nor DATABASE_URL is set. Database queries will fail gracefully.'
     );
     return new Proxy({} as PrismaClient, {
       get(_target, prop) {
@@ -19,12 +20,12 @@ function createPrismaClient(): PrismaClient {
           return new Proxy(() => { }, {
             get() {
               return () => Promise.reject(
-                new Error(`Database not configured: tried to access prisma.${prop}. Set DATABASE_URL in .env.`)
+                new Error(`Database not configured: tried to access prisma.${prop}. Set ACCELERATE_URL or DATABASE_URL.`)
               );
             },
             apply() {
               return Promise.reject(
-                new Error(`Database not configured: tried to call prisma.${prop}(). Set DATABASE_URL in .env.`)
+                new Error(`Database not configured: tried to call prisma.${prop}(). Set ACCELERATE_URL or DATABASE_URL.`)
               );
             },
           });
@@ -34,13 +35,20 @@ function createPrismaClient(): PrismaClient {
     });
   }
 
-  // Pass PoolConfig directly to PrismaPg (avoids @types/pg version mismatch)
+  // Prefer Accelerate (HTTPS proxy — no /dev/shm, ideal for Vercel serverless)
+  // Falls back to direct pg adapter for local dev / GitHub Actions
+  if (accelerateUrl) {
+    return new (PrismaClient as any)({
+      accelerateUrl,
+    }).$extends(withAccelerate()) as PrismaClient;
+  }
+
+  // Direct connection fallback (local dev, scrapers)
+  const { PrismaPg } = require('@prisma/adapter-pg');
   const adapter = new PrismaPg({
-    connectionString,
+    connectionString: databaseUrl,
     max: 1,
-    idleTimeoutMillis: 10_000,
-    connectionTimeoutMillis: 10_000,
-    ssl: connectionString.includes('.rlwy.net') ? { rejectUnauthorized: false } : undefined,
+    ssl: databaseUrl!.includes('.rlwy.net') ? { rejectUnauthorized: false } : undefined,
   });
   return new (PrismaClient as any)({ adapter });
 }

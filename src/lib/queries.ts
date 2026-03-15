@@ -187,19 +187,23 @@ export async function getFilteredAnimals(filters: AnimalFilters): Promise<Pagina
     const skip = needsInMemoryPagination ? 0 : (page - 1) * DEFAULT_PAGE_SIZE;
     const take = needsInMemoryPagination ? DISTANCE_WINDOW : DEFAULT_PAGE_SIZE;
 
-    // Run queries sequentially (not in parallel) to halve shared memory usage.
-    // Vercel's /dev/shm is capped at 64MB — two concurrent queries can exceed it.
+    // Skip the count() query entirely — it crashes on Vercel's /dev/shm with
+    // complex WHERE clauses. Instead, fetch take+1 rows: if we get the extra
+    // row, there are more pages. This avoids counting 157K+ filtered rows.
     const dbAnimals = await prisma.animal.findMany({
         where,
         include: { shelter: true },
         orderBy,
         skip,
-        take,
+        take: take + 1,
     }) as AnimalWithShelter[];
-    const count = await prisma.animal.count({ where });
+
+    const hasMore = dbAnimals.length > take;
+    if (hasMore) dbAnimals.pop(); // remove the extra probe row
 
     let animals: AnimalResult[] = dbAnimals as AnimalResult[];
-    let totalCount = count;
+    // Estimate total count from what we know (avoids the expensive count query)
+    let totalCount = hasMore ? skip + take + 1 : skip + dbAnimals.length;
 
     // Compute distances for results
     if (userCoords && animals.length > 0) {

@@ -183,23 +183,20 @@ export async function getFilteredAnimals(filters: AnimalFilters): Promise<Pagina
     const needsInMemoryPagination = needsDistanceSort || needsRadiusFilter;
 
     // When we need in-memory pagination, fetch a larger window from DB.
-    // Higher = more accurate radius pagination, but more memory. 2000 covers
-    // most metro areas while keeping response times under ~500ms.
-    const DISTANCE_WINDOW = 2000;
+    const DISTANCE_WINDOW = 500;
     const skip = needsInMemoryPagination ? 0 : (page - 1) * DEFAULT_PAGE_SIZE;
     const take = needsInMemoryPagination ? DISTANCE_WINDOW : DEFAULT_PAGE_SIZE;
 
-    const [dbAnimals, count] = await Promise.all([
-        prisma.animal.findMany({
-            where,
-            include: { shelter: true },
-            orderBy,
-            skip,
-            take,
-        }) as Promise<AnimalWithShelter[]>,
-        prisma.animal.count({ where }),
-    ]);
-    console.log("WHERE DEBUG:", JSON.stringify(where, null, 2));
+    // Run queries sequentially (not in parallel) to halve shared memory usage.
+    // Vercel's /dev/shm is capped at 64MB — two concurrent queries can exceed it.
+    const dbAnimals = await prisma.animal.findMany({
+        where,
+        include: { shelter: true },
+        orderBy,
+        skip,
+        take,
+    }) as AnimalWithShelter[];
+    const count = await prisma.animal.count({ where });
 
     let animals: AnimalResult[] = dbAnimals as AnimalResult[];
     let totalCount = count;

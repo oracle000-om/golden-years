@@ -8,7 +8,7 @@
  */
 
 import { createPrismaClient } from '../../scraper/lib/prisma';
-import type { PrismaClient } from '../generated/prisma/client';
+import type { PrismaClient } from '../generated/prisma';
 
 let prisma: PrismaClient | null = null;
 

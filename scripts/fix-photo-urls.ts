@@ -1,20 +1,13 @@
 /**
  * Rewrite broken S3 photo URLs → working CloudFront CDN URLs.
  */
-import { PrismaClient } from '../src/generated/prisma/client';
-import { PrismaPg } from '@prisma/adapter-pg';
-import pg from 'pg';
+import 'dotenv/config';
+import { PrismaClient } from '../src/generated/prisma';
+
+const prisma = new PrismaClient();
 
 const S3_HOST = 'npus-pr-petfusbbc-pdp-media-service-public-use1-sss.s3.amazonaws.com';
 const CF_HOST = 'dbw3zep4prcju.cloudfront.net';
-
-const connStr = process.env.DATABASE_URL!;
-const pool = new pg.Pool({
-    connectionString: connStr,
-    ssl: connStr.includes('.rlwy.net') ? { rejectUnauthorized: false } : undefined,
-});
-const adapter = new PrismaPg(pool);
-const prisma = new (PrismaClient as any)({ adapter });
 
 async function main() {
     // 1. Rewrite photo_url
@@ -49,7 +42,6 @@ async function main() {
     }
 
     await prisma.$disconnect();
-    await pool.end();
 }
 
 main().catch(console.error);

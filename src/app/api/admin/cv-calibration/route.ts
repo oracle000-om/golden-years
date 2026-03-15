@@ -9,7 +9,7 @@
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { Prisma } from '../../../../generated/prisma/client';
+import { Prisma } from '../../../../generated/prisma';
 
 export async function GET() {
     try {

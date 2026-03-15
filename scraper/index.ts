@@ -18,7 +18,7 @@
 
 import 'dotenv/config';
 import { createPrismaClient } from './lib/prisma';
-import { PrismaClient } from '../src/generated/prisma/client';
+import { PrismaClient } from '../src/generated/prisma';
 import { shelterConfigs } from './shelters';
 import { createAgeEstimationProvider, lookupLifeExpectancy, computeAssessmentDiff, type AgeEstimationProvider } from './cv';
 import { extractKeyFrames } from './cv/video-frames';

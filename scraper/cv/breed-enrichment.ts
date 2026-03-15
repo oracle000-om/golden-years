@@ -11,7 +11,7 @@
  * Uses fuzzy matching: "Golden Retriever Mix" → matches "Golden Retriever".
  */
 
-import type { PrismaClient } from '../../src/generated/prisma/client';
+import type { PrismaClient } from '../../src/generated/prisma';
 
 import type { PubmedCondition } from '../types/breed-health';
 

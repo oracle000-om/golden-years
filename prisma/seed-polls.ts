@@ -7,13 +7,9 @@
  * Usage: npx tsx prisma/seed-polls.ts
  */
 import 'dotenv/config';
-import { PrismaClient } from '../src/generated/prisma/client';
-import { PrismaPg } from '@prisma/adapter-pg';
+import { PrismaClient } from '../src/generated/prisma';
 
-const url = process.env.DATABASE_URL!;
-const adapter = new PrismaPg({ connectionString: url, max: 1, ssl: url.includes('.rlwy.net') ? { rejectUnauthorized: false } : undefined });
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const prisma = new (PrismaClient as any)({ adapter });
+const prisma = new PrismaClient();
 
 async function main() {
     // Ordered by senior relevance: most directly impactful first

@@ -8,10 +8,10 @@
  */
 import 'dotenv/config';
 import { PrismaClient } from '../src/generated/prisma/client';
-import { PrismaNeonHttp } from '@prisma/adapter-neon';
+import { PrismaPg } from '@prisma/adapter-pg';
 
 const url = process.env.DATABASE_URL!;
-const adapter = new PrismaNeonHttp(url, { arrayMode: false, fullResults: true });
+const adapter = new PrismaPg({ connectionString: url, max: 1, ssl: url.includes('.rlwy.net') ? { rejectUnauthorized: false } : undefined });
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const prisma = new (PrismaClient as any)({ adapter });
 

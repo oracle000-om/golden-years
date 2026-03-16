@@ -487,13 +487,13 @@ async function applySearchIntent(
     }
 
     // Remaining text tokens — each must match somewhere (AND logic)
+    // Only search animal columns to avoid shelter-relation JOINs that
+    // blow Vercel's 64 MB /dev/shm on large datasets.
     for (const token of intent.textTokens) {
         andClauses.push({
             OR: [
                 { name: { contains: token, mode: 'insensitive' } },
                 { breed: { contains: token, mode: 'insensitive' } },
-                { shelter: { is: { name: { contains: token, mode: 'insensitive' } } } },
-                { shelter: { is: { county: { contains: token, mode: 'insensitive' } } } },
             ],
         });
     }

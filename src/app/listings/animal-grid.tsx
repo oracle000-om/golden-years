@@ -163,26 +163,30 @@ export function AnimalGrid({ animals, totalCount, page, totalPages }: AnimalGrid
                                         <span className="animal-card__detail-label">Shelter estimate</span>
                                         <span className="animal-card__detail-value">{shelterAge}</span>
                                     </div>
-                                    <div className="animal-card__detail">
-                                        <span className="animal-card__detail-label animal-card__detail-label--gy">Golden Years estimate</span>
-                                        <span className="gy-tooltip">
-                                            <span className={`animal-card__detail-value ${gyAge !== 'Pending' ? 'cv-estimated' : ''}`}>{gyAge}</span>
-                                            <span className="gy-tooltip__popup">
-                                                <span className="gy-tooltip__label">Confidence</span>
-                                                <span className="gy-tooltip__pct">{confidence.label} · {confidence.percent}%</span>
+                                    {gyAge !== 'Pending' && (
+                                        <div className="animal-card__detail">
+                                            <span className="animal-card__detail-label animal-card__detail-label--gy">Golden Years estimate</span>
+                                            <span className="gy-tooltip">
+                                                <span className="animal-card__detail-value cv-estimated">{gyAge}</span>
+                                                <span className="gy-tooltip__popup">
+                                                    <span className="gy-tooltip__label">Confidence</span>
+                                                    <span className="gy-tooltip__pct">{confidence.label} · {confidence.percent}%</span>
+                                                </span>
                                             </span>
-                                        </span>
-                                    </div>
-                                    <div className="animal-card__detail">
-                                        <span className="animal-card__detail-label">Breed life expectancy</span>
-                                        <span className="gy-tooltip">
-                                            <span className="animal-card__detail-value">{breedLifespan}</span>
-                                            <span className="gy-tooltip__popup">
-                                                <span className="gy-tooltip__label">Disclaimer</span>
-                                                <span className="gy-tooltip__pct">Life expectancy value is based on AI approximations of breed mix</span>
+                                        </div>
+                                    )}
+                                    {breedLifespan !== '—' && (
+                                        <div className="animal-card__detail">
+                                            <span className="animal-card__detail-label">Breed life expectancy</span>
+                                            <span className="gy-tooltip">
+                                                <span className="animal-card__detail-value">{breedLifespan}</span>
+                                                <span className="gy-tooltip__popup">
+                                                    <span className="gy-tooltip__label">Disclaimer</span>
+                                                    <span className="gy-tooltip__pct">Life expectancy value is based on AI approximations of breed mix</span>
+                                                </span>
                                             </span>
-                                        </span>
-                                    </div>
+                                        </div>
+                                    )}
                                     {goldenYearsRemaining && (
                                         <div className="animal-card__golden-remaining">
                                             <span className="animal-card__golden-remaining-label">Golden Years remaining</span>

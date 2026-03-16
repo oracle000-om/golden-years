@@ -282,25 +282,11 @@ export async function getFilteredAnimals(filters: AnimalFilters): Promise<Pagina
         take,
     }) as AnimalWithShelter[];
 
-    // Get total count — skip separate count query when NLP search is active
-    // (search filters aren't handled by the raw SQL counter, and the extra
-    // query doubles memory pressure, risking /dev/shm crashes).
-    let totalCount: number;
-    if (searchIntent) {
-        // Estimate from findMany results when searching
-        totalCount = dbAnimals.length < take
-            ? skip + dbAnimals.length
-            : skip + take + 1;
-    } else {
-        try {
-            totalCount = await getFilteredCount(filters);
-        } catch {
-            // If raw count also fails, estimate from results
-            totalCount = dbAnimals.length < take
-                ? skip + dbAnimals.length
-                : skip + take + 1;
-        }
-    }
+    // Estimate total count from findMany results to avoid a separate
+    // COUNT(*) query that scans ~97K rows and adds a full DB round-trip.
+    let totalCount = dbAnimals.length < take
+        ? skip + dbAnimals.length
+        : skip + take + 1;
 
     let animals: AnimalResult[] = dbAnimals as AnimalResult[];
 

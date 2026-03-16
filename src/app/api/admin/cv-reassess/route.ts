@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
         const result = await prisma.animal.updateMany({
             where: { id: { in: animalIds } },
             data: {
-                ageSource: 'CV_ESTIMATED',
+                ageSource: 'UNKNOWN',
             },
         });
 

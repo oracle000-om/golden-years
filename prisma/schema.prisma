@@ -430,56 +430,12 @@ model BreedProfile {
   seniorAgeThreshold Int?     @map("senior_age_threshold")
   careNotes          String?  @map("care_notes")
   sourceApi          String   @map("source_api")
-  // ── PubMed enrichment ──
-  pubmedConditions    Json?    @map("pubmed_conditions")      // [{condition, prevalence, severity, citations, treatments}]
-  pubmedTreatments    Json?    @map("pubmed_treatments")      // [{condition, treatments: [{name, type, successRate, cost}]}]
-  pubmedDrugSensitivities Json? @map("pubmed_drug_sensitivities") // [{drug, reaction, severity, geneticBasis}]
-  pubmedNutrition     Json?    @map("pubmed_nutrition")        // [{recommendation, rationale, seniorSpecific, citations}]
-  pubmedBehavioral    Json?    @map("pubmed_behavioral")       // [{trait, prevalence, seniorOnset, managementTips}]
-  pubmedMortality     Json?    @map("pubmed_mortality")        // [{condition, medianSurvivalYears, ageOfOnset, mortalityRate}]
-  pubmedDiagnostics   Json?    @map("pubmed_diagnostics")      // [{test, forCondition, recommendedFrequency, seniorRelevant}]
-  pubmedArticleCount  Int?     @map("pubmed_article_count")
-  pubmedLastEnriched  DateTime? @map("pubmed_last_enriched")
-  // ── openFDA adverse event data ──
-  fdaAdverseReactions  Json?    @map("fda_adverse_reactions")   // [{reaction, count}] top VeDDRA reactions
-  fdaDrugWarnings      Json?    @map("fda_drug_warnings")       // [{drug, count, reactions}] top drug events
-  fdaEventCount        Int?     @map("fda_event_count")         // total adverse event reports for this breed
-  fdaLastEnriched      DateTime? @map("fda_last_enriched")
-  // ── Insurance claim data (Nationwide + Trupanion) ──
-  nationwideConditions Json?    @map("nationwide_conditions")   // [{condition, description, costRange, prevention}]
-  trupanionConditions  Json?    @map("trupanion_conditions")    // [{condition, costRange, frequency, lifeStage}]
-  insurerLastEnriched  DateTime? @map("insurer_last_enriched")
-  // ── Computed scores (derived from PubMed + other data) ──
-  healthRiskScoreV2   Float?   @map("health_risk_score_v2")    // Evidence-backed 1-10 score from PubMed conditions
-  estimatedAnnualVetCost Int?  @map("estimated_annual_vet_cost") // Expected annual vet spend in dollars
   lastFetchedAt      DateTime @default(now()) @map("last_fetched_at")
   createdAt          DateTime @default(now()) @map("created_at")
   updatedAt          DateTime @updatedAt @map("updated_at")
 
   @@unique([name, species])
   @@map("breed_profiles")
-}
-
-model VetArticle {
-  id            String    @id @default(cuid())
-  pmid          String    @unique               // PubMed ID
-  title         String
-  abstract      String?                          // Full abstract text
-  authors       String[]  @default([])
-  journal       String?
-  pubDate       DateTime? @map("pub_date")
-  meshTerms     String[]  @default([]) @map("mesh_terms")
-  species       String[]  @default([])           // DOG, CAT extracted from MeSH
-  breeds        String[]  @default([])           // Breed names extracted from abstract
-  conditions    String[]  @default([])           // Health conditions extracted by Gemini
-  conditionJson Json?     @map("condition_json") // Structured: [{condition, prevalence, severity, ageOnset}]
-  sourceQuery   String    @map("source_query")   // Search query that found this article
-  lastFetchedAt DateTime  @default(now()) @map("last_fetched_at")
-  createdAt     DateTime  @default(now()) @map("created_at")
-
-  @@index([species])
-  @@index([breeds])
-  @@map("vet_articles")
 }
 
 model RoadmapVote {
@@ -910,4 +866,40 @@ model CrueltyRegistryEntry {
 
   @@index([state])
   @@map("cruelty_registry_entries")
+}
+
+// ── Analytics: lightweight server-side event tracking ──
+
+model PageView {
+  id          String   @id @default(uuid())
+  path        String                            // /listings, /animal/xyz, /shelter/abc
+  animalId    String?  @map("animal_id")        // set on animal detail pages
+  shelterId   String?  @map("shelter_id")       // set on shelter pages
+  searchQuery String?  @map("search_query")     // what the user searched for
+  filters     Json?                             // parsed filter state
+  referrer    String?                           // where they came from
+  region      String?                           // geo from Vercel headers (e.g. "CA" or "US-TX")
+  product     String   @default("gyc")          // gyc | sniff | lbc
+  sessionId   String   @map("session_id")       // random token per browser session
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([createdAt])
+  @@index([animalId])
+  @@index([shelterId])
+  @@index([path, createdAt])
+  @@map("page_views")
+}
+
+model OutboundClick {
+  id          String   @id @default(uuid())
+  animalId    String   @map("animal_id")
+  shelterId   String   @map("shelter_id")
+  destination String                            // shelter adoption URL
+  product     String   @default("gyc")
+  sessionId   String   @map("session_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([createdAt])
+  @@index([shelterId, createdAt])
+  @@map("outbound_clicks")
 }

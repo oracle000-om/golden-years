@@ -29,6 +29,7 @@ import { checkScrapeHealth } from './lib/alert';
 import { reconcileAnimals } from './lib/reconcile';
 import { startRun, finishRun } from './lib/scrape-run';
 import { upsertAnimalChildren, stripChildFields } from './lib/upsert-children';
+import { maybeCreateSnapshot } from './lib/snapshot-dedup';
 
 
 
@@ -314,24 +315,22 @@ async function main() {
                     console.log(`      📊 CV diff: ${cvDiff.summary}`);
                 }
 
-                await prisma.animalSnapshot.create({
-                    data: {
-                        animalId,
-                        listingSource: shelter.id,
-                        status: animal.status as 'AVAILABLE' | 'URGENT',
-                        name: animal.name,
-                        photoUrl: animal.photoUrl,
-                        notes: animal.notes,
-                        euthScheduledAt: animal.euthScheduledAt,
-                        bodyConditionScore: cvEstimate?.bodyConditionScore ?? null,
-                        coatCondition: cvEstimate?.coatCondition ?? null,
-                        aggressionRisk: cvEstimate?.aggressionRisk ?? null,
-                        stressLevel: cvEstimate?.stressLevel ?? null,
-                        photoQuality: cvEstimate?.photoQuality ?? null,
-                        rawAssessment: cvEstimate
-                            ? JSON.parse(JSON.stringify({ assessment: cvEstimate, diff: cvDiff }))
-                            : null,
-                    },
+                await maybeCreateSnapshot(prisma, {
+                    animalId,
+                    listingSource: shelter.id,
+                    status: animal.status as 'AVAILABLE' | 'URGENT',
+                    name: animal.name,
+                    photoUrl: animal.photoUrl,
+                    notes: animal.notes,
+                    euthScheduledAt: animal.euthScheduledAt,
+                    bodyConditionScore: cvEstimate?.bodyConditionScore ?? null,
+                    coatCondition: cvEstimate?.coatCondition ?? null,
+                    aggressionRisk: cvEstimate?.aggressionRisk ?? null,
+                    stressLevel: cvEstimate?.stressLevel ?? null,
+                    photoQuality: cvEstimate?.photoQuality ?? null,
+                    rawAssessment: cvEstimate
+                        ? JSON.parse(JSON.stringify({ assessment: cvEstimate, diff: cvDiff }))
+                        : null,
                 });
             } catch (err) {
                 console.error(`      ❌ DB error for ${animal.intakeId}: ${(err as Error).message?.substring(0, 120)}`);

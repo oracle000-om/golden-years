@@ -418,57 +418,81 @@ export function createGeminiProvider(apiKey: string): AgeEstimationProvider {
 
         parts.push({ text: promptText });
 
-        // Step 5: Send to Gemini — tiered model strategy
+        // Step 5: Send to Gemini — tiered model strategy with retry
         // Try cheap model first, fall back to full model for LOW confidence
+        let _lastWasRateLimited = false;
+
         async function callModel(model: string): Promise<AnimalAssessment | null> {
-            try {
-                const controller = new AbortController();
-                const timeout = setTimeout(() => controller.abort(), 60_000); // 60s timeout
-                const response = await genai.models.generateContent({
-                    model,
-                    contents: [{ role: 'user', parts }],
-                    config: {
-                        responseMimeType: 'application/json',
-                        responseSchema: ASSESSMENT_SCHEMA,
-                        abortSignal: controller.signal,
-                    },
-                });
-                clearTimeout(timeout);
+            const MAX_RETRIES = 3;
+            const BASE_DELAY_MS = 1000;
 
-                const text = response.text;
-                if (!text) return null;
-
-                let parsed: Record<string, unknown>;
+            for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
                 try {
-                    parsed = JSON.parse(text);
-                } catch {
-                    const cleaned = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+                    const controller = new AbortController();
+                    const timeout = setTimeout(() => controller.abort(), 60_000); // 60s timeout
+                    const response = await genai.models.generateContent({
+                        model,
+                        contents: [{ role: 'user', parts }],
+                        config: {
+                            responseMimeType: 'application/json',
+                            responseSchema: ASSESSMENT_SCHEMA,
+                            abortSignal: controller.signal,
+                        },
+                    });
+                    clearTimeout(timeout);
+
+                    const text = response.text;
+                    if (!text) return null;
+
+                    let parsed: Record<string, unknown>;
                     try {
-                        parsed = JSON.parse(cleaned);
+                        parsed = JSON.parse(text);
                     } catch {
-                        // Attempt JSON repair: truncate to last valid closing brace
-                        const lastBrace = cleaned.lastIndexOf('}');
-                        if (lastBrace > 0) {
-                            try {
-                                parsed = JSON.parse(cleaned.substring(0, lastBrace + 1));
-                            } catch {
-                                throw new Error(`Malformed JSON from Gemini (${cleaned.length} chars)`);
+                        const cleaned = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+                        try {
+                            parsed = JSON.parse(cleaned);
+                        } catch {
+                            // Attempt JSON repair: truncate to last valid closing brace
+                            const lastBrace = cleaned.lastIndexOf('}');
+                            if (lastBrace > 0) {
+                                try {
+                                    parsed = JSON.parse(cleaned.substring(0, lastBrace + 1));
+                                } catch {
+                                    throw new Error(`Malformed JSON from Gemini (${cleaned.length} chars)`);
+                                }
+                            } else {
+                                throw new Error(`No JSON object found in Gemini response`);
                             }
-                        } else {
-                            throw new Error(`No JSON object found in Gemini response`);
                         }
                     }
-                }
 
-                const estimate = validateResponse(parsed);
-                if (estimate) {
-                    estimate.modelUsed = model;
+                    const estimate = validateResponse(parsed);
+                    if (estimate) {
+                        estimate.modelUsed = model;
+                    }
+                    _lastWasRateLimited = false;
+                    return estimate;
+                } catch (error) {
+                    const errMsg = (error as Error).message || '';
+                    const isRateLimit = errMsg.includes('429') || errMsg.toLowerCase().includes('rate limit') || errMsg.toLowerCase().includes('quota');
+                    const isOverloaded = errMsg.includes('503') || errMsg.includes('overloaded') || errMsg.includes('unavailable');
+                    const isTimeout = errMsg.includes('abort') || errMsg.includes('timeout') || errMsg.includes('ETIMEDOUT');
+                    const isRetryable = isRateLimit || isOverloaded || isTimeout;
+
+                    if (isRateLimit) _lastWasRateLimited = true;
+
+                    if (isRetryable && attempt < MAX_RETRIES) {
+                        const delay = BASE_DELAY_MS * Math.pow(2, attempt); // 1s, 2s, 4s
+                        console.log(`      ⏳ Retryable error (${isRateLimit ? '429' : isOverloaded ? '503' : 'timeout'}) — retry ${attempt + 1}/${MAX_RETRIES} in ${delay}ms`);
+                        await new Promise(r => setTimeout(r, delay));
+                        continue;
+                    }
+
+                    console.error(`      ❌ Gemini API error (${model}):`, errMsg.substring(0, 150));
+                    return null;
                 }
-                return estimate;
-            } catch (error) {
-                console.error(`      ❌ Gemini API error (${model}):`, (error as Error).message);
-                return null;
             }
+            return null;
         }
 
         // Tier 1: Try fast/cheap model

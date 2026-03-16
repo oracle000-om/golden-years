@@ -6,10 +6,12 @@ import '../admin.css';
 
 const NAV_LINKS = [
     { href: '/admin', label: 'Overview', exact: true },
+    { href: '/admin/analytics', label: 'Analytics' },
     { href: '/admin/data-health', label: 'Data Health' },
     { href: '/admin/animals', label: 'Animals' },
     { href: '/admin/organizations', label: 'Organizations' },
     { href: '/admin/re-entries', label: 'Re-Entries' },
+    { href: '/admin/inbox', label: 'Inbox' },
 ];
 
 export default function AdminLayout({

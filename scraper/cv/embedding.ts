@@ -77,12 +77,41 @@ export interface EmbeddingProvider {
 }
 
 /**
- * Create an embedding provider. Returns null if Python or dependencies are unavailable.
+ * Create an embedding provider. Returns null if dependencies are unavailable.
+ *
+ * EMBEDDING_BACKEND controls which provider to use:
+ *   - "python" (default): Python subprocess with PyTorch
+ *   - "onnx": Node.js native with onnxruntime-node (works on serverless)
+ *
+ * On serverless (Vercel/Lambda), automatically uses ONNX if available.
  */
 export async function createEmbeddingProvider(): Promise<EmbeddingProvider | null> {
     const enabled = process.env.EMBEDDING_ENABLED !== 'false';
     if (!enabled) {
         console.log('⚠ Embedding generation disabled (EMBEDDING_ENABLED=false)');
+        return null;
+    }
+
+    const isServerless = !!(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.VERCEL_ENV);
+    const backend = process.env.EMBEDDING_BACKEND || (isServerless ? 'onnx' : 'python');
+
+    // ONNX backend — Node.js native, no Python required
+    if (backend === 'onnx') {
+        try {
+            const { createOnnxEmbeddingProvider } = await import('./onnx-provider');
+            const provider = await createOnnxEmbeddingProvider();
+            if (provider) return provider;
+            console.warn('⚠ ONNX provider returned null — falling back to Python');
+        } catch (err) {
+            console.warn(`⚠ ONNX provider failed: ${(err as Error).message}`);
+        }
+        // If explicitly set to onnx, don't fall back to Python
+        if (process.env.EMBEDDING_BACKEND === 'onnx') return null;
+    }
+
+    // Python backend — requires Python subprocess
+    if (isServerless) {
+        console.log('⚠ Embedding provider disabled (serverless environment — Python subprocess not supported)');
         return null;
     }
 

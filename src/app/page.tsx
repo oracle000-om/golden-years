@@ -2,6 +2,7 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 import { getFilteredAnimals, getDistinctStates, getSuggestions, hasEuthScheduledAnimals } from '@/lib/queries';
 import { parseSearchQuery } from '@/lib/search-parser';
+import { trackPageView } from '@/lib/track';
 import { FilterBar } from './listings/filter-bar';
 import { SearchBar } from './listings/search-bar';
 import { AnimalGrid } from './listings/animal-grid';
@@ -54,8 +55,10 @@ export default async function Home({
   let error = false;
 
   try {
-    [result, states, hasEuthDates] = await Promise.all([
-      getFilteredAnimals(params),
+    // Serialize queries to avoid concurrent heavy queries that blow
+    // PostgreSQL's shared memory limit on constrained environments.
+    result = await getFilteredAnimals(params);
+    [states, hasEuthDates] = await Promise.all([
       getDistinctStates(),
       hasEuthScheduledAnimals(),
     ]);
@@ -68,6 +71,22 @@ export default async function Home({
   } catch (e) {
     console.error('Failed to load listings:', e);
     error = true;
+  }
+
+  // Fire-and-forget analytics (never blocks render)
+  if (!error) {
+    trackPageView({
+      path: '/',
+      searchQuery: params.q || undefined,
+      filters: {
+        species: params.species,
+        state: params.state,
+        sex: params.sex,
+        sort: params.sort,
+        source: params.source,
+        status: params.status,
+      },
+    });
   }
 
   if (error) {

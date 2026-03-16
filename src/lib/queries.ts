@@ -17,6 +17,33 @@ const PLACEHOLDER_NAMES = [
     'None', 'TBD', 'No Name', 'Test', 'TEST', 'Unnamed',
 ];
 
+/**
+ * Cross-source dedup: removes duplicate animals scraped from different sources
+ * for the same shelter (e.g., Petfinder + RescueGroups + ShelterLuv).
+ * Groups by shelter name + animal name + species, keeps the record with the most data.
+ */
+function deduplicateCrossSource<T extends { name: string | null; species: string; shelter: { name: string }; assessment?: unknown; ageKnownYears: number | null; photoUrl: string | null; breed: string | null }>(animals: T[]): T[] {
+    const deduped = new Map<string, T>();
+    for (const a of animals) {
+        const key = `${a.shelter.name.toLowerCase()}|${(a.name || '').toLowerCase()}|${a.species}`;
+        const existing = deduped.get(key);
+        if (!existing) {
+            deduped.set(key, a);
+        } else {
+            // Keep the record with more data (assessment, age, photo, breed)
+            const score = (r: T) =>
+                (r.assessment ? 2 : 0) +
+                (r.ageKnownYears !== null ? 1 : 0) +
+                (r.photoUrl ? 1 : 0) +
+                (r.breed ? 1 : 0);
+            if (score(a) > score(existing)) {
+                deduped.set(key, a);
+            }
+        }
+    }
+    return [...deduped.values()];
+}
+
 // ─── Filters ─────────────────────────────────────────────
 
 type SortMode = 'urgency' | 'newest' | 'distance' | 'age';
@@ -237,25 +264,40 @@ export async function getFilteredAnimals(filters: AnimalFilters): Promise<Pagina
     // Fetch listing data
     const dbAnimals = await prisma.animal.findMany({
         where,
-        include: { shelter: true },
+        include: { shelter: true, assessment: true },
         orderBy,
         skip,
         take,
     }) as AnimalWithShelter[];
 
-    // Get total count via raw SQL — Prisma's count() with complex WHERE/JOINs
-    // crashes on Vercel's /dev/shm. Raw SQL is lighter. Falls back to estimate.
+    // Get total count — skip separate count query when NLP search is active
+    // (search filters aren't handled by the raw SQL counter, and the extra
+    // query doubles memory pressure, risking /dev/shm crashes).
     let totalCount: number;
-    try {
-        totalCount = await getFilteredCount(filters);
-    } catch {
-        // If raw count also fails, estimate from results
+    if (searchIntent) {
+        // Estimate from findMany results when searching
         totalCount = dbAnimals.length < take
             ? skip + dbAnimals.length
             : skip + take + 1;
+    } else {
+        try {
+            totalCount = await getFilteredCount(filters);
+        } catch {
+            // If raw count also fails, estimate from results
+            totalCount = dbAnimals.length < take
+                ? skip + dbAnimals.length
+                : skip + take + 1;
+        }
     }
 
     let animals: AnimalResult[] = dbAnimals as AnimalResult[];
+
+    // Cross-source dedup (same animal at same shelter from different scrapers)
+    const dedupedAnimals = deduplicateCrossSource(animals);
+    if (dedupedAnimals.length < animals.length) {
+        totalCount = Math.max(0, totalCount - (animals.length - dedupedAnimals.length));
+        animals = dedupedAnimals;
+    }
 
     // Compute distances for results
     if (userCoords && animals.length > 0) {
@@ -497,16 +539,19 @@ export async function searchAnimals(intent: SearchIntent): Promise<AnimalWithShe
         take: 100,
     }) as AnimalWithShelter[];
 
+    // Cross-source dedup
+    const dedupedResults = deduplicateCrossSource(animals);
+
     // For non-wait sorts, apply urgency-first sort in app layer
     if (!intent.sortByWait) {
-        return animals.sort((a, b) => {
+        return dedupedResults.sort((a, b) => {
             const aEuth = a.euthScheduledAt ? new Date(a.euthScheduledAt).getTime() : Infinity;
             const bEuth = b.euthScheduledAt ? new Date(b.euthScheduledAt).getTime() : Infinity;
             return aEuth - bEuth;
         });
     }
 
-    return animals;
+    return dedupedResults;
 }
 
 // ─── "Did You Mean?" Suggestions ─────────────────────────

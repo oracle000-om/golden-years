@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { getShelterById, getShelterForMetadata, getStatePolicyForShelter, getShelterStoryInsights } from '@/lib/queries';
+import { trackPageView } from '@/lib/track';
 import type { AnimalResult } from '@/lib/queries';
 import {
     getSaveRate, getPerCapitaIntake, getYoYTrend, getTransferRate, toTitleCase,
@@ -83,6 +84,11 @@ export default async function ShelterDetailPage({
     } catch (e) {
         console.error('Failed to load shelter detail:', e);
         error = true;
+    }
+
+    // Fire-and-forget analytics
+    if (shelter) {
+        trackPageView({ path: `/shelter/${id}`, shelterId: id });
     }
 
     if (error) {

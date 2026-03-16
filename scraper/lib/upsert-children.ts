@@ -1,12 +1,12 @@
 /**
  * Upsert Animal Child Tables — Shared helper for all scraper runners.
  *
- * After upserting the core Animal record, call this to dual-write
+ * After upserting the core Animal record, call this to write
  * assessment, enrichment, and listing data to the child tables.
  *
- * During the transition period, data is written to BOTH the old
- * columns on Animal AND the new child tables. This will be removed
- * in Phase 5 when old columns are dropped.
+ * stripChildFields() filters child-table fields out of the flat data
+ * object before passing to prisma.animal.create/update, since those
+ * columns live exclusively on the child tables.
  */
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -24,8 +24,8 @@ export default function AboutPage() {
                 <div className="about-story__row">
                     <div className="about-story__media">
                         <Image
-                            src="/henry-donut.jpg"
-                            alt="Henry the senior German Shepherd curled up on his donut bed"
+                            src="/henry-shelter.jpg"
+                            alt="Henry the senior German Shepherd standing in a shelter kennel"
                             width={1024}
                             height={768}
                             priority
@@ -44,12 +44,12 @@ export default function AboutPage() {
 
                 {/* Row 2: text left, derp image right */}
                 <div className="about-story__row about-story__row--reverse">
-                    <div className="about-story__media">
+                    <div className="about-story__media about-story__media--portrait">
                         <Image
-                            src="/henry-chew.jpg"
-                            alt="Henry chewing his favorite toy on the patio"
-                            width={1024}
-                            height={768}
+                            src="/henry-shelter-2.jpg"
+                            alt="Henry the senior German Shepherd looking through a shelter kennel fence"
+                            width={768}
+                            height={1024}
                         />
                     </div>
                     <div className="about-story__copy">
@@ -68,33 +68,31 @@ export default function AboutPage() {
 
                 {/* Row 3: chew image left, mission text right */}
                 <div className="about-story__row">
+                    <div className="about-story__media">
+                        <Image
+                            src="/henry-donut.jpg"
+                            alt="Henry the senior German Shepherd curled up on his donut bed"
+                            width={1024}
+                            height={768}
+                        />
+                    </div>
+                    <div className="about-story__copy">
+                        <p>
+                            After Henry passed, we started paying more attention to the quiet seniors with cloudy eyes and gray muzzles who sit calmly besides their owners while everyone walks past. We knew from experience that they don&apos;t require much, just a warm bed, a nutritious meal, and a stable source of gentle affection.
+                        </p>
+
+
+                    </div>
+                </div>
+
+                {/* Row 4: text left, clouds image right */}
+                <div className="about-story__row about-story__row--reverse">
                     <div className="about-story__media about-story__media--portrait">
                         <Image
                             src="/henry-derp.jpg"
                             alt="Henry with his tongue out, looking goofy"
                             width={768}
                             height={1024}
-                        />
-                    </div>
-                    <div className="about-story__copy">
-                        <p>
-                            After Henry passed, we started paying more attention to the quiet seniors with cloudy eyes and gray muzzles who sit quietly besides their owners at outdoor cafes while everyone walks past. We knew from experience that they don&apos;t require much, mostly a warm bed, healthy meals, and a stable source of love.
-                        </p>
-
-                        <p>
-                            Henry was our proof that the best years are yet to come. <a href="https://sniffhome.org" target="_blank" rel="noopener noreferrer" className="about-story__link--gold" style={{ fontWeight: 700 }}>Sniff</a> at <a href="https://sniffhome.org" target="_blank" rel="noopener noreferrer" className="about-story__link--gold" style={{ fontWeight: 700 }}>sniffhome.org</a> was built in his honor, and Golden Years Club is a continuation of this work honoring our beloved family members.
-                        </p>
-                    </div>
-                </div>
-
-                {/* Row 4: text left, clouds image right */}
-                <div className="about-story__row about-story__row--reverse">
-                    <div className="about-story__media">
-                        <Image
-                            src="/henry-clouds.jpg"
-                            alt="Henry resting peacefully on a blanket with clouds pattern"
-                            width={1024}
-                            height={768}
                         />
                     </div>
                     <div className="about-story__copy">
@@ -130,7 +128,7 @@ export default function AboutPage() {
                         <p>
                             Golden Years Club is part of the same family of work as <a href="https://sniffhome.org" target="_blank" rel="noopener noreferrer" className="about-story__link--gold" style={{ fontWeight: 700 }}>Sniff</a>. The Sniff API taps into Golden Years Club&apos;s database to help owners search for their lost pet. Both projects are open source.
                         </p>
-                        <p>Visit them here:</p>
+                        <p>Visit repos here:</p>
                         <p>
                             → <a href="https://github.com/oracle000-om/golden-years" target="_blank" rel="noopener noreferrer" className="about-story__link--gold">Golden Years Club</a><br />
                             → <a href="https://github.com/oracle000-om/sniff-api" target="_blank" rel="noopener noreferrer" className="about-story__link--gold">Sniff</a>

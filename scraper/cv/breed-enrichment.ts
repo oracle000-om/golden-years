@@ -6,17 +6,11 @@
  *   - healthRiskScore
  *   - seniorAgeThreshold
  *   - careNotes
- *   - pubmedConditions (PubMed-sourced breed health predispositions)
  *
  * Uses fuzzy matching: "Golden Retriever Mix" → matches "Golden Retriever".
  */
 
 import type { PrismaClient } from '../../src/generated/prisma';
-
-import type { PubmedCondition } from '../types/breed-health';
-
-/** Re-export for backward compatibility */
-export type { PubmedCondition as PubMedCondition } from '../types/breed-health';
 
 export interface BreedEnrichment {
     /** Matched breed profile name */
@@ -29,8 +23,6 @@ export interface BreedEnrichment {
     seniorAgeThreshold: number | null;
     /** Breed-specific care notes */
     careNotes: string | null;
-    /** PubMed-sourced conditions with citations (null if not yet enriched) */
-    pubmedConditions: PubmedCondition[] | null;
 }
 
 /**
@@ -50,7 +42,7 @@ export async function enrichWithBreedProfile(
 
     const results: BreedEnrichment[] = [];
 
-    // Load all breed profiles for the species (cached per species)
+    // Load all breed profiles for the species
     const profiles = await prisma.breedProfile.findMany({
         where: { species },
         select: {
@@ -59,7 +51,6 @@ export async function enrichWithBreedProfile(
             healthRiskScore: true,
             seniorAgeThreshold: true,
             careNotes: true,
-            pubmedConditions: true,
         },
     });
 
@@ -74,7 +65,6 @@ export async function enrichWithBreedProfile(
         );
 
         // Fuzzy: check if the detected breed CONTAINS a profile name
-        // e.g. "Golden Retriever Mix" → matches "Golden Retriever"
         if (!match) {
             match = profiles.find(
                 (p: any) => normalizedBreed.includes(p.name.toLowerCase()),
@@ -82,7 +72,6 @@ export async function enrichWithBreedProfile(
         }
 
         // Fuzzy: check if a profile name CONTAINS the detected breed
-        // e.g. "Retriever" → matches "Golden Retriever"
         if (!match) {
             match = profiles.find(
                 (p: any) => p.name.toLowerCase().includes(normalizedBreed),
@@ -96,7 +85,6 @@ export async function enrichWithBreedProfile(
                 healthRiskScore: match.healthRiskScore,
                 seniorAgeThreshold: match.seniorAgeThreshold,
                 careNotes: match.careNotes,
-                pubmedConditions: match.pubmedConditions as PubmedCondition[] | null,
             });
         }
     }

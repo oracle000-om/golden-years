@@ -49,7 +49,7 @@ on:
   #   geocode, enrich, best-friends, aphis, aphis-enforcement,
   #   horrible-hundred, state-kennel, research, shelter-intake,
   #   confiscation, lab-retirement, news-busts, cruelty-registry,
-  #   puppy-imports, pet-store-bans, akc-breeds, annual
+  #   puppy-imports, pet-store-bans, annual
   workflow_dispatch:
     inputs:
       pipeline:
@@ -452,9 +452,6 @@ jobs:
             cmd: npm run scrape:puppy-imports
           - name: pet-store-bans
             cmd: npm run scrape:pet-store-bans
-          - name: akc-breeds
-            cmd: npm run scrape:akc-breeds
-            needs-playwright: true
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
@@ -497,3 +494,18 @@ jobs:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
       - run: npx tsx scraper/run-retry.ts
+
+  # ── Cross-Source Dedup (after CV, daily) ─────────────
+  # Merges duplicate animal records across scrapers (same shelter,
+  # different source IDs). Only auto-merges when photo hash confirms
+  # visual similarity. Runs after CV so photo hashes are populated.
+  cross-source-dedup:
+    needs: [run-cv, retry-queue]
+    if: always() && github.event.schedule == '0 7 * * *'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - run: npx tsx scripts/dedup-cross-source.ts --execute
+

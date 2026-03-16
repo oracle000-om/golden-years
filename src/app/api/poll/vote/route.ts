@@ -63,6 +63,13 @@ export async function POST(request: NextRequest) {
             );
         }
 
+        if (choice === 'NEITHER' && neitherText && neitherText.length > 500) {
+            return NextResponse.json(
+                { error: 'Response must be 500 characters or fewer.' },
+                { status: 400 }
+            );
+        }
+
         // Upsert so users can change their vote
         await prisma.pollVote.upsert({
             where: {

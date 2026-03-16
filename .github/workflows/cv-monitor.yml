@@ -1,0 +1,91 @@
+# Golden Years Club — CV Pipeline Monitor
+#
+# Runs daily to detect CV pipeline regressions: low assessment coverage,
+# confidence drift, high conflict rates. Queries the existing
+# /api/admin/cv-calibration endpoint.
+#
+# If any metric crosses a threshold, this job FAILS and GitHub
+# sends an email notification.
+
+name: CV Pipeline Monitor
+
+on:
+  schedule:
+    # Daily at 10am UTC (after scraper + CV runs complete)
+    - cron: '0 10 * * *'
+  workflow_dispatch: {}
+
+jobs:
+  check-cv-health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    env:
+      SITE_URL: https://goldenyears.club
+      HEALTH_API_KEY: ${{ secrets.HEALTH_API_KEY }}
+    steps:
+      - name: Check CV pipeline health
+        run: |
+          echo "Checking CV calibration at $SITE_URL/api/admin/cv-calibration..."
+
+          # Fetch calibration metrics
+          HEADERS=(-H "Accept: application/json")
+          if [ -n "$HEALTH_API_KEY" ]; then
+            HEADERS+=(-H "x-api-key: $HEALTH_API_KEY")
+          fi
+
+          RESPONSE=$(curl -sf "${HEADERS[@]}" "$SITE_URL/api/admin/cv-calibration" 2>&1) || {
+            echo "❌ CV calibration endpoint unreachable"
+            echo "Response: $RESPONSE"
+            exit 1
+          }
+
+          echo "Response: $RESPONSE"
+
+          # Parse key metrics
+          TOTAL=$(echo "$RESPONSE" | python3 -c "import sys,json; print(json.load(sys.stdin).get('totalCvAssessments', 0))")
+          CONFLICT_RATE=$(echo "$RESPONSE" | python3 -c "import sys,json; print(json.load(sys.stdin).get('conflictRate', 0))")
+          HIGH_COUNT=$(echo "$RESPONSE" | python3 -c "import sys,json; d=json.load(sys.stdin).get('confidenceDistribution',{}); print(d.get('HIGH',0))")
+          NONE_COUNT=$(echo "$RESPONSE" | python3 -c "import sys,json; d=json.load(sys.stdin).get('confidenceDistribution',{}); print(d.get('NONE',0))")
+          POOR_PHOTOS=$(echo "$RESPONSE" | python3 -c "import sys,json; d=json.load(sys.stdin).get('photoQualityDistribution',{}); print(d.get('poor',0))")
+          SUGGESTIONS=$(echo "$RESPONSE" | python3 -c "import sys,json; s=json.load(sys.stdin).get('calibration',{}).get('suggestions',[]); [print(f'  • {x}') for x in s]")
+
+          echo ""
+          echo "📊 CV Pipeline Summary:"
+          echo "   Total assessments: $TOTAL"
+          echo "   HIGH confidence: $HIGH_COUNT"
+          echo "   NONE (pending): $NONE_COUNT"
+          echo "   Conflict rate: ${CONFLICT_RATE}%"
+          echo "   Poor photos: $POOR_PHOTOS"
+          echo "   Suggestions:"
+          echo "$SUGGESTIONS"
+
+          # Alert thresholds
+          FAILED=0
+
+          # 1. If total assessments is suspiciously low (pipeline may have stopped)
+          if [ "$TOTAL" -lt 100 ]; then
+            echo "⚠️  ALERT: Very low assessment count ($TOTAL) — pipeline may be broken"
+            FAILED=1
+          fi
+
+          # 2. If NONE (pending) count is more than 30% of total
+          if [ "$TOTAL" -gt 0 ]; then
+            NONE_PCT=$(python3 -c "print(round($NONE_COUNT / $TOTAL * 100, 1))")
+            if python3 -c "exit(0 if $NONE_PCT > 30 else 1)"; then
+              echo "⚠️  ALERT: ${NONE_PCT}% of animals have no assessment (NONE) — CV runner may not be processing"
+              FAILED=1
+            fi
+          fi
+
+          # 3. If conflict rate exceeds 30%
+          if python3 -c "exit(0 if $CONFLICT_RATE > 30 else 1)"; then
+            echo "⚠️  ALERT: Conflict rate is ${CONFLICT_RATE}% — model accuracy may have degraded"
+            FAILED=1
+          fi
+
+          if [ "$FAILED" -eq 1 ]; then
+            exit 1
+          fi
+
+          echo ""
+          echo "✅ CV pipeline healthy"

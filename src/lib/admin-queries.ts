@@ -605,3 +605,50 @@ export async function getStaleShelters(): Promise<StaleShelter[]> {
         }));
 }
 
+// ─── Inbox: Feedback & Poll Responses ──────────────────────
+
+export interface FeedbackEntry {
+    id: string;
+    firstName: string;
+    email: string | null;
+    note: string;
+    createdAt: Date;
+}
+
+export async function getRecentFeedback(limit = 50): Promise<FeedbackEntry[]> {
+    return prisma.feedback.findMany({
+        orderBy: { createdAt: 'desc' },
+        take: limit,
+    });
+}
+
+export interface PollResponseEntry {
+    id: string;
+    pollTitle: string;
+    neitherText: string;
+    createdAt: Date;
+}
+
+export async function getRecentPollResponses(limit = 50): Promise<PollResponseEntry[]> {
+    const votes = await prisma.pollVote.findMany({
+        where: {
+            choice: 'NEITHER',
+            neitherText: { not: null },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: limit,
+        select: {
+            id: true,
+            neitherText: true,
+            createdAt: true,
+            poll: { select: { title: true } },
+        },
+    });
+
+    return votes.map(v => ({
+        id: v.id,
+        pollTitle: v.poll.title,
+        neitherText: v.neitherText!,
+        createdAt: v.createdAt,
+    }));
+}

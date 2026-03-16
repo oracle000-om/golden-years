@@ -26,6 +26,7 @@ import { shouldScrape } from './lib/should-scrape';
 import type { ScrapedAnimal } from './types';
 import { upsertAnimalChildren, stripChildFields } from './lib/upsert-children';
 import { createEmbeddingHelper, type EmbeddingHelper } from './lib/embed-helper';
+import { maybeCreateSnapshot } from './lib/snapshot-dedup';
 
 const CONCURRENCY = 5;
 
@@ -324,20 +325,18 @@ async function main() {
                 console.log(`      📊 CV diff: ${cvDiff.summary}`);
             }
 
-            await prisma.animalSnapshot.create({
-                data: {
-                    animalId, listingSource: `adoptapet:${shelterId}`,
-                    status: animal.status, name: animal.name, photoUrl: animal.photoUrl,
-                    notes: animal.notes, euthScheduledAt: animal.euthScheduledAt,
-                    bodyConditionScore: cvEstimate?.bodyConditionScore ?? null,
-                    coatCondition: cvEstimate?.coatCondition ?? null,
-                    aggressionRisk: cvEstimate?.aggressionRisk ?? null,
-                    stressLevel: cvEstimate?.stressLevel ?? null,
-                    photoQuality: cvEstimate?.photoQuality ?? null,
-                    rawAssessment: cvEstimate
-                        ? JSON.parse(JSON.stringify({ assessment: cvEstimate, diff: cvDiff }))
-                        : null,
-                }
+            await maybeCreateSnapshot(prisma, {
+                animalId, listingSource: `adoptapet:${shelterId}`,
+                status: animal.status, name: animal.name, photoUrl: animal.photoUrl,
+                notes: animal.notes, euthScheduledAt: animal.euthScheduledAt,
+                bodyConditionScore: cvEstimate?.bodyConditionScore ?? null,
+                coatCondition: cvEstimate?.coatCondition ?? null,
+                aggressionRisk: cvEstimate?.aggressionRisk ?? null,
+                stressLevel: cvEstimate?.stressLevel ?? null,
+                photoQuality: cvEstimate?.photoQuality ?? null,
+                rawAssessment: cvEstimate
+                    ? JSON.parse(JSON.stringify({ assessment: cvEstimate, diff: cvDiff }))
+                    : null,
             });
         } catch (err) {
             errors++;

@@ -5,6 +5,7 @@ import type { Metadata } from 'next';
 import { getAnimalById, getAnimalForMetadata, getBreedCommonConditions, getShelterInsights } from '@/lib/queries';
 import { formatDeathMarker, hoursUntil, getUrgencyLevel, formatIntakeReason, formatYearsRemaining, getAgeDiscrepancy, getGoldenYearsConfidence, computeHealthScore, getSaveRate, getBestAge, cleanDisplayText, getRecommendedMinSqft, formatShelterLocation } from '@/lib/utils';
 import { getMatchProfiles } from '@/lib/match-profiles';
+import { trackPageView } from '@/lib/track';
 import { CopyLinkButton } from '@/components/copy-link-button';
 import { BackButton } from '@/components/back-button';
 import { PhotoGallery } from '@/components/photo-gallery';
@@ -76,6 +77,11 @@ export default async function AnimalDetailPage({
     } catch (e) {
         console.error('Failed to load animal detail:', e);
         error = true;
+    }
+
+    // Fire-and-forget analytics
+    if (animal) {
+        trackPageView({ path: `/animal/${id}`, animalId: id, shelterId: animal.shelterId });
     }
 
     if (error) {

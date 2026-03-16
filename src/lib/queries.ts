@@ -22,7 +22,7 @@ const PLACEHOLDER_NAMES = [
  * for the same shelter (e.g., Petfinder + RescueGroups + ShelterLuv).
  * Groups by shelter name + animal name + species, keeps the record with the most data.
  */
-function deduplicateCrossSource<T extends { name: string | null; species: string; shelter: { name: string }; assessment?: unknown; ageKnownYears: number | null; photoUrl: string | null; breed: string | null }>(animals: T[]): T[] {
+function deduplicateCrossSource<T extends { name: string | null; species: string; shelter: { name: string }; ageKnownYears: number | null; photoUrl: string | null; breed: string | null }>(animals: T[]): T[] {
     const deduped = new Map<string, T>();
     for (const a of animals) {
         const key = `${a.shelter.name.toLowerCase()}|${(a.name || '').toLowerCase()}|${a.species}`;
@@ -30,9 +30,8 @@ function deduplicateCrossSource<T extends { name: string | null; species: string
         if (!existing) {
             deduped.set(key, a);
         } else {
-            // Keep the record with more data (assessment, age, photo, breed)
+            // Keep the record with more data (age, photo, breed)
             const score = (r: T) =>
-                (r.assessment ? 2 : 0) +
                 (r.ageKnownYears !== null ? 1 : 0) +
                 (r.photoUrl ? 1 : 0) +
                 (r.breed ? 1 : 0);
@@ -264,7 +263,7 @@ export async function getFilteredAnimals(filters: AnimalFilters): Promise<Pagina
     // Fetch listing data
     const dbAnimals = await prisma.animal.findMany({
         where,
-        include: { shelter: true, assessment: true },
+        include: { shelter: true },
         orderBy,
         skip,
         take,

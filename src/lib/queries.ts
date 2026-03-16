@@ -263,7 +263,20 @@ export async function getFilteredAnimals(filters: AnimalFilters): Promise<Pagina
     // Fetch listing data
     const dbAnimals = await prisma.animal.findMany({
         where,
-        include: { shelter: true },
+        include: {
+            shelter: true,
+            assessment: {
+                select: {
+                    ageEstimatedLow: true,
+                    ageEstimatedHigh: true,
+                    ageConfidence: true,
+                    lifeExpectancyLow: true,
+                    lifeExpectancyHigh: true,
+                    breedConfidence: true,
+                    detectedBreeds: true,
+                },
+            },
+        },
         orderBy,
         skip,
         take,

@@ -269,11 +269,16 @@ export async function getFilteredAnimals(filters: AnimalFilters): Promise<Pagina
         take,
     }) as AnimalWithShelter[];
 
-    // Estimate total count from findMany results to avoid a separate
-    // COUNT(*) query that scans ~97K rows and adds a full DB round-trip.
-    let totalCount = dbAnimals.length < take
-        ? skip + dbAnimals.length
-        : skip + take + 1;
+    // Get total count via raw SQL (lighter than Prisma count).
+    // Falls back to estimate if the query fails.
+    let totalCount: number;
+    try {
+        totalCount = await getFilteredCount(filters);
+    } catch {
+        totalCount = dbAnimals.length < take
+            ? skip + dbAnimals.length
+            : skip + take + 1;
+    }
 
     let animals: AnimalResult[] = dbAnimals as AnimalResult[];
 

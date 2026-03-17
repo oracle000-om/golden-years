@@ -26,6 +26,7 @@ const nextConfig: NextConfig = {
     ];
   },
   images: {
+    unoptimized: true,
     remotePatterns: [
       // Allow any HTTPS image — all URLs come from our own scrapers/DB,
       // so no untrusted user input. Prevents site-wide crashes when a

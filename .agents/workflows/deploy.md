@@ -6,32 +6,41 @@ description: How to deploy the application to production
 
 ## Flow: staging → production
 
-All changes go through staging first. Never push directly to `main`.
+All changes go through staging first. **Never push directly to `main`.**
 
-### 1. Push to staging
+### 1. Work on the staging branch
 
 ```bash
-git push origin main:staging
+git checkout staging
+```
+
+Make your changes, commit, and push:
+
+```bash
+git add -A && git commit -m "description of change"
+git push origin staging
 ```
 
 Vercel automatically creates a **Preview Deployment** for the `staging` branch.
-The GitHub Action `deploy-staging.yml` runs `prisma migrate deploy` against the staging database.
 
 ### 2. QA on staging
 
-- Visit the Vercel preview URL (shown in the GitHub PR / Vercel dashboard)
+- Visit the Vercel preview URL (shown in the Vercel dashboard or GitHub)
 - Spot-check homepage, animal detail pages, admin dashboard
 - If schema migrations ran, verify data integrity
 
 ### 3. Promote to production
 
-Once staging looks good:
+Once staging looks good, merge into main:
 
 ```bash
+git checkout main
+git merge staging
 git push origin main
+git checkout staging
 ```
 
-Vercel auto-deploys on push to `main`. If schema changes are pending, run `prisma migrate deploy` against production first.
+Vercel auto-deploys on push to `main`.
 
 ### 4. Verify production
 
@@ -53,3 +62,4 @@ Or trigger via GitHub Actions: run the **Scrape** workflow manually with pipelin
 ## Rollback
 
 In the Vercel dashboard, go to Deployments → click a previous deployment → click **Promote to Production**.
+

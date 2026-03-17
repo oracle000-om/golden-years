@@ -772,8 +772,15 @@ export async function getShelterForMetadata(id: string) {
     });
 }
 
+// ─── Cached helper queries (results change at most once/day) ─────
+
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+let cachedEuth: { value: boolean; expiresAt: number } | null = null;
+
 /** Check if any active animals have a future euthanasia date scheduled. */
 export async function hasEuthScheduledAnimals(): Promise<boolean> {
+    if (cachedEuth && Date.now() < cachedEuth.expiresAt) return cachedEuth.value;
     const found = await prisma.animal.findFirst({
         where: {
             status: { in: ['AVAILABLE', 'URGENT'] },
@@ -781,7 +788,9 @@ export async function hasEuthScheduledAnimals(): Promise<boolean> {
         },
         select: { id: true },
     });
-    return found !== null;
+    const value = found !== null;
+    cachedEuth = { value, expiresAt: Date.now() + CACHE_TTL_MS };
+    return value;
 }
 
 // Valid US states + DC + territories (excludes Canadian provinces like ON, BC, AB, etc.)
@@ -794,8 +803,11 @@ const VALID_US_STATES = new Set([
     'DC', 'PR',
 ]);
 
+let cachedStates: { value: string[]; expiresAt: number } | null = null;
+
 /** Fetch distinct states that have shelters with active (AVAILABLE/URGENT) animals. */
 export async function getDistinctStates(): Promise<string[]> {
+    if (cachedStates && Date.now() < cachedStates.expiresAt) return cachedStates.value;
     const shelters = await prisma.shelter.findMany({
         where: {
             animals: {
@@ -807,6 +819,7 @@ export async function getDistinctStates(): Promise<string[]> {
     const unique = [...new Set(shelters.map((s) => s.state.toUpperCase()))]
         .filter((s) => VALID_US_STATES.has(s))
         .sort();
+    cachedStates = { value: unique, expiresAt: Date.now() + CACHE_TTL_MS };
     return unique;
 }
 

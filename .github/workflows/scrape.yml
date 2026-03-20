@@ -482,7 +482,7 @@ jobs:
       - uses: ./.github/actions/setup
         with:
           install-python: 'true'
-      - run: npx tsx scraper/run-cv.ts
+      - run: npx tsx scraper/run-cv.ts --limit=10000
 
   # ── Retry Queue (after all scrape jobs) ──────────────
   retry-queue:

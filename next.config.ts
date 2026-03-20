@@ -23,10 +23,15 @@ const nextConfig: NextConfig = {
           { key: 'Access-Control-Max-Age', value: '86400' },
         ],
       },
+      {
+        source: '/mascots/:path*',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
+        ],
+      },
     ];
   },
   images: {
-    unoptimized: true,
     remotePatterns: [
       // Allow any HTTPS image — all URLs come from our own scrapers/DB,
       // so no untrusted user input. Prevents site-wide crashes when a

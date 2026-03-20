@@ -20,6 +20,8 @@ const STATIC_ASSETS = [
     '/icon-192.png',
     '/icon-512.png',
     '/no-photo.svg',
+    '/mascots/dog-idle.png',
+    '/mascots/cat-idle.png',
 ];
 
 // Install: pre-cache critical static assets

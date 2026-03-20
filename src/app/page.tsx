@@ -9,7 +9,7 @@ import { AnimalGrid } from './listings/animal-grid';
 import { Pagination } from './listings/pagination';
 import type { SearchSuggestion, PaginatedResult } from '@/lib/queries';
 
-export const dynamic = 'force-dynamic';
+export const revalidate = 60;
 
 export const metadata: Metadata = {
   title: 'Golden Years Club',
@@ -55,10 +55,11 @@ export default async function Home({
   let error = false;
 
   try {
-    // Serialize queries to avoid concurrent heavy queries that blow
-    // PostgreSQL's shared memory limit on constrained environments.
-    result = await getFilteredAnimals(params);
-    [states, hasEuthDates] = await Promise.all([
+    // Run all three queries in parallel — they're independent.
+    // getDistinctStates and hasEuthScheduledAnimals are cached in-memory
+    // so they're near-instant on warm invocations.
+    [result, states, hasEuthDates] = await Promise.all([
+      getFilteredAnimals(params),
       getDistinctStates(),
       hasEuthScheduledAnimals(),
     ]);

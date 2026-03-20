@@ -11,7 +11,6 @@ import "./shelter.css";
 import "./components.css";
 import "./poll.css";
 import "./give.css";
-import "./admin.css";
 
 export const metadata: Metadata = {
   title: "Golden Years Club",
@@ -41,6 +40,25 @@ export default function RootLayout({
     <html lang="en">
       <head>
         <link rel="apple-touch-icon" href="/icon-192.png" />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Inter:wght@300;400;500;600;700&display=swap"
+          media="print"
+          id="google-fonts"
+        />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `document.getElementById('google-fonts').addEventListener('load',function(){this.media='all'})`,
+          }}
+        />
+        <noscript>
+          <link
+            rel="stylesheet"
+            href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Inter:wght@300;400;500;600;700&display=swap"
+          />
+        </noscript>
       </head>
       <body>
         <StagingBanner />

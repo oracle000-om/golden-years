@@ -3,7 +3,7 @@ import { getNoKillShelters } from '@/lib/queries';
 import { DidYouKnowCard } from './dyk-card';
 import { BestOfBreedList } from './filter-list';
 
-export const dynamic = 'force-dynamic';
+export const dynamic = 'force-dynamic'; // perf-ok: force-dynamic — TODO: convert to ISR
 
 export const metadata: Metadata = {
     title: 'Best of Breed | Golden Years Club',

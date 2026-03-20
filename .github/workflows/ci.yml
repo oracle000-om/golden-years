@@ -46,3 +46,6 @@ jobs:
 
       - name: Unit tests
         run: npx vitest run
+
+      - name: Performance anti-pattern check
+        run: npx tsx scripts/perf-check.ts

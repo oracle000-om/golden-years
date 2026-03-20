@@ -30,14 +30,19 @@ npm test
 npx playwright test tests/e2e/smoke.spec.ts --project="Desktop Chrome"
 ```
 
+5. **Performance anti-pattern scan**:
+```bash
+npx tsx scripts/perf-check.ts
+```
+
 ## Before Merging to Main
 
-5. **Full E2E suite**:
+6. **Full E2E suite** (includes perf budget tests):
 ```bash
 npx playwright test --project="Desktop Chrome"
 ```
 
-6. **Build succeeds**:
+7. **Build succeeds**:
 ```bash
 npm run build
 ```

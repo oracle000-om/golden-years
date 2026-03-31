@@ -130,6 +130,8 @@ model Animal {
   @@index([status])
   @@index([status, species])
   @@index([status, createdAt])
+  @@index([status, species, photoUrl])                   // listing base WHERE
+  @@index([status, euthScheduledAt, createdAt])           // urgency sort
   @@index([shelterId, intakeId])
   @@index([identityId])
   @@map("animals")

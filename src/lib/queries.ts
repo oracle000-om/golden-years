@@ -76,52 +76,9 @@ export interface PaginatedResult {
 const DEFAULT_PAGE_SIZE = 24;
 const DEFAULT_RADIUS = 100; // miles
 
-/**
- * Raw SQL count — avoids Prisma's query builder which generates heavy JOINs
- * that crash on Vercel's 64MB /dev/shm. This does a simpler count with basic
- * WHERE conditions and a single EXISTS subquery for shelter filters.
- */
-async function getFilteredCount(filters: AnimalFilters): Promise<number> {
-    const conditions: string[] = [
-        `a.status IN ('AVAILABLE', 'URGENT')`,
-        `a.species IN ('DOG', 'CAT')`,
-        `a.photo_url IS NOT NULL`,
-        `a.name NOT IN (${PLACEHOLDER_NAMES.map(n => `'${n.replace(/'/g, "''")}'`).join(', ')})`,
-        `(a.intake_date IS NULL OR a.intake_date >= NOW() - INTERVAL '10 years')`,
-    ];
-
-    // Shelter filters via EXISTS (avoids full JOIN)
-    const shelterConds: string[] = [
-        `s.shelter_type != 'SANCTUARY'`,
-        `s.state != 'US'`,
-        `s.county != 'Unknown'`,
-    ];
-    if (filters.state && filters.state !== 'all') {
-        shelterConds.push(`LOWER(s.state) = LOWER('${filters.state.replace(/'/g, "''")}')`);
-    }
-    if (filters.source && filters.source !== 'all') {
-        if (filters.source === 'municipal') {
-            shelterConds.push(`s.shelter_type IN ('MUNICIPAL', 'NO_KILL')`);
-        } else if (filters.source === 'rescue') {
-            shelterConds.push(`s.shelter_type IN ('RESCUE', 'FOSTER_BASED')`);
-        }
-    }
-    conditions.push(`EXISTS (SELECT 1 FROM shelters s WHERE s.id = a.shelter_id AND ${shelterConds.join(' AND ')})`);
-
-    if (filters.species && filters.species !== 'all') {
-        conditions.push(`a.species = '${filters.species.toUpperCase()}'`);
-    }
-    if (filters.sex && filters.sex !== 'all') {
-        conditions.push(`a.sex = '${filters.sex.toUpperCase()}'`);
-    }
-    if (filters.status === 'urgent') {
-        conditions.push(`a.status = 'URGENT'`);
-    }
-
-    const sql = `SELECT COUNT(*)::int AS count FROM animals a WHERE ${conditions.join(' AND ')}`;
-    const result = await prisma.$queryRawUnsafe<[{ count: number }]>(sql);
-    return result[0].count;
-}
+// getFilteredCount removed — we now use prisma.animal.count() with the same
+// WHERE clause as findMany, which keeps the count consistent and avoids a
+// second round-trip with duplicated/drifting filter logic.
 
 // ─── Animal Queries ──────────────────────────────────────
 
@@ -269,11 +226,11 @@ export async function getFilteredAnimals(filters: AnimalFilters): Promise<Pagina
         take,
     }) as AnimalWithShelter[];
 
-    // Get total count via raw SQL (lighter than Prisma count).
-    // Falls back to estimate if the query fails.
+    // Count using the same WHERE clause for consistency.
+    // Falls back to estimate if the query times out.
     let totalCount: number;
     try {
-        totalCount = await getFilteredCount(filters);
+        totalCount = await prisma.animal.count({ where });
     } catch {
         totalCount = dbAnimals.length < take
             ? skip + dbAnimals.length
@@ -774,7 +731,7 @@ export async function getShelterForMetadata(id: string) {
 
 // ─── Cached helper queries (results change at most once/day) ─────
 
-const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes — states/euth rarely change
 
 let cachedEuth: { value: boolean; expiresAt: number } | null = null;
 

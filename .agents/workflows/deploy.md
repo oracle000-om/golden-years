@@ -21,11 +21,11 @@ git add -A && git commit -m "description of change"
 git push origin staging
 ```
 
-Vercel automatically creates a **Preview Deployment** for the `staging` branch.
+Railway automatically creates a **Deployment** for the `staging` environment.
 
 ### 2. QA on staging
 
-- Visit the Vercel preview URL (shown in the Vercel dashboard or GitHub)
+- Visit the Railway staging URL (shown in the Railway dashboard or GitHub)
 - Spot-check homepage, animal detail pages, admin dashboard
 - If schema migrations ran, verify data integrity
 
@@ -40,7 +40,7 @@ git push origin main
 git checkout staging
 ```
 
-Vercel auto-deploys on push to `main`.
+Railway auto-deploys on push to `main`.
 
 ### 4. Verify production
 
@@ -61,5 +61,5 @@ Or trigger via GitHub Actions: run the **Scrape** workflow manually with pipelin
 
 ## Rollback
 
-In the Vercel dashboard, go to Deployments → click a previous deployment → click **Promote to Production**.
+In the Railway dashboard, locate the production service → click a previous deployment → click **Redeploy**.
 

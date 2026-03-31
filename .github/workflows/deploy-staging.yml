@@ -1,7 +1,7 @@
 # Golden Years Club — Staging Migration Check
 #
 # Runs Prisma migrations against the staging database on push to `staging`.
-# Vercel handles the actual deployment automatically via GitHub integration.
+# Railway handles the actual deployment automatically via GitHub integration.
 #
 # Prerequisites:
 #   1. Create a GitHub environment called "staging"

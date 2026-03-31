@@ -112,11 +112,16 @@ export default async function AnimalDetailPage({
     const hours = hoursUntil(animal.euthScheduledAt);
     const urgency = getUrgencyLevel(hours);
     const saveRate = getSaveRate(animal.shelter.totalIntakeAnnual, animal.shelter.totalEuthanizedAnnual);
-    const shelterInsights = await getShelterInsights(animal.shelterId);
     const intakeReasonDisplay = formatIntakeReason(animal.intakeReason, animal.intakeReasonDetail);
     const a = animal.assessment;
     const l = animal.listing;
     const e = animal.enrichment;
+
+    // Run shelter insights + breed conditions in parallel (both are DB lookups)
+    const [shelterInsights, breedConditions] = await Promise.all([
+        getShelterInsights(animal.shelterId),
+        getBreedCommonConditions(a?.detectedBreeds || []),
+    ]);
     const yearsRemainingShort = formatYearsRemaining(
         animal.ageKnownYears,
         a?.ageEstimatedLow ?? null,
@@ -482,9 +487,8 @@ export default async function AnimalDetailPage({
                     )}
 
                     {/* --- Health Assessment --- */}
-                    {await (async () => {
+                    {(() => {
                         const bestAge = getBestAge(animal.ageKnownYears, a?.ageEstimatedLow ?? null, a?.ageEstimatedHigh ?? null, animal.ageSource);
-                        const breedConditions = await getBreedCommonConditions(a?.detectedBreeds || []);
                         const health = computeHealthScore(
                             a?.bodyConditionScore ?? null,
                             a?.coatCondition ?? null,
